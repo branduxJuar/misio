@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#06181b" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#eef7f6" media="(prefers-color-scheme: light)" />
+    <meta name="description" content="Sorteos donde nunca pierdes: si tu boleto no gana, su valor vuelve como saldo de canje. Transmitidos en vivo desde Tumbes, Perú." />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; connect-src 'self' ws: wss: http: https:;" />
+
+    <!-- Open Graph: cuando alguien comparte un link de Misio en WhatsApp,
+         Facebook o cualquier red, sale la foto, el título y la descripción
+         en vez de un link pelado. Vende sin que nadie haga nada. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Misio" />
+    <meta property="og:title" content="Misio — Sorteos Cero Pérdida" />
+    <meta property="og:description" content="Sorteos donde nunca pierdes: si tu boleto no gana, su valor vuelve como saldo de canje." />
+    <meta property="og:image" content="/og-cover.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="es_PE" />
+
+    <!-- Twitter Card (también lo lee WhatsApp como fallback) -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Misio — Sorteos Cero Pérdida" />
+    <meta name="twitter:description" content="Si tu boleto no gana, su valor vuelve como saldo de canje." />
+    <meta name="twitter:image" content="/og-cover.png" />
+    <!-- iOS: Safari no soporta el instalador automático, pero sí "Añadir a inicio" -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Misio" />
+    <link rel="apple-touch-icon" href="/pwa-192.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Misio — Sorteos Cero Pérdida</title>
+  </head>
+  <body class="light">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

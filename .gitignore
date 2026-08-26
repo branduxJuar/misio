@@ -1,0 +1,19 @@
+# Dependencias
+node_modules/
+
+# Builds
+client/dist/
+server/dist/
+
+# Archivos subidos al ERP (boletas/evidencias)
+server/uploads/
+
+# Entornos (usar los .env.example como plantilla)
+.env
+*.env.local
+
+# Sistema / editor
+.DS_Store
+*.log
+.vscode/
+.idea/
