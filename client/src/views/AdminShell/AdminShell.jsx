@@ -152,7 +152,6 @@ export default function AdminShell() {
 
   const sideMenu = (
     <Menu
-      theme="dark"
       mode="inline"
       selectedKeys={[selected]}
       items={menuItems}
