@@ -16,7 +16,7 @@ import { useSite } from './theme/SiteProvider';
 import { api, SERVER_URL } from './auth/api';
 import Announcements from './components/Announcements';
 import ForcePasswordChange from './components/ForcePasswordChange';
-import InstallPrompt from './components/InstallPrompt';
+import InstallPrompt, { useInstallApp } from './components/InstallPrompt';
 import ReloadPrompt from './components/ReloadPrompt';
 import AdminShell, { ADMIN_MENU } from './views/AdminShell/AdminShell';
 import ProtectedRoute from './auth/ProtectedRoute';
@@ -76,12 +76,12 @@ const navKey = (path) => {
  */
 function buildNavItems(role, auctionsEnabled = false) {
   const items = [
-    { key: '/sorteos', icon: <GiftOutlined />, label: <NavLink to="/sorteos">Sorteos</NavLink> },
-    { key: '/tienda', icon: <ShopOutlined />, label: <NavLink to="/tienda">Tienda</NavLink> },
-    ...(auctionsEnabled ? [{ key: '/subastas', icon: <FireOutlined />, label: <NavLink to="/subastas">Subastas</NavLink> }] : []),
-    { key: '/ganadores', icon: <TrophyOutlined />, label: <NavLink to="/ganadores">Ganadores</NavLink> },
-    { key: '/bingo', icon: <SmileOutlined />, label: <NavLink to="/bingo">Bingo Gratis</NavLink> },
-    { key: '/nosotros', icon: <TeamOutlined />, label: <NavLink to="/nosotros">Quiénes somos</NavLink> },
+    { key: '/sorteos', path: '/sorteos', text: 'Sorteos', icon: <GiftOutlined />, label: <NavLink to="/sorteos">Sorteos</NavLink> },
+    { key: '/tienda', path: '/tienda', text: 'Tienda', icon: <ShopOutlined />, label: <NavLink to="/tienda">Tienda</NavLink> },
+    ...(auctionsEnabled ? [{ key: '/subastas', path: '/subastas', text: 'Subastas', icon: <FireOutlined />, label: <NavLink to="/subastas">Subastas</NavLink> }] : []),
+    { key: '/ganadores', path: '/ganadores', text: 'Ganadores', icon: <TrophyOutlined />, label: <NavLink to="/ganadores">Ganadores</NavLink> },
+    { key: '/bingo', path: '/bingo', text: 'Bingo', icon: <SmileOutlined />, label: <NavLink to="/bingo">Bingo Gratis</NavLink> },
+    { key: '/nosotros', path: '/nosotros', text: 'Nosotros', icon: <TeamOutlined />, label: <NavLink to="/nosotros">Quiénes somos</NavLink> },
   ];
   return items;
 }
@@ -143,6 +143,7 @@ function UnreadBadge() {
 function SessionCorner({ compact }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { canInstall, install } = useInstallApp();
 
   if (!user) {
     return (
@@ -179,7 +180,7 @@ function SessionCorner({ compact }) {
           {
             key: 'mi-misio',
             icon: <WalletOutlined style={{ fontSize: 16, color: '#047857' }} />,
-            label: <span style={{ fontWeight: 600, color: '#334155' }}>Mi Misio</span>,
+            label: <span style={{ fontWeight: 600, color: '#334155' }}>Mi Saldo</span>,
             onClick: () => navigate('/mi-cuenta'),
             style: { padding: '10px 14px', borderRadius: 8, marginBottom: 4 }
           },
@@ -190,6 +191,16 @@ function SessionCorner({ compact }) {
             onClick: () => navigate('/perfil'),
             style: { padding: '10px 14px', borderRadius: 8 }
           },
+          ...(canInstall
+            ? [{ type: 'divider' },
+               {
+                 key: 'install',
+                 icon: <ThunderboltFilled style={{ fontSize: 16, color: '#0284c7' }} />,
+                 label: <span style={{ fontWeight: 600, color: '#334155' }}>Instalar App</span>,
+                 onClick: () => { install(); },
+                 style: { padding: '10px 14px', borderRadius: 8 }
+               }]
+            : []),
           // El panel de administración solo aparece para el personal
           ...(isStaff
             ? [{ type: 'divider' },
@@ -228,6 +239,50 @@ function SessionCorner({ compact }) {
         {!compact && user.role === 'admin' && <Tag color={MISIO_COLORS.prizeGold}>ADMIN</Tag>}
       </Space>
     </Dropdown>
+  );
+}
+
+function MobileBottomNav({ items, currentPath }) {
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: 64,
+      background: 'var(--z-header-bg)',
+      borderTop: '1px solid color-mix(in srgb, var(--z-border) 40%, transparent)',
+      display: 'flex',
+      justifyContent: 'space-around',
+      alignItems: 'center',
+      zIndex: 1000,
+      backdropFilter: 'blur(30px)',
+      WebkitBackdropFilter: 'blur(30px)',
+      paddingBottom: 'env(safe-area-inset-bottom, 0px)'
+    }}>
+      {items.slice(0, 5).map(item => {
+        const isActive = navKey(currentPath) === item.key;
+        return (
+          <NavLink key={item.key} to={item.path} style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: isActive ? 'var(--z-primary)' : 'var(--z-text-muted)',
+            fontSize: 10,
+            fontWeight: isActive ? 700 : 500,
+            textDecoration: 'none',
+            flex: 1,
+            height: '100%',
+          }}>
+            <div style={{ fontSize: 22, marginBottom: 2 }}>{item.icon}</div>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '90%' }}>
+              {item.text}
+            </span>
+          </NavLink>
+        );
+      })}
+    </div>
   );
 }
 
@@ -298,16 +353,8 @@ function PublicShell() {
             height: '64px',
           }}
         >
-        {/* Hamburguesa (solo móvil/tablet) */}
-        {!isDesktop && (
-          <Button
-            type="text"
-            icon={<MenuOutlined style={{ fontSize: 18 }} />}
-            onClick={() => setDrawerOpen(true)}
-            aria-label="Abrir menú"
-          />
-        )}
-
+        {/* En móvil la hamburguesa ya no se usa, tenemos bottom nav */}
+        
         <Typography.Title
           level={4}
           onClick={() => navigate('/')}
@@ -338,32 +385,9 @@ function PublicShell() {
         </Space>
       </Header>
 
-      {/* Menú móvil */}
-      <Drawer
-        title={
-          <>
-            <ThunderboltFilled style={{ color: MISIO_COLORS.primary }} /> Misio
-          </>
-        }
-        placement="left"
-        width={260}
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        styles={{ body: { padding: 0 } }}
-      >
-        <Menu
-          mode="inline"
-          selectedKeys={[navKey(location.pathname)]}
-          items={navItems}
-          onClick={() => setDrawerOpen(false)}
-          style={{ background: 'transparent', borderInlineEnd: 'none' }}
-        />
-      </Drawer>
-
       {/* Mantenimiento ahora usa pantalla completa, este alert ya no es necesario aquí */}
 
-
-      <Content style={{ paddingTop: 104, paddingLeft: 'clamp(12px, 4vw, 48px)', paddingRight: 'clamp(12px, 4vw, 48px)', paddingBottom: 24 }}>
+      <Content style={{ paddingTop: 104, paddingLeft: 'clamp(12px, 4vw, 48px)', paddingRight: 'clamp(12px, 4vw, 48px)', paddingBottom: isDesktop ? 24 : 88 }}>
         <div className="z-content">
           <Suspense
             fallback={
@@ -396,11 +420,13 @@ function PublicShell() {
         </div>
       </Footer>
       
+      {!isDesktop && <MobileBottomNav items={navItems} currentPath={location.pathname} />}
+
       {/* Botón flotante para subir (BackTop) */}
       <FloatButton.BackTop 
         shape="circle"
         type="primary"
-        style={{ right: 24, bottom: 24 }}
+        style={{ right: 24, bottom: isDesktop ? 24 : 88 }}
         tooltip={<div>Volver arriba</div>}
       />
     </Layout>
