@@ -1,33 +1,38 @@
 import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 /**
  * CORREOS TRANSACCIONALES DE MISIO.
  *
  * Configuración en .env:
- *   SMTP_HOST=smtp.resend.com      (o smtp.gmail.com, ses-smtp...)
- *   SMTP_PORT=465                  (465=SSL, 587=TLS)
- *   SMTP_USER=resend               (o tu correo)
- *   SMTP_PASS=re_xxxxxxx           (API key o contraseña de app)
- *   SMTP_FROM="Misio <no-reply@misio.pe>"
- *
- * PROVEEDORES RECOMENDADOS (julio 2026):
- *   - Resend: 100 emails/día gratis, API sencilla, dominio verificado.
- *   - Amazon SES: ~$0.10 por 1.000 correos, escala sin límite.
- *   - Gmail: gratis con "contraseña de app", pero límite de 500/día.
- *
- * SIN SMTP (desarrollo): imprime en consola — el flujo funciona igual,
- * solo que nadie recibe el correo.
+ *   RESEND_API_KEY=re_xxxxxxx         (Recomendado: API de Resend para evitar bloqueos)
+ *   SMTP_HOST=smtp.gmail.com          (Fallback SMTP si no hay Resend)
+ *   SMTP_PORT=587
+ *   SMTP_USER=adminmisio@gmail.com
+ *   SMTP_PASS=xxxx
+ *   SMTP_FROM="Misio <adminmisio@gmail.com>"
  */
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private transporter: nodemailer.Transporter | null = null;
+  private resend: Resend | null = null;
   private readonly from: string;
 
   constructor(private readonly config: ConfigService) {
     this.from = this.config.get('SMTP_FROM', '"Misio" <no-reply@misio.pe>');
+    
+    // 1. Intentar usar Resend API (vía HTTPS)
+    const resendKey = this.config.get<string>('RESEND_API_KEY');
+    if (resendKey) {
+      this.resend = new Resend(resendKey);
+      this.logger.log('📧 Configurado para usar Resend (API Web)');
+      return;
+    }
+
+    // 2. Fallback a Nodemailer (SMTP Puro)
     const host = this.config.get<string>('SMTP_HOST');
     if (host) {
       const port = Number(this.config.get('SMTP_PORT', 587));
@@ -67,16 +72,31 @@ export class MailService {
   }
 
   private async send(to: string, subject: string, html: string) {
-    if (!this.transporter) {
+    // Si no hay ninguno configurado, solo lo loguea (DEV)
+    if (!this.transporter && !this.resend) {
       this.logger.warn(`📧 [DEV] ${subject} → ${to}`);
       return { dev: true };
     }
+
     try {
-      await Promise.race([
-        this.transporter.sendMail({ from: this.from, to, subject, html }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP Connection Timeout')), 7000))
-      ]);
-      return { dev: false };
+      if (this.resend) {
+        // Enviar vía Resend API
+        const { data, error } = await this.resend.emails.send({
+          from: this.from,
+          to: [to],
+          subject,
+          html,
+        });
+        if (error) throw new Error(error.message);
+        return { dev: false, id: data?.id };
+      } else if (this.transporter) {
+        // Enviar vía SMTP Nodemailer
+        await Promise.race([
+          this.transporter.sendMail({ from: this.from, to, subject, html }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP Connection Timeout')), 7000))
+        ]);
+        return { dev: false };
+      }
     } catch (e) {
       this.logger.error(`Error enviando correo a ${to}: ${e.message}`);
       throw new InternalServerErrorException(`Fallo al enviar correo: ${e.message}`);
