@@ -378,9 +378,6 @@ function PublicShell() {
         </div>
       </Content>
 
-      {/* 📲 Invitación a instalar la PWA (no aparece si ya está instalada) */}
-      <InstallPrompt />
-
       <Footer style={{ background: 'transparent', textAlign: 'center', paddingTop: 8,
         borderTop: '1px solid var(--z-border)', marginTop: 24 }}>
         <div className="z-content">
@@ -562,6 +559,7 @@ export default function App() {
         >
           <Announcements />
           <ForcePasswordChange />
+          <InstallPrompt />
           <Routes>
             {/* 1 · Acceso */}
             <Route path="/login" element={<AuthPage />} />
