@@ -36,12 +36,10 @@ export default function AdminDashboard() {
 
   const money = (v) => `S/ ${Number(v ?? 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
 
+  if (!s) return null; // Evitar crash si no hay datos
+
   return (
     <div>
-      {demo && (
-        <Alert type="info" showIcon style={{ marginBottom: 16 }}
-          message="Modo demo: estadísticas ficticias (backend no conectado)." />
-      )}
 
       <Title level={4} style={{ marginTop: 0 }}>
         Hola, {user?.name?.split(' ')[0]} 👋

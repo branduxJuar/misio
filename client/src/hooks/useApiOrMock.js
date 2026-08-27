@@ -11,7 +11,8 @@ import { api } from '../auth/api';
  * Cuando el backend esté siempre disponible, basta eliminar el fallback.
  */
 export function useApiOrMock(path, mockData, { enabled = true } = {}) {
-  const [data, setData] = useState(Array.isArray(mockData) ? [] : null);
+  const fallbackData = Array.isArray(mockData) ? [] : {};
+  const [data, setData] = useState(fallbackData);
   const [demo, setDemo] = useState(false);
   const [loading, setLoading] = useState(enabled);
 
@@ -24,7 +25,7 @@ export function useApiOrMock(path, mockData, { enabled = true } = {}) {
       setDemo(false);
     } catch (error) {
       console.error(`API Error on ${path}:`, error);
-      setData(Array.isArray(mockData) ? [] : null); 
+      setData(fallbackData); 
       setDemo(false);
     } finally {
       setLoading(false);
