@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Button, Card, Modal, Space, Typography } from 'antd';
 import { CloseOutlined, DownloadOutlined, ThunderboltFilled } from '@ant-design/icons';
 import { MISIO_COLORS } from '../theme/misioTheme';
+import { useAuth } from '../auth/AuthContext';
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -36,26 +37,17 @@ export default function InstallPrompt() {
   const [deferred, setDeferred] = useState(null); // Evento del navegador
   const [visible, setVisible] = useState(false);
   const [iosHelp, setIosHelp] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (isStandalone()) return; // Ya la usa instalada
 
-    // Android/Chrome/Edge: capturamos el evento y mostramos lo nuestro
+    // Android/Chrome/Edge: capturamos el evento y lo guardamos
     const onBeforeInstall = (e) => {
       e.preventDefault();
       setDeferred(e);
-      if (!recentlyDismissed()) setVisible(true);
     };
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
-
-    // iOS: no hay evento — mostramos el banner con instrucciones
-    if (isIOS() && !recentlyDismissed()) {
-      const t = setTimeout(() => setVisible(true), 2500);
-      return () => {
-        clearTimeout(t);
-        window.removeEventListener('beforeinstallprompt', onBeforeInstall);
-      };
-    }
 
     const onInstalled = () => setVisible(false);
     window.addEventListener('appinstalled', onInstalled);
@@ -64,6 +56,22 @@ export default function InstallPrompt() {
       window.removeEventListener('appinstalled', onInstalled);
     };
   }, []);
+
+  // Mostrar el banner SOLO si el usuario está logueado y tenemos el evento
+  // (o es iOS donde no hay evento).
+  useEffect(() => {
+    if (isStandalone() || recentlyDismissed()) return;
+
+    if (user && deferred) {
+      const t = setTimeout(() => setVisible(true), 1500);
+      return () => clearTimeout(t);
+    }
+
+    if (user && isIOS()) {
+      const t = setTimeout(() => setVisible(true), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [user, deferred]);
 
   const dismiss = () => {
     localStorage.setItem(DISMISS_KEY, String(Date.now()));

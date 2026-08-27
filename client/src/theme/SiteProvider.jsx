@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { api } from '../auth/api';
+import { api, SERVER_URL } from '../auth/api';
 
 /** Valores por defecto: lo que se ve mientras carga o si el backend no está. */
 const DEFAULT_SITE = {
@@ -45,7 +45,7 @@ export default function SiteProvider({ children }) {
     document.title = `${site.brandName} — ${site.tagline}`;
 
     // 1. Cambiar favicons y apple-touch-icon en vivo
-    const logo = site.logoUrl ? `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${site.logoUrl}` : '/favicon.svg';
+    const logo = site.logoUrl ? `${SERVER_URL}${site.logoUrl}` : '/favicon.svg';
     const logoPng = site.logoUrl ? logo : '/pwa-192.png';
     
     let iconLink = document.querySelector("link[rel~='icon']");
