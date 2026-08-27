@@ -405,6 +405,7 @@ export default function AdminContent() {
                         { value: 100, label: '100% (Devuelve Todo)' },
                         { value: 75, label: '75%' },
                         { value: 50, label: '50% (Mitad)' },
+                        { value: 30, label: '30%' },
                         { value: 25, label: '25%' },
                         { value: 0, label: '0% (Nada)' },
                       ]}

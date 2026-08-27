@@ -13,6 +13,7 @@ import dayjs from 'dayjs';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useAuth } from '../../auth/AuthContext';
 import { useApiOrMock } from '../../hooks/useApiOrMock';
+import { useSite } from '../../theme/SiteProvider';
 import { SERVER_URL } from '../../auth/api';
 
 const { Title, Text, Paragraph } = Typography;
@@ -74,6 +75,10 @@ const Section = ({ eyebrow, title, sub, children, id }) => (
 export default function Landing() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const site = useSite();
+  const refundPct = site.refundPercentage ?? 100;
+  const exampleRefund = (5 * (refundPct / 100)).toFixed(2).replace(/\.00$/, '');
+  
   const { data: raffles } = useApiOrMock('/raffles', MOCK_RAFFLES);
   const { data: winners } = useApiOrMock('/raffles/winners', MOCK_WINNERS);
 
@@ -154,13 +159,13 @@ export default function Landing() {
               </Text>
               <Title level={4} style={{ marginTop: 6 }}>Pagas S/ 5 · No ganas</Title>
               <Space direction="vertical" size={6} style={{ marginTop: 10 }}>
-                <Text><CheckCircleFilled style={{ color: MISIO_COLORS.saldoGreen }} /> Tus S/ 5 vuelven como saldo de canje</Text>
+                <Text><CheckCircleFilled style={{ color: MISIO_COLORS.saldoGreen }} /> {refundPct === 100 ? 'Tus S/ 5' : `Un ${refundPct}%`} vuelve como saldo de canje</Text>
                 <Text><CheckCircleFilled style={{ color: MISIO_COLORS.saldoGreen }} /> Los cambias por productos de la tienda</Text>
                 <Text><CheckCircleFilled style={{ color: MISIO_COLORS.saldoGreen }} /> Viste el sorteo EN VIVO, con tu número</Text>
               </Space>
               <Divider style={{ margin: '14px 0' }} />
               <Text strong className="saldo-glow" style={{ fontSize: 18 }}>
-                Te quedas con S/ 5 para gastar
+                Te quedas con S/ {exampleRefund} para gastar
               </Text>
             </Card>
           </Col>

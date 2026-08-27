@@ -226,6 +226,15 @@ export default function AdminUsers() {
       if (viewMode === 'active') refreshActive();
     } catch (err) { msgApi.error(err.message); } finally { setSaving(false); }
   };
+  const manualVerifyEmail = async (u) => {
+    if (guardDemo()) return;
+    try {
+      await api(`/users/${u._id}/verify-email`, { method: 'POST' });
+      msgApi.success(`Correo de ${u.name} verificado manualmente.`);
+      refresh();
+      if (viewMode === 'active') refreshActive();
+    } catch (err) { msgApi.error(err.message); }
+  };
 
   const columns = [
     {
@@ -248,8 +257,13 @@ export default function AdminUsers() {
           )}
           <br />
           <Text style={{ fontSize: 11, color: MISIO_COLORS.textMuted }}>
-            DNI {u.dni} · {u.phone}
+            {u.email ? `${u.email} · ` : ''}DNI {u.dni} · {u.phone}
           </Text>
+          {u.email && !u.emailVerifiedAt && (
+            <div style={{ marginTop: 2 }}>
+              <Tag color="warning" style={{ fontSize: 10 }}>Falta verificar correo</Tag>
+            </div>
+          )}
         </>
       ),
     },
@@ -322,6 +336,11 @@ export default function AdminUsers() {
           <Button size="small" icon={<MailOutlined />} onClick={() => { messageForm.resetFields(); setMessaging(u); }}>
             Mensaje
           </Button>
+          {u.email && !u.emailVerifiedAt && (
+            <Button size="small" icon={<CheckCircleOutlined />} onClick={() => manualVerifyEmail(u)} style={{ color: MISIO_COLORS.prizeGold, borderColor: MISIO_COLORS.prizeGold }}>
+              Verificar
+            </Button>
+          )}
           {u.role === 'admin' ? null : u.banned ? (
             <Button size="small" icon={<CheckCircleOutlined />} onClick={() => unban(u)}>
               Reactivar

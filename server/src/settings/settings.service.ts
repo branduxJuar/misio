@@ -111,11 +111,13 @@ export class SettingsService {
   /** Contenido del sitio (marca + landing + nosotros), con defaults. */
   async getSite() {
     const saved = await this.get<any>(SITE_KEY, {});
+    const refundPercentage = await this.getRefundPercentage();
     return {
       ...DEFAULT_SITE,
       ...(saved ?? {}),
       landing: { ...DEFAULT_SITE.landing, ...(saved?.landing ?? {}) },
       about: { ...DEFAULT_SITE.about, ...(saved?.about ?? {}) },
+      refundPercentage,
     };
   }
 

@@ -51,8 +51,8 @@ export class RegisterDto {
 
 /** Login con DNI + contraseña (futuro: DNI + OTP por SMS). */
 export class LoginDto {
-  @Matches(/^\d{8}$/, { message: 'DNI inválido' })
-  dni: string;
+  @IsString({ message: 'El identificador es requerido' })
+  identifier: string;
 
   @IsString()
   @MinLength(6)

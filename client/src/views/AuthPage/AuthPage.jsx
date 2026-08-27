@@ -120,16 +120,16 @@ export default function AuthPage() {
   const loginForm = (
     <Form
       layout="vertical"
-      onFinish={(v) => { loginRef.current = v.dni; return run(() => login(v.dni, v.password)); }}
+      onFinish={(v) => { loginRef.current = v.identifier; return run(() => login(v.identifier, v.password)); }}
       requiredMark={false}
     >
       <Form.Item
-        name="dni"
-        label="DNI"
-        rules={[{ pattern: /^\d{8}$/, message: 'El DNI tiene 8 dígitos', required: true }]}
+        name="identifier"
+        label="Correo electrónico"
+        rules={[{ required: true, message: 'Ingresa tu correo' }]}
       >
-        <Input prefix={<IdcardOutlined />} placeholder="74581236" maxLength={8} size="large"
-          inputMode="numeric" autoComplete="username" />
+        <Input prefix={<IdcardOutlined />} placeholder="tucorreo@gmail.com" size="large"
+          autoComplete="username" />
       </Form.Item>
       <Form.Item
         name="password"
