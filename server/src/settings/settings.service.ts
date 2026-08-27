@@ -33,16 +33,16 @@ export const DEFAULT_SITE = {
       '📕 Libro de Reclamaciones',
       '🚚 Envío a todo el país',
     ],
-    businessTitle: '¿Y ustedes de qué viven?',
+    businessTitle: 'Sorteos Transparentes',
     businessText:
-      'Cuando tu boleto no gana, tu plata vuelve como saldo de canje: sirve para llevarte productos de nuestra tienda. Nosotros compramos esos productos al por mayor, así que tú recibes el valor completo de tu boleto y a nosotros nos queda el margen del producto. Todos ganan: tú nunca pierdes tu dinero, y nosotros vivimos de la tienda — no de tu mala suerte.',
-    closingTitle: 'Lo peor que te puede pasar es quedarte con tu plata',
+      'Nacimos con una idea simple: los sorteos tradicionales tienen un problema — cuando no ganas, tu dinero desaparece. Nosotros lo cambiamos con el modelo Cero Pérdida: si tu boleto no gana, su valor completo vuelve a ti como saldo de canje para nuestra tienda.',
+    closingTitle: 'Tú también puedes ser un ganador',
   },
   about: {
-    title: 'Quiénes somos',
+    title: 'Sobre Misio',
     intro:
-      'Misio nació en Tumbes con una idea simple: los sorteos tradicionales tienen un problema — cuando no ganas, tu dinero desaparece. Nosotros lo cambiamos con el modelo Cero Pérdida: si tu boleto no gana, su valor completo vuelve a ti como saldo de canje para nuestra tienda.',
-    location: 'Tumbes, Perú',
+      'Nacimos con una idea simple: los sorteos tradicionales tienen un problema — cuando no ganas, tu dinero desaparece. Nosotros lo cambiamos con el modelo Cero Pérdida: si tu boleto no gana, su valor completo vuelve a ti como saldo de canje para nuestra tienda.',
+    location: 'Perú',
   },
 };
 

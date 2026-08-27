@@ -100,8 +100,8 @@ export default function ManagePrizeDrawer({ record, open, onClose, onSaved }) {
         <Form.Item name="trackingNumber" label="N° de guía">
           <Input placeholder="OLV-88214-PE" />
         </Form.Item>
-        <Form.Item name="destinationCity" label="Ciudad destino (provincias OK)">
-          <Input placeholder="Iquitos, Cusco, Tumbes…" />
+        <Form.Item name="destinationCity" label="Ciudad de Destino">
+          <Input placeholder="Iquitos, Cusco, Lima…" />
         </Form.Item>
         <Form.Item name="deliveryStatus" label="Estado de entrega">
           <Select

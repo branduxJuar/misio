@@ -298,26 +298,26 @@ export default function MiPerfil() {
                         <Input size="large" maxLength={9} style={{ borderRadius: 8 }} />
                       </Form.Item>
                     </Col>
-                    <Col xs={24} sm={6}>
-                      <Form.Item name="altContact" label={<Text strong style={{ color: '#334155' }}>WhatsApp / otro</Text>}>
-                        <Input size="large" placeholder="Opcional" style={{ borderRadius: 8 }} />
-                      </Form.Item>
-                    </Col>
-                  </Row>
-                  <Form.Item name="line1" label={<Text strong style={{ color: '#334155' }}>Dirección (calle / Mz. / Lote)</Text>}>
-                    <Input size="large" placeholder="Av. Tumbes Norte 245, Dpto 3" style={{ borderRadius: 8 }} />
-                  </Form.Item>
-                  <Row gutter={16}>
-                    <Col xs={12}>
-                      <Form.Item name="city" label={<Text strong style={{ color: '#334155' }}>Ciudad / Distrito</Text>}>
-                        <Input size="large" placeholder="Tumbes" style={{ borderRadius: 8 }} />
-                      </Form.Item>
-                    </Col>
-                    <Col xs={12}>
-                      <Form.Item name="region" label={<Text strong style={{ color: '#334155' }}>Región</Text>}>
-                        <Input size="large" placeholder="Tumbes" style={{ borderRadius: 8 }} />
-                      </Form.Item>
-                    </Col>
+                    <Col xs={24} md={12}>
+                    <Form.Item name="addressLine1" label="Dirección exacta">
+                      <Input size="large" placeholder="Av. Principal 245, Dpto 3" style={{ borderRadius: 8 }} />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Form.Item name="addressLine2" label="Referencia (Opcional)">
+                      <Input size="large" placeholder="Frente al parque" style={{ borderRadius: 8 }} />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12} md={8}>
+                    <Form.Item name="city" label="Ciudad / Distrito">
+                      <Input size="large" placeholder="Lima" style={{ borderRadius: 8 }} />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12} md={8}>
+                    <Form.Item name="state" label="Departamento">
+                      <Input size="large" placeholder="Lima" style={{ borderRadius: 8 }} />
+                    </Form.Item>
+                  </Col>
                   </Row>
                   <Form.Item name="reference" label={<Text strong style={{ color: '#334155' }}>Referencia para el courier</Text>}>
                     <Input size="large" placeholder="Frente al parque, portón negro" style={{ borderRadius: 8 }} />

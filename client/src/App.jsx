@@ -393,7 +393,7 @@ function PublicShell() {
             <NavLink to="/privacidad" style={{ fontSize: 12 }}>Privacidad</NavLink>
           </Space>
           <div style={{ fontSize: 11, color: 'var(--z-text-muted)', marginTop: 10 }}>
-            Tumbes, Perú · Sorteos transparentes con Cashback Garantizado · Solo mayores de 18 años
+            Perú · Sorteos transparentes con Cashback Garantizado · Solo mayores de 18 años
           </div>
         </div>
       </Footer>

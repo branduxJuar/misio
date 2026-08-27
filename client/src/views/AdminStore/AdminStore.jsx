@@ -275,10 +275,11 @@ export default function AdminStore() {
               <Radio.Button value="virtual">💻 Virtual (código)</Radio.Button>
             </Radio.Group>
           </Form.Item>
-          <Form.Item name="description" label="Descripción del producto">
-            <Input.TextArea rows={3}
-              placeholder="Nuevo, sellado, con garantía. Entrega en Tumbes o envío nacional." />
-          </Form.Item>
+            <Form.Item name="description" label="Descripción del producto" rules={[{ required: true, message: 'La descripción es requerida' }]}>
+              <Input.TextArea
+                rows={4}
+                placeholder="Nuevo, sellado, con garantía. Entrega local o envío nacional." />
+            </Form.Item>
           <Form.Item name="stock"
             label={<Tooltip title="-1 = ilimitado (recargas, gift cards digitales)">Stock ℹ️</Tooltip>}
             rules={[{ required: true, type: 'number', min: -1 }]}>

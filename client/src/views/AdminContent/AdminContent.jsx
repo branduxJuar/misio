@@ -421,8 +421,8 @@ export default function AdminContent() {
                   </Form.Item>
                 </Col>
                 <Col xs={24} sm={8}>
-                  <Form.Item name="about_location" label="Ubicación">
-                    <Input placeholder="Tumbes, Perú" />
+                  <Form.Item name="about_location" label="Ubicación física">
+                    <Input placeholder="Lima, Perú" />
                   </Form.Item>
                 </Col>
               </Row>

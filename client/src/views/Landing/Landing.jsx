@@ -92,7 +92,7 @@ export default function Landing() {
           motivo por el que la gente no compra un boleto: "y si pierdo". */}
       <div className="glass-hero fade-in-up">
         <span className="float-chip" style={{ marginBottom: 14 }}>
-          ⚡ Hecho en Tumbes para todo el Perú
+          ⚡ Hecho para todo el Perú
         </span>
         <Title style={{ margin: '14px 0 10px', fontSize: 'clamp(32px, 6vw, 56px)', lineHeight: 1.05 }}>
           Juega por el premio.<br />

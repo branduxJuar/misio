@@ -15,7 +15,7 @@ const MOCK = [
     _id: 'p1', productName: 'iPhone 16 Pro Max 256GB',
     raffle: { title: 'iPhone 16 Pro Max', images: [] },
     deliveryStatus: 'transit',
-    shipping: { courier: 'Olva Courier', trackingNumber: 'OLV-123456789', destinationCity: 'Tumbes' },
+    shipping: { courier: 'Olva Courier', trackingNumber: 'OLV-123456789', destinationCity: 'Lima' },
     evidencePhotoUrl: '',
     history: [
       { label: 'Premio comprado — listo en almacén', at: new Date(Date.now() - 172800e3).toISOString() },

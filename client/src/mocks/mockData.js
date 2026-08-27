@@ -101,12 +101,12 @@ export const MOCK_LIVE_RAFFLE = {
 };
 
 export const MOCK_PARTICIPANTS = [
-  { name: 'Carla M.', ticketNumber: 287, city: 'Tumbes' },
+  { name: 'Carla M.', ticketNumber: 287, city: 'Lima' },
   { name: 'Jorge R.', ticketNumber: 102, city: 'Lima' },
   { name: 'Fiorella T.', ticketNumber: 355, city: 'Arequipa' },
-  { name: 'Miguel A.', ticketNumber: 44, city: 'Piura' },
-  { name: 'Rosa Q.', ticketNumber: 219, city: 'Cusco' },
-  { name: 'Diego V.', ticketNumber: 471, city: 'Trujillo' },
+  { name: 'Miguel A.', ticketNumber: 85, city: 'Cusco' },
+  { name: 'Carla M.', ticketNumber: 287, city: 'Lima' },
+  { name: 'Luis C.', ticketNumber: 421, city: 'Trujillo' },
   { name: 'Lucía P.', ticketNumber: 130, city: 'Chiclayo' },
 ];
 
@@ -154,7 +154,7 @@ export const MOCK_ERP_INVENTORY = [
     raffleTitle: 'AirPods Pro 2',
     purchaseCost: 890,
     revenue: 2250,
-    winner: 'Carla Mendoza (Tumbes)',
+    winner: 'Carla Mendoza (Lima)',
     courier: 'Shalom',
     trackingNumber: 'SHL-30471',
     deliveryStatus: 'delivered',

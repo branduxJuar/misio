@@ -20,7 +20,7 @@ export default function Nosotros() {
 
       <div className="glass-hero fade-in-up" style={{ padding: '40px 24px', marginBottom: 40, marginTop: 24 }}>
         <Paragraph style={{ fontSize: 'clamp(16px, 2vw, 19px)', color: MISIO_COLORS.textMuted, maxWidth: 720, margin: '0 auto', lineHeight: 1.6 }}>
-          Misio nació en Tumbes con una idea simple: los sorteos tradicionales
+          Misio nació con una idea simple: los sorteos tradicionales
           tienen un problema — cuando no ganas, tu dinero desaparece. Nosotros
           lo cambiamos con el modelo <Text strong className="saldo-glow" style={{ fontSize: 'inherit' }}>Cashback Garantizado</Text>:
           si tu boleto no gana, una parte de su valor vuelve a ti como saldo de
@@ -35,8 +35,8 @@ export default function Nosotros() {
             c: 'Todos los sorteos se transmiten EN VIVO y la lista de participantes es visible durante el sorteo. La página de Ganadores muestra cada entrega con evidencia.' },
           { icon: <SafetyCertificateFilled style={{ color: MISIO_COLORS.saldoGreen }} />, t: 'Dinero protegido',
             c: 'Tus pagos se verifican uno a uno, cada movimiento queda en tu historial, y contamos con Libro de Reclamaciones virtual conforme a la Ley N° 29571.' },
-          { icon: <HeartFilled style={{ color: MISIO_COLORS.danger }} />, t: 'Hecho en Perú',
-            c: 'Operamos desde Tumbes para todo el país: pagos con Yape/Plin, envíos a nivel nacional con seguimiento, y soporte en tu idioma y tu horario.' },
+          { icon: <EnvironmentOutlined style={{ color: MISIO_COLORS.primary }} />, t: 'Alcance Nacional',
+            c: 'Operamos para todo el país: pagos con Yape/Plin, envíos a nivel nacional con seguimiento, y soporte en tu idioma y tu horario.' },
         ].map((b) => (
           <Col xs={24} md={8} key={b.t}>
             <Card className="glass-card" hoverable style={{ height: '100%' }} bodyStyle={{ padding: 28 }}>
