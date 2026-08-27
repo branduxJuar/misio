@@ -28,7 +28,7 @@ export default defineConfig({
     react(),
     sslPlugin,
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'pwa-192.png', 'pwa-512.png'],
       manifest: {
         name: 'Misio — Sorteos Cero Pérdida',

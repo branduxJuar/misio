@@ -17,6 +17,7 @@ import { api, SERVER_URL } from './auth/api';
 import Announcements from './components/Announcements';
 import ForcePasswordChange from './components/ForcePasswordChange';
 import InstallPrompt from './components/InstallPrompt';
+import ReloadPrompt from './components/ReloadPrompt';
 import AdminShell, { ADMIN_MENU } from './views/AdminShell/AdminShell';
 import ProtectedRoute from './auth/ProtectedRoute';
 import { MISIO_COLORS } from './theme/misioTheme';

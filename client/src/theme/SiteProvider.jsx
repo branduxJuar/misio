@@ -43,7 +43,44 @@ export default function SiteProvider({ children }) {
       document.documentElement.style.setProperty('--z-primary', pColor);
     }
     document.title = `${site.brandName} — ${site.tagline}`;
-  }, [site.primaryColor, site.brandName, site.tagline]);
+
+    // 1. Cambiar favicons y apple-touch-icon en vivo
+    const logo = site.logoUrl ? `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${site.logoUrl}` : '/favicon.svg';
+    const logoPng = site.logoUrl ? logo : '/pwa-192.png';
+    
+    let iconLink = document.querySelector("link[rel~='icon']");
+    if (iconLink) iconLink.href = logo;
+
+    let appleIcon = document.querySelector("link[rel='apple-touch-icon']");
+    if (appleIcon) appleIcon.href = logoPng;
+
+    // 2. Modificar el PWA Manifest en vivo para que use el logo al instalar
+    fetch('/manifest.webmanifest')
+      .then(res => res.json())
+      .then(manifest => {
+        manifest.icons = [
+          { src: logoPng, sizes: '192x192', type: 'image/png' },
+          { src: logoPng, sizes: '512x512', type: 'image/png' },
+          { src: logoPng, sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+        ];
+        manifest.name = `${site.brandName} — ${site.tagline}`;
+        manifest.short_name = site.brandName;
+        manifest.theme_color = pColor || '#0d9488';
+        
+        const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+        const manifestUrl = URL.createObjectURL(blob);
+        
+        let manifestLink = document.querySelector("link[rel='manifest']");
+        if (!manifestLink) {
+          manifestLink = document.createElement('link');
+          manifestLink.rel = 'manifest';
+          document.head.appendChild(manifestLink);
+        }
+        manifestLink.href = manifestUrl;
+      })
+      .catch(() => {});
+
+  }, [site.primaryColor, site.brandName, site.tagline, site.logoUrl]);
 
   return (
     <SiteCtx.Provider value={{ ...site, refresh: load }}>
