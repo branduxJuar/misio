@@ -26,7 +26,7 @@ import { extname, join } from 'path';
  *   3. En main.ts borra el serveStaticModule de /uploads.
  *   4. Las rutas que devuelves pasan de `/uploads/abc.jpg` a la URL de S3.
  */
-const UPLOAD_DIR = join(process.cwd(), 'uploads');
+const UPLOAD_DIR = process.env.UPLOADS_DIR || join(process.cwd(), 'uploads');
 if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true });
 
 /** Tipos permitidos: fotos (evidencias) y PDF (boletas/facturas). */

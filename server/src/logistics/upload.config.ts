@@ -11,7 +11,7 @@ import { existsSync, mkdirSync } from 'fs';
  *   Para producción con varios nodos, cambiar diskStorage por S3/Cloudinary
  *   sin tocar controladores (solo esta config).
  */
-export const UPLOADS_DIR = join(process.cwd(), 'uploads');
+export const UPLOADS_DIR = process.env.UPLOADS_DIR || join(process.cwd(), 'uploads');
 if (!existsSync(UPLOADS_DIR)) mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const MAX_SIZE_MB = 5;
