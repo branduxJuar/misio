@@ -24,12 +24,14 @@ export const useSite = () => useContext(SiteCtx);
  */
 export default function SiteProvider({ children }) {
   const [site, setSite] = useState(DEFAULT_SITE);
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
     try {
       const data = await api('/site');
       setSite({ ...DEFAULT_SITE, ...data });
     } catch { /* sin backend: se queda con los valores por defecto */ }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, []);
@@ -83,7 +85,7 @@ export default function SiteProvider({ children }) {
   }, [site.primaryColor, site.brandName, site.tagline, site.logoUrl]);
 
   return (
-    <SiteCtx.Provider value={{ ...site, refresh: load }}>
+    <SiteCtx.Provider value={{ ...site, loading, refresh: load }}>
       {children}
     </SiteCtx.Provider>
   );

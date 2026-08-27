@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, Modal, Space, Typography } from 'antd';
+import { Button, Card, Modal, Space, Typography, Grid } from 'antd';
 import { CloseOutlined, DownloadOutlined, ThunderboltFilled } from '@ant-design/icons';
 import { MISIO_COLORS } from '../theme/misioTheme';
 import { useAuth } from '../auth/AuthContext';
 
 const { Text, Title, Paragraph } = Typography;
+const { useBreakpoint } = Grid;
 
 const DISMISS_KEY = 'misio_install_dismissed_at';
 const DISMISS_DAYS = 14; // Si dice "ahora no", no volvemos a molestar en 2 semanas
@@ -38,6 +39,8 @@ export default function InstallPrompt() {
   const [visible, setVisible] = useState(false);
   const [iosHelp, setIosHelp] = useState(false);
   const { user } = useAuth();
+  const screens = useBreakpoint();
+  const isDesktop = screens.lg;
 
   useEffect(() => {
     if (isStandalone()) return; // Ya la usa instalada
@@ -88,12 +91,27 @@ export default function InstallPrompt() {
     if (outcome === 'dismissed') localStorage.setItem(DISMISS_KEY, String(Date.now()));
   };
 
+  useEffect(() => {
+    const onManual = () => {
+      if (isIOS() && !deferred) {
+        setIosHelp(true);
+      } else if (deferred) {
+        install();
+      } else {
+        setVisible(true);
+      }
+    };
+    window.addEventListener('misio:install_prompt', onManual);
+    return () => window.removeEventListener('misio:install_prompt', onManual);
+  }, [deferred]);
+
   return (
     <>
       {visible && (
         <div style={{
-          position: 'fixed', left: 12, right: 12, bottom: 12, zIndex: 1000,
+          position: 'fixed', left: 12, right: 12, bottom: isDesktop ? 12 : 82, zIndex: 1000,
           display: 'flex', justifyContent: 'center', pointerEvents: 'none',
+          transition: 'bottom 0.3s ease-out'
         }}>
           <Card
             style={{
@@ -169,23 +187,24 @@ export default function InstallPrompt() {
 
 /** Para el menú del avatar: dispara el instalador cuando se pueda. */
 export function useInstallApp() {
-  const [deferred, setDeferred] = useState(null);
+  const [canInstall, setCanInstall] = useState(false);
+  
   useEffect(() => {
-    const onBeforeInstall = (e) => { e.preventDefault(); setDeferred(e); };
+    if (isStandalone()) return;
+    if (isIOS()) setCanInstall(true);
+    
+    const onBeforeInstall = (e) => { 
+      e.preventDefault(); 
+      setCanInstall(true); 
+    };
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
     return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall);
   }, []);
 
   return {
-    canInstall: !isStandalone() && (!!deferred || isIOS()),
-    install: async () => {
-      if (deferred) {
-        deferred.prompt();
-        await deferred.userChoice;
-        setDeferred(null);
-        return true;
-      }
-      return false; // iOS: sin evento, el llamador muestra instrucciones
+    canInstall,
+    install: () => {
+      window.dispatchEvent(new Event('misio:install_prompt'));
     },
   };
 }

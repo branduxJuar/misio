@@ -249,9 +249,10 @@ function MobileBottomNav({ items, currentPath }) {
       bottom: 0,
       left: 0,
       right: 0,
-      height: 64,
-      background: 'var(--z-header-bg)',
+      height: 58,
+      background: 'color-mix(in srgb, var(--z-header-bg) 85%, transparent)',
       borderTop: '1px solid color-mix(in srgb, var(--z-border) 40%, transparent)',
+      boxShadow: '0 -4px 24px rgba(0,0,0,0.06)',
       display: 'flex',
       justifyContent: 'space-around',
       alignItems: 'center',
@@ -274,9 +275,31 @@ function MobileBottomNav({ items, currentPath }) {
             textDecoration: 'none',
             flex: 1,
             height: '100%',
+            position: 'relative',
           }}>
-            <div style={{ fontSize: 22, marginBottom: 2 }}>{item.icon}</div>
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '90%' }}>
+            <div style={{
+              position: 'relative',
+              width: 44,
+              height: 28,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 14,
+              background: isActive ? 'color-mix(in srgb, var(--z-primary) 15%, transparent)' : 'transparent',
+              transition: 'background 0.2s',
+              marginBottom: 4,
+            }}>
+              <div style={{ fontSize: 20, transition: 'transform 0.2s', transform: isActive ? 'scale(1.1)' : 'scale(1)' }}>
+                {item.icon}
+              </div>
+            </div>
+            <span style={{ 
+              whiteSpace: 'nowrap', 
+              overflow: 'hidden', 
+              textOverflow: 'ellipsis', 
+              maxWidth: '90%',
+              transition: 'color 0.2s' 
+            }}>
               {item.text}
             </span>
           </NavLink>
@@ -332,6 +355,19 @@ function PublicShell() {
 
   return (
     <Layout style={{ minHeight: '100vh', background: 'transparent' }}>
+        {/* Efecto blur de fondo para la parte superior (detrás del header) */}
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, height: isDesktop ? 96 : 76,
+          zIndex: 999, // Un nivel por debajo del header
+          pointerEvents: 'none',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          background: 'linear-gradient(to bottom, color-mix(in srgb, var(--z-bg-layout) 80%, transparent) 0%, transparent 100%)',
+          maskImage: 'linear-gradient(to bottom, black 40%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, black 40%, transparent 100%)'
+        }} />
+
         <Header
           style={{
             display: 'flex',
@@ -340,17 +376,15 @@ function PublicShell() {
             paddingInline: 'clamp(16px, 4vw, 36px)',
             background: 'var(--z-header-bg)',
             border: '1px solid color-mix(in srgb, var(--z-border) 40%, transparent)',
-            backdropFilter: 'blur(30px)',
-            WebkitBackdropFilter: 'blur(30px)',
             position: 'fixed',
-            top: 16,
+            top: isDesktop ? 16 : 8,
             left: 16,
             right: 16,
             zIndex: 1000,
             borderRadius: 100,
-            boxShadow: '0 20px 50px rgba(0,0,0,0.2)',
-            lineHeight: '48px',
-            height: '64px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+            lineHeight: isDesktop ? '48px' : '40px',
+            height: isDesktop ? 64 : 52,
           }}
         >
         {/* En móvil la hamburguesa ya no se usa, tenemos bottom nav */}
@@ -361,10 +395,13 @@ function PublicShell() {
           style={{ margin: 0, whiteSpace: 'nowrap', flex: isDesktop ? 'none' : 1, cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden', textOverflow: 'ellipsis' }}
         >
-          {site.logoUrl
-            ? <img src={`${SERVER_URL}${site.logoUrl}`} alt={site.brandName}
-                style={{ height: 28, objectFit: 'contain' }} />
-            : <ThunderboltFilled style={{ color: MISIO_COLORS.primary }} />}
+          {site.logoUrl ? (
+            <img src={`${SERVER_URL}${site.logoUrl}`} alt={site.brandName} style={{ height: 28, objectFit: 'contain' }} />
+          ) : site.loading ? (
+            <Skeleton.Avatar active size="small" shape="circle" style={{ width: 28, height: 28, minWidth: 28 }} />
+          ) : (
+            <ThunderboltFilled style={{ color: MISIO_COLORS.primary }} />
+          )}
           {site.brandName}
         </Typography.Title>
 
@@ -387,7 +424,7 @@ function PublicShell() {
 
       {/* Mantenimiento ahora usa pantalla completa, este alert ya no es necesario aquí */}
 
-      <Content style={{ paddingTop: 104, paddingLeft: 'clamp(12px, 4vw, 48px)', paddingRight: 'clamp(12px, 4vw, 48px)', paddingBottom: isDesktop ? 24 : 88 }}>
+      <Content style={{ paddingTop: isDesktop ? 104 : 76, paddingLeft: 'clamp(12px, 4vw, 48px)', paddingRight: 'clamp(12px, 4vw, 48px)', paddingBottom: isDesktop ? 24 : 135 }}>
         <div className="z-content">
           <Suspense
             fallback={
@@ -426,7 +463,7 @@ function PublicShell() {
       <FloatButton.BackTop 
         shape="circle"
         type="primary"
-        style={{ right: 24, bottom: isDesktop ? 24 : 88 }}
+        style={{ right: 24, bottom: isDesktop ? 24 : 135 }}
         tooltip={<div>Volver arriba</div>}
       />
     </Layout>

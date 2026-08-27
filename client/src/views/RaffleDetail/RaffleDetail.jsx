@@ -762,7 +762,13 @@ export default function RaffleDetail() {
                       opacity: isSold && !isMine ? 0.85 : 1,
                     }}
                   >
-                    {fmtCode(raffle.ticketPrefix, n, raffle.totalTickets)}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.1, wordBreak: 'break-word' }}>
+                      {fmtCode(raffle.ticketPrefix, n, raffle.totalTickets).split('-').map((part, i, arr) => (
+                        <span key={i} style={{ display: 'block', whiteSpace: 'nowrap' }}>
+                          {part}{i < arr.length - 1 ? '-' : ''}
+                        </span>
+                      ))}
+                    </div>
                   </button>
                 );
               })}
