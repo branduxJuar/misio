@@ -86,9 +86,23 @@ export class AuthService {
 
   /** Login por DNI + contraseña. Mensaje genérico para no filtrar si el DNI existe. */
   async login(dto: LoginDto) {
+    const isEmail = dto.identifier.includes('@');
+    const query = isEmail
+      ? { email: dto.identifier.trim().toLowerCase() }
+      : { dni: dto.identifier.trim() };
+
     const user = await this.userModel
-      .findOne({ dni: dto.dni })
-      .select('+passwordHash'); // passwordHash tiene select:false en el schema
+      .findOne(query)
+      .select('+passwordHash');
+
+    if (user) {
+      if (isEmail && user.role !== UserRole.USER) {
+        throw new UnauthorizedException('El personal administrativo debe ingresar con su DNI');
+      }
+      if (!isEmail && user.role === UserRole.USER) {
+        throw new UnauthorizedException('Debes ingresar con tu correo electrónico registrado');
+      }
+    }
 
     // CUENTA BLOQUEADA: tras varios fallos seguidos, la puerta se cierra
     // un rato. El atacante pierde el ritmo; el dueño solo espera.
@@ -120,7 +134,7 @@ export class AuthService {
     // 2FA activo: no entregar tokens todavía — el frontend debe pedir
     // el código de Google Authenticator y llamar a /auth/verify-2fa.
     if (user.totpEnabled) {
-      return { requires2FA: true, dni: dto.dni };
+      return { requires2FA: true, dni: user.dni };
     }
     if (
       user.email &&

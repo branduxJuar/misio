@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, Col, Row, Typography, Timeline } from 'antd';
-import { ThunderboltFilled, SafetyCertificateFilled, EyeFilled, HeartFilled } from '@ant-design/icons';
+import { ThunderboltFilled, SafetyCertificateFilled, EyeFilled, HeartFilled, EnvironmentOutlined } from '@ant-design/icons';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 
 const { Title, Text, Paragraph } = Typography;

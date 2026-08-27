@@ -47,6 +47,13 @@ export class UsersController {
     return this.usersService.findOne(user.userId);
   }
 
+  /** POST /api/v1/users/:id/verify-email — Verifica manualmente el correo (SOLO Admin) */
+  @Roles(UserRole.ADMIN, UserRole.SYSTEMS)
+  @Post(':id/verify-email')
+  verifyEmail(@Param('id') id: string) {
+    return this.usersService.manualVerifyEmail(id);
+  }
+
   /** POST /api/v1/users — crear usuario con rol (delegación). SOLO admin. */
   @Roles(UserRole.ADMIN)
   @Post()

@@ -47,12 +47,30 @@ export class UsersService {
     }));
   }
 
+  /** Verificación manual de correo por el administrador */
+  async manualVerifyEmail(userId: string) {
+    const user = await this.userModel.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          emailVerifiedAt: new Date(),
+          verifyCode: null,
+          verifyCodeExpires: null,
+        }
+      },
+      { new: true }
+    );
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    return user;
+  }
+
   create(data: Partial<User>) {
     return this.userModel.create(data);
   }
 
   /**
    * LISTADO PAGINADO Y BUSCABLE.
+
    *
    * Antes devolvía la colección ENTERA: con 100.000 usuarios son ~40 MB de
    * JSON por cada vez que el admin abre la pantalla — el servidor se queda

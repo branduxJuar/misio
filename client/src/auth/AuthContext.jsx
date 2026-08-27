@@ -101,8 +101,8 @@ export function AuthProvider({ children }) {
       loading,
       isAdmin: user?.role === 'admin',
 
-      login: async (dni, password) =>
-        handleAuth(await api('/auth/login', { method: 'POST', body: { dni, password } })),
+      login: async (identifier, password) =>
+        handleAuth(await api('/auth/login', { method: 'POST', body: { identifier, password } })),
 
       refreshUser,
       verifyEmail: async (dni, code) =>
