@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 
@@ -71,8 +71,16 @@ export class MailService {
       this.logger.warn(`📧 [DEV] ${subject} → ${to}`);
       return { dev: true };
     }
-    await this.transporter.sendMail({ from: this.from, to, subject, html });
-    return { dev: false };
+    try {
+      await Promise.race([
+        this.transporter.sendMail({ from: this.from, to, subject, html }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP Connection Timeout')), 7000))
+      ]);
+      return { dev: false };
+    } catch (e) {
+      this.logger.error(`Error enviando correo a ${to}: ${e.message}`);
+      throw new InternalServerErrorException(`Fallo al enviar correo: ${e.message}`);
+    }
   }
 
   // ═══ Correos del sistema ═══
