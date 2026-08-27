@@ -11,8 +11,8 @@ import { api } from '../auth/api';
  * Cuando el backend esté siempre disponible, basta eliminar el fallback.
  */
 export function useApiOrMock(path, mockData, { enabled = true } = {}) {
-  const [data, setData] = useState(mockData);
-  const [demo, setDemo] = useState(true);
+  const [data, setData] = useState(Array.isArray(mockData) ? [] : null);
+  const [demo, setDemo] = useState(false);
   const [loading, setLoading] = useState(enabled);
 
   const refresh = useCallback(async () => {
@@ -22,9 +22,10 @@ export function useApiOrMock(path, mockData, { enabled = true } = {}) {
       const real = await api(path);
       setData(real);
       setDemo(false);
-    } catch {
-      setData(mockData); // Backend caído o sin sesión → modo demo
-      setDemo(true);
+    } catch (error) {
+      console.error(`API Error on ${path}:`, error);
+      setData(Array.isArray(mockData) ? [] : null); 
+      setDemo(false);
     } finally {
       setLoading(false);
     }
