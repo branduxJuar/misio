@@ -1,15 +1,19 @@
-import { IsArray, IsBoolean, IsDateString, IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsEnum, IsNumber, IsOptional, IsString, Min, IsObject } from 'class-validator';
 
 export class UpdateSiteDto {
   @IsOptional() @IsString() brandName?: string;
+  @IsOptional() @IsString() tagline?: string;
   @IsOptional() @IsString() primaryColor?: string;
   @IsOptional() @IsString() secondaryColor?: string;
   @IsOptional() @IsString() logoUrl?: string;
+  @IsOptional() @IsString() whatsapp?: string;
   @IsOptional() @IsString() whatsappUrl?: string;
   @IsOptional() @IsString() telegramUrl?: string;
   @IsOptional() @IsString() tiktokUrl?: string;
   @IsOptional() @IsString() metaTitle?: string;
   @IsOptional() @IsString() metaDescription?: string;
+  @IsOptional() @IsObject() landing?: Record<string, any>;
+  @IsOptional() @IsObject() about?: Record<string, any>;
 }
 
 export class SetEmailVerificationDto {
