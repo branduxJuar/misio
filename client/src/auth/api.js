@@ -71,6 +71,14 @@ export async function api(path, { method = 'GET', body } = {}) {
 
   // Manejo de 401 (No autorizado / Expirado / Expulsado / Baneado)
   if (res.status === 401) {
+    let msg = Array.isArray(data.message) ? data.message[0] : data.message;
+    
+    // Si es un error de verificación de correo durante el login, no es una sesión expirada.
+    // Lo lanzamos directamente para que AuthPage lo capture y muestre la pantalla de código.
+    if (msg && msg.startsWith('VERIFY_EMAIL:')) {
+      throw new Error(msg);
+    }
+
     if (tokenStore.getRefresh()) {
       const renewed = await tryRefresh();
       if (renewed) return api(path, { method, body }); // reintenta con el token nuevo
@@ -78,9 +86,6 @@ export async function api(path, { method = 'GET', body } = {}) {
     
     // Si llegamos aquí, falló la renovación o no había refresh token
     tokenStore.clear();
-    
-    // Mostrar el motivo exacto por el cual fue desconectado (baneo, expulsión, expiración)
-    let msg = Array.isArray(data.message) ? data.message[0] : data.message;
     
     if (!msg || msg === 'Unauthorized') {
       msg = 'Por tu seguridad, tu sesión ha expirado o ya no es válida. Por favor, vuelve a iniciar sesión para continuar.';

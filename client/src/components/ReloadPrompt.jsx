@@ -18,7 +18,14 @@ export default function ReloadPrompt() {
   });
 
   React.useEffect(() => {
-    if (needRefresh) {
+    // 1. Evitamos que salga a cada rato mientras programas (Desarrollo)
+    if (import.meta.env.DEV) return;
+
+    // 2. Comprobamos si realmente el usuario instaló la PWA (Standalone)
+    const isInstalledPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+    // Solo mostramos el aviso si hay actualización Y está usando la app instalada
+    if (needRefresh && isInstalledPWA) {
       notification.info({
         message: '¡Nueva actualización!',
         description: 'Hay una nueva versión de Misio disponible. Actualiza para obtener las últimas mejoras.',
