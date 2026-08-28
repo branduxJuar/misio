@@ -10,8 +10,8 @@ export const TERMS_PE = [
     c: 'Al registrarte en Misio declaras ser mayor de 18 años, residir en el Perú y contar con capacidad legal para contratar. El uso de la plataforma implica la aceptación íntegra de estos Términos y Condiciones.',
   },
   {
-    t: '2. Naturaleza del servicio',
-    c: 'Misio es una plataforma de sorteos con modelo "Cero Pérdida": si tu boleto no resulta ganador, su valor íntegro se acredita como saldo digital ("Misio") canjeable en la tienda interna. El saldo Misio no es dinero de curso legal, no es retirable en efectivo y no genera intereses.',
+    t: '2. Naturaleza del servicio y Vigencia de Saldos',
+    c: 'Misio es una plataforma de sorteos con modelo "Cero Pérdida": si tu boleto no resulta ganador, su valor íntegro se acredita como saldo digital ("Misio") canjeable en la tienda interna. El saldo de canje tiene una vigencia máxima de 20 días calendario desde su emisión. Al expirar, este saldo será deducido automáticamente de la cuenta y no podrá ser reactivado ni transferido. El saldo Misio no es dinero de curso legal, no es retirable en efectivo y no genera intereses.',
   },
   {
     t: '3. Protección de datos personales (Ley N° 29733)',

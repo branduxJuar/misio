@@ -52,6 +52,14 @@ export interface IUser {
   phone: string;
   role: UserRole;
   walletBalance: number;
+  walletCanje: number;
+  canjeTranches?: {
+    amount: number;
+    originalAmount: number;
+    expiresAt: Date;
+    source: string;
+    createdAt?: Date;
+  }[];
   autocontrol?: {
     option: 'none' | 'monthly_spend' | 'daily_time' | 'exclusion';
     monthlySpendLimit?: number | null;
@@ -112,6 +120,29 @@ export class User implements IUser {
    */
   @Prop({ default: 0, min: 0 })
   walletCanje: number;
+
+  /**
+   * Tramos del Saldo de Canje. Cada vez que se devuelve saldo, se añade un tramo
+   * con fecha de vencimiento. Cuando se gasta, se usa el método FIFO.
+   */
+  @Prop({
+    type: [{
+      amount: Number,
+      originalAmount: Number,
+      expiresAt: Date,
+      source: String,
+      createdAt: { type: Date, default: Date.now },
+    }],
+    default: [],
+  })
+  canjeTranches: {
+    amount: number;
+    originalAmount: number;
+    expiresAt: Date;
+    source: string;
+    createdAt?: Date;
+  }[];
+
 
   /**
    * 🔒 FONDOS RETENIDOS (subastas): al pujar, el monto sale del contable
