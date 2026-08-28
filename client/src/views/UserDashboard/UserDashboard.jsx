@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import TicketCard from '../../components/TicketCard';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Divider, Tabs, Grid, Space, Steps,
+  Divider, Tabs, Grid, Space, Steps, Tooltip,
   Card, Col, Row, Statistic, Table, Tag, Typography, Button, List, Avatar, message, Alert, Empty,
 } from 'antd';
 import {
-  WalletFilled, HistoryOutlined, GiftFilled, ArrowUpOutlined, ArrowDownOutlined, TrophyFilled, FilePdfOutlined
+  WalletFilled, HistoryOutlined, GiftFilled, ArrowUpOutlined, ArrowDownOutlined, TrophyFilled, FilePdfOutlined, InfoCircleOutlined
 } from '@ant-design/icons';
 import {
   MOCK_USER, MOCK_USER_TICKETS, MOCK_TRANSACTIONS, MOCK_STORE_ITEMS,
@@ -305,7 +305,27 @@ export default function UserDashboard() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: 8 }}>
                       <div style={{ flex: 1 }}>
                         <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, display: 'block' }}>Saldo de Canje</Text>
-                        <Text style={{ color: MISIO_COLORS.prizeGold, fontWeight: 700, fontSize: 16 }}>S/ {Number(profile.walletCanje ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                        <Tooltip title={
+                          profile.canjeTranches?.length > 0 ? (
+                            <div style={{ fontSize: 12 }}>
+                              {profile.canjeTranches.map((t, i) => {
+                                const days = Math.ceil((new Date(t.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                                return (
+                                  <div key={i} style={{ marginBottom: 4 }}>
+                                    S/ {t.amount.toFixed(2)} vencen en {days > 0 ? `${days} días` : 'hoy'}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : 'Tu saldo devuelto de sorteos sin ganar'
+                        } color="#1a1a1a" placement="bottomLeft">
+                          <Text style={{ color: MISIO_COLORS.prizeGold, fontWeight: 700, fontSize: 16, cursor: 'help' }}>
+                            S/ {Number(profile.walletCanje ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {profile.canjeTranches?.length > 0 && (
+                              <InfoCircleOutlined style={{ fontSize: 12, marginLeft: 4, color: 'rgba(255,255,255,0.5)' }} />
+                            )}
+                          </Text>
+                        </Tooltip>
                       </div>
                       <div style={{ flex: 1, textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.1)', borderRight: Number(profile.walletHeld ?? 0) > 0 ? '1px solid rgba(255,255,255,0.1)' : 'none', padding: '0 8px' }}>
                         <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, display: 'block' }}>En Juego</Text>

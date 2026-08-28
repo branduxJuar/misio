@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcrypt';
 import { ClientSession, Model } from 'mongoose';
@@ -8,6 +9,7 @@ import { ADMIN_MODULES, DEFAULT_PERMISSIONS, User, UserDocument, UserRole } from
 export class UsersService {
   // Mapa en memoria para rastrear usuarios activos (ID -> { start, last })
   private activeUsers = new Map<string, { start: number, last: number }>();
+  private readonly logger = new Logger(UsersService.name);
 
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
@@ -422,18 +424,61 @@ export class UsersService {
   ) {
     // 💵 contable = dinero real (recargas) · 🎁 canje = Cero Pérdida
     const field = wallet === 'canje' ? 'walletCanje' : 'walletBalance';
-    const user = await this.userModel.findOneAndUpdate(
-      { _id: userId, [field]: { $gte: delta < 0 ? -delta : 0 } },
-      { $inc: { [field]: delta } },
-      { new: true, session },
-    );
-    if (!user) {
-      throw new NotFoundException(
-        wallet === 'canje'
-          ? 'Saldo de CANJE insuficiente (este saldo viene de los reembolsos Cero Pérdida)'
-          : 'Saldo contable insuficiente — recarga con Yape',
+    let user;
+
+    if (wallet === 'canje') {
+      user = await this.userModel.findOne({ _id: userId, walletCanje: { $gte: delta < 0 ? -delta : 0 } }).session(session);
+      if (!user) {
+        throw new NotFoundException('Saldo de CANJE insuficiente (este saldo viene de los reembolsos Cero Pérdida)');
+      }
+
+      if (delta < 0) {
+        // FIFO deduct
+        let remainingToDeduct = -delta;
+        user.canjeTranches = user.canjeTranches || [];
+        user.canjeTranches.sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime());
+        
+        for (let i = 0; i < user.canjeTranches.length; i++) {
+          if (remainingToDeduct <= 0) break;
+          const tranche = user.canjeTranches[i];
+          if (tranche.amount <= remainingToDeduct) {
+            remainingToDeduct -= tranche.amount;
+            tranche.amount = 0;
+          } else {
+            tranche.amount -= remainingToDeduct;
+            remainingToDeduct = 0;
+          }
+        }
+        
+        user.canjeTranches = user.canjeTranches.filter(t => t.amount > 0);
+      } else if (delta > 0) {
+        // Add new tranche for manual adjustments or reverts
+        const expirationDays = Number(process.env.CANJE_EXPIRATION_DAYS || 20);
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + expirationDays);
+        user.canjeTranches = user.canjeTranches || [];
+        user.canjeTranches.push({
+          amount: delta,
+          originalAmount: delta,
+          expiresAt,
+          source: 'Ajuste de saldo o reverso',
+          createdAt: new Date(),
+        });
+      }
+
+      user.walletCanje += delta;
+      await user.save({ session });
+    } else {
+      user = await this.userModel.findOneAndUpdate(
+        { _id: userId, [field]: { $gte: delta < 0 ? -delta : 0 } },
+        { $inc: { [field]: delta } },
+        { new: true, session },
       );
+      if (!user) {
+        throw new NotFoundException('Saldo contable insuficiente — recarga con Yape');
+      }
     }
+
     return user;
   }
 
@@ -452,6 +497,48 @@ export class UsersService {
       { passwordHash, mustChangePassword: true, failedLogins: 0, lockedUntil: null },
     );
     return { tempPassword: temp, message: 'Clave temporal generada. El usuario deberá cambiarla al entrar.' };
+  }
+
+  /**
+   * Cron job diario para expirar los tramos de Saldo de Canje.
+   * Corre todos los días a la medianoche.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async expireCanjeTranches() {
+    this.logger.log('Iniciando limpieza de Saldo de Canje expirado...');
+    const now = new Date();
+    
+    const users = await this.userModel.find({
+      'canjeTranches.expiresAt': { $lt: now }
+    });
+
+    let totalExpired = 0;
+    
+    for (const user of users) {
+      if (!user.canjeTranches) continue;
+      
+      let expiredAmount = 0;
+      const validTranches = [];
+      
+      for (const tranche of user.canjeTranches) {
+        if (tranche.expiresAt < now) {
+          expiredAmount += tranche.amount;
+        } else {
+          validTranches.push(tranche);
+        }
+      }
+      
+      if (expiredAmount > 0) {
+        user.canjeTranches = validTranches;
+        user.walletCanje = Math.max(0, user.walletCanje - expiredAmount);
+        await user.save();
+        totalExpired += expiredAmount;
+        
+        this.logger.log(`Expirados S/ ${expiredAmount} de canje para usuario ${user._id}`);
+      }
+    }
+    
+    this.logger.log(`Limpieza completada. Total expirado: S/ ${totalExpired}`);
   }
 
 }

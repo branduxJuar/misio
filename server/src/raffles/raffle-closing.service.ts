@@ -160,14 +160,32 @@ export class RaffleClosingService {
           })),
         );
 
-        // Billeteras: incrementos masivos en un solo round-trip
+        // Billeteras: incrementos masivos en un solo round-trip y registro de tramos
+        const expirationDays = Number(process.env.CANJE_EXPIRATION_DAYS || 20);
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + expirationDays);
+
         await this.userModel.bulkWrite(
-          groups.map((g) => ({
-            updateOne: {
-              filter: { _id: g._id },
-              update: { $inc: { walletCanje: (raffle.ticketPrice * g.count) * refundMultiplier } },
-            },
-          })),
+          groups.map((g) => {
+            const amount = (raffle.ticketPrice * g.count) * refundMultiplier;
+            return {
+              updateOne: {
+                filter: { _id: g._id },
+                update: {
+                  $inc: { walletCanje: amount },
+                  $push: {
+                    canjeTranches: {
+                      amount,
+                      originalAmount: amount,
+                      expiresAt,
+                      source: raffle.title,
+                      createdAt: new Date(),
+                    },
+                  },
+                },
+              },
+            };
+          }),
         );
 
         refundedTickets = groups.reduce((sum, g) => sum + g.count, 0);
