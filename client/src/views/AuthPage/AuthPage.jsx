@@ -76,6 +76,16 @@ export default function AuthPage() {
         setVerifying({ dni, message: err.message.replace('VERIFY_EMAIL:', '') });
         return;
       }
+      if (err.message?.startsWith('LOCKED_SUPPORT:')) {
+        Modal.error({
+          title: 'Cuenta Bloqueada por Seguridad',
+          content: err.message.replace('LOCKED_SUPPORT:', ''),
+          okText: 'Entendido',
+          centered: true,
+        });
+        setVerifying(null);
+        return;
+      }
       msgApi.error(err.message);
     } finally {
       setSubmitting(false);
@@ -241,11 +251,25 @@ export default function AuthPage() {
       </Button>
       <Button type="link" block onClick={async () => {
         try {
-          await (await import('../../auth/api')).api('/auth/resend-code', {
+          const apiRes = await (await import('../../auth/api')).api('/auth/resend-code', {
             method: 'POST', body: { dni: verifying.dni },
           });
-          msgApi.success('Código reenviado — revisa tu correo (y spam).');
-        } catch (e) { msgApi.error(e.message); }
+          const intentos = apiRes.attempts || 1;
+          const restantes = 3 - intentos;
+          msgApi.success(`Código reenviado. Te quedan ${restantes} intento(s) permitidos.`);
+        } catch (e) {
+          if (e.message?.startsWith('LOCKED_SUPPORT:')) {
+            Modal.error({
+              title: 'Cuenta Bloqueada por Seguridad',
+              content: e.message.replace('LOCKED_SUPPORT:', ''),
+              okText: 'Entendido',
+              centered: true,
+            });
+            setVerifying(null);
+          } else {
+            msgApi.error(e.message);
+          }
+        }
       }}>
         Reenviar código
       </Button>

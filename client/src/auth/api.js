@@ -75,7 +75,7 @@ export async function api(path, { method = 'GET', body } = {}) {
     
     // Si es un error de verificación de correo durante el login, no es una sesión expirada.
     // Lo lanzamos directamente para que AuthPage lo capture y muestre la pantalla de código.
-    if (msg && msg.startsWith('VERIFY_EMAIL:')) {
+    if (msg && (msg.startsWith('VERIFY_EMAIL:') || msg.startsWith('LOCKED_SUPPORT:'))) {
       throw new Error(msg);
     }
 
