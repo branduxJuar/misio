@@ -80,15 +80,24 @@ export async function api(path, { method = 'GET', body } = {}) {
     tokenStore.clear();
     
     // Mostrar el motivo exacto por el cual fue desconectado (baneo, expulsión, expiración)
-    const msg = Array.isArray(data.message) ? data.message[0] : (data.message || 'Tu sesión ha terminado.');
+    let msg = Array.isArray(data.message) ? data.message[0] : data.message;
+    
+    if (!msg || msg === 'Unauthorized') {
+      msg = 'Por tu seguridad, tu sesión ha expirado o ya no es válida. Por favor, vuelve a iniciar sesión para continuar.';
+    }
     
     // Evitamos mostrar múltiples modales si hay requests concurrentes
     if (!window.__misioSessionAlertShown) {
       window.__misioSessionAlertShown = true;
       Modal.warning({
-        title: 'Sesión Terminada',
+        title: 'Tu sesión ha expirado',
         content: msg,
-        okText: 'Ir a Iniciar Sesión',
+        okText: 'Volver a Iniciar Sesión',
+        centered: true,
+        className: 'session-expired-modal',
+        okButtonProps: { className: 'btn-marketero', size: 'large', shape: 'round', style: { width: '100%', marginTop: '12px' } },
+        maskClosable: false,
+        keyboard: false,
         onOk: () => {
           window.location.href = '/login';
         },
