@@ -163,6 +163,12 @@ export class User implements IUser {
   @Prop({ type: Date, default: null })
   emailVerifiedAt: Date | null;
 
+  @Prop({ type: Number, default: 0 })
+  verificationAttempts: number;
+
+  @Prop({ type: Boolean, default: false })
+  isLockedForSpam: boolean;
+
   /** Foto de perfil (subida a /uploads). */
   @Prop({ default: '' })
   avatarUrl: string;

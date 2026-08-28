@@ -141,6 +141,9 @@ export class AuthService {
       !user.emailVerifiedAt &&
       (await this.settingsService.isEmailVerificationEnabled())
     ) {
+      if (user.isLockedForSpam) {
+        throw new UnauthorizedException('LOCKED_SUPPORT: Has superado el límite de correos. Comunícate con soporte.');
+      }
       await this.issueVerificationCode(user);
       throw new UnauthorizedException(
         'VERIFY_EMAIL:Tu correo aún no está verificado — te reenviamos el código.',
@@ -158,11 +161,20 @@ export class AuthService {
   /** Respuesta estándar: token + datos públicos del usuario. */
   /** Genera y envía un código de 6 dígitos con vigencia de 15 min. */
   private async issueVerificationCode(user: UserDocument) {
+    const attempts = (user.verificationAttempts || 0) + 1;
+    if (attempts > 3) {
+      user.isLockedForSpam = true;
+      await user.save();
+      throw new UnauthorizedException('LOCKED_SUPPORT: Has superado el límite de correos. Comunícate con soporte.');
+    }
+    user.verificationAttempts = attempts;
+
     const code = String(Math.floor(100000 + Math.random() * 900000));
     user.verifyCode = code;
     user.verifyCodeExpires = new Date(Date.now() + 15 * 60 * 1000);
     await user.save();
     await this.mailService.sendVerificationCode(user.email, user.name, code);
+    return attempts;
   }
 
   /** POST /auth/verify-email — valida el código y entrega la sesión. */
@@ -184,6 +196,7 @@ export class AuthService {
     user.emailVerifiedAt = new Date();
     user.verifyCode = '';
     user.verifyCodeExpires = null;
+    user.verificationAttempts = 0; // Resetear intentos al verificar
     await user.save();
 
     // El bono de bienvenida se aplica recién al VERIFICAR (cuenta real)
@@ -193,10 +206,13 @@ export class AuthService {
 
   /** POST /auth/resend-code — reenvía el código (si sigue sin verificar). */
   async resendCode(dni: string) {
-    const user = await this.userModel.findOne({ dni }).select('+verifyCode +verifyCodeExpires');
+    const user = await this.userModel.findOne({ dni }).select('+verifyCode +verifyCodeExpires +verificationAttempts +isLockedForSpam');
     if (!user || user.emailVerifiedAt) return { sent: false };
-    await this.issueVerificationCode(user);
-    return { sent: true };
+    if (user.isLockedForSpam) {
+      throw new UnauthorizedException('LOCKED_SUPPORT: Has superado el límite de correos. Comunícate con soporte.');
+    }
+    const attempts = await this.issueVerificationCode(user);
+    return { sent: true, attempts };
   }
 
   /**
