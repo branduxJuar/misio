@@ -178,9 +178,11 @@ export class AuthService {
   }
 
   /** POST /auth/verify-email — valida el código y entrega la sesión. */
-  async verifyEmail(dni: string, code: string) {
+  async verifyEmail(identifier: string, code: string) {
+    const isEmail = identifier.includes('@');
+    const query = isEmail ? { email: identifier.trim().toLowerCase() } : { dni: identifier.trim() };
     const user = await this.userModel
-      .findOne({ dni })
+      .findOne(query)
       .select('+passwordHash +verifyCode +verifyCodeExpires');
     if (!user) throw new UnauthorizedException('Cuenta no encontrada');
     if (user.emailVerifiedAt) return await this.buildAuthResponse(user);
@@ -205,8 +207,10 @@ export class AuthService {
   }
 
   /** POST /auth/resend-code — reenvía el código (si sigue sin verificar). */
-  async resendCode(dni: string) {
-    const user = await this.userModel.findOne({ dni }).select('+verifyCode +verifyCodeExpires +verificationAttempts +isLockedForSpam');
+  async resendCode(identifier: string) {
+    const isEmail = identifier.includes('@');
+    const query = isEmail ? { email: identifier.trim().toLowerCase() } : { dni: identifier.trim() };
+    const user = await this.userModel.findOne(query).select('+verifyCode +verifyCodeExpires +verificationAttempts +isLockedForSpam');
     if (!user || user.emailVerifiedAt) return { sent: false };
     if (user.isLockedForSpam) {
       throw new UnauthorizedException('LOCKED_SUPPORT: Has superado el límite de correos. Comunícate con soporte.');

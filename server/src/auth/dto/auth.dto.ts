@@ -61,7 +61,7 @@ export class LoginDto {
 
 
 export class VerifyEmailDto {
-  @Matches(/^\d{8}$/, { message: 'DNI: 8 dígitos' })
+  @IsString({ message: 'El identificador es requerido' })
   dni: string;
 
   @Matches(/^\d{6}$/, { message: 'El código tiene 6 dígitos' })
