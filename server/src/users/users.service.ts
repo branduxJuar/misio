@@ -427,7 +427,7 @@ export class UsersService {
     let user;
 
     if (wallet === 'canje') {
-      user = await this.userModel.findOne({ _id: userId, walletCanje: { $gte: delta < 0 ? -delta : 0 } }).session(session);
+      user = await this.userModel.findOne({ _id: userId, walletCanje: { $gte: delta < 0 ? -delta : 0 } }).session(session || null);
       if (!user) {
         throw new NotFoundException('Saldo de CANJE insuficiente (este saldo viene de los reembolsos Cero Pérdida)');
       }
@@ -518,7 +518,7 @@ export class UsersService {
       if (!user.canjeTranches) continue;
       
       let expiredAmount = 0;
-      const validTranches = [];
+      const validTranches: any[] = [];
       
       for (const tranche of user.canjeTranches) {
         if (tranche.expiresAt < now) {
