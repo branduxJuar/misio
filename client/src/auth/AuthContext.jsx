@@ -101,14 +101,21 @@ export function AuthProvider({ children }) {
       loading,
       isAdmin: user?.role === 'admin',
 
-      login: async (identifier, password) =>
-        handleAuth(await api('/auth/login', { method: 'POST', body: { identifier, password } })),
+      login: async (identifier, password) => {
+        const encoded = btoa(unescape(encodeURIComponent(password)));
+        return handleAuth(await api('/auth/login', { method: 'POST', body: { identifier, password: encoded } }));
+      },
 
       refreshUser,
       verifyEmail: async (dni, code) =>
         handleAuth(await api('/auth/verify-email', { method: 'POST', body: { dni, code } })),
-      register: async (form) =>
-        handleAuth(await api('/auth/register', { method: 'POST', body: form })),
+      register: async (form) => {
+        const payload = { ...form };
+        if (payload.password) {
+          payload.password = btoa(unescape(encodeURIComponent(payload.password)));
+        }
+        return handleAuth(await api('/auth/register', { method: 'POST', body: payload }));
+      },
 
       logout: () => {
         // Revocar el refresh en el servidor (el access expira solo en 2h)

@@ -13,6 +13,9 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('register')
   register(@Body() dto: RegisterDto) {
+    if (dto.password) {
+      dto.password = Buffer.from(dto.password, 'base64').toString('utf8');
+    }
     return this.authService.register(dto);
   }
 
@@ -36,6 +39,9 @@ export class AuthController {
   @Throttle({ default: { limit: 8, ttl: 60_000 } })
   @Post('login')
   login(@Body() dto: LoginDto) {
+    if (dto.password) {
+      dto.password = Buffer.from(dto.password, 'base64').toString('utf8');
+    }
     return this.authService.login(dto);
   }
 
