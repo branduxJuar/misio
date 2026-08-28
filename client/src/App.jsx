@@ -623,6 +623,7 @@ export default function App() {
           <Announcements />
           <ForcePasswordChange />
           <InstallPrompt />
+          <ReloadPrompt />
           <Routes>
             {/* 1 · Acceso */}
             <Route path="/login" element={<AuthPage />} />
