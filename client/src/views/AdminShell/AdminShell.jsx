@@ -139,10 +139,10 @@ export default function AdminShell() {
       )}
       {!collapsed && (
         <div style={{ overflow: 'hidden' }}>
-          <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.1, color: '#ffffff' }}>
+          <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.1, color: mode === 'dark' ? '#ffffff' : 'var(--z-primary)' }}>
             {site.brandName}
           </div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 500, marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: mode === 'dark' ? 'rgba(255,255,255,0.6)' : 'var(--z-text-muted)', fontWeight: 500, marginTop: 2 }}>
             Workspace
           </div>
         </div>
@@ -152,7 +152,7 @@ export default function AdminShell() {
 
   const sideMenu = (
     <Menu
-      theme="dark"
+      theme={mode}
       mode="inline"
       selectedKeys={[selected]}
       items={menuItems}
@@ -171,7 +171,7 @@ export default function AdminShell() {
           trigger={null}
           width={236}
           style={{
-            background: 'var(--z-admin-side)',
+            background: mode === 'dark' ? 'var(--z-admin-side)' : 'var(--z-bg-elevated)',
             borderRight: '1px solid var(--z-border)',
             position: 'fixed',
             insetInlineStart: 0,
@@ -190,7 +190,7 @@ export default function AdminShell() {
           onClose={() => setDrawer(false)}
           placement="left"
           width={260}
-          styles={{ body: { padding: 0 }, header: { display: 'none' } }}
+          styles={{ body: { padding: 0, background: mode === 'dark' ? 'var(--z-admin-side)' : 'var(--z-bg-elevated)' }, header: { display: 'none' } }}
         >
           {brand}
           {sideMenu}
