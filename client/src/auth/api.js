@@ -73,10 +73,10 @@ export async function api(path, { method = 'GET', body } = {}) {
   if (res.status === 401) {
     let msg = Array.isArray(data.message) ? data.message[0] : data.message;
     
-    // Si es un error de verificación de correo durante el login, no es una sesión expirada.
-    // Lo lanzamos directamente para que AuthPage lo capture y muestre la pantalla de código.
-    if (msg && (msg.startsWith('VERIFY_EMAIL:') || msg.startsWith('LOCKED_SUPPORT:'))) {
-      throw new Error(msg);
+    // Si es un error durante el login (credenciales, correo, etc), no es una sesión expirada.
+    // Lo lanzamos directamente para que AuthPage lo capture y lo muestre.
+    if (path === '/auth/login' || (msg && (msg.startsWith('VERIFY_EMAIL:') || msg.startsWith('LOCKED_SUPPORT:')))) {
+      throw new Error(msg || 'Error de autenticación');
     }
 
     if (tokenStore.getRefresh()) {
