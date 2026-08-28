@@ -63,7 +63,8 @@ export default function InstallPrompt() {
   // Mostrar el banner SOLO si el usuario está logueado y tenemos el evento
   // (o es iOS donde no hay evento).
   useEffect(() => {
-    if (isStandalone() || recentlyDismissed()) return;
+    // Si ya está instalada, descartada, o es una pantalla de computadora (Desktop), no molestamos.
+    if (isStandalone() || recentlyDismissed() || window.innerWidth > 768) return;
 
     if (user && deferred) {
       const t = setTimeout(() => setVisible(true), 1500);
