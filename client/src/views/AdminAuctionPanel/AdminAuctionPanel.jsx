@@ -11,12 +11,12 @@ import {
 import dayjs from 'dayjs';
 import { io } from 'socket.io-client';
 import { MISIO_COLORS } from '../../theme/misioTheme';
-import { api, tokenStore } from '../../auth/api';
+import { api, tokenStore, SERVER_URL } from '../../auth/api';
 import { toEmbedSrc } from '../../utils/stream';
 
 const { Title, Text } = Typography;
 const { Timer } = Statistic;
-const WS_URL = import.meta.env.VITE_WS_URL ?? 'http://localhost:3000';
+const WS_URL = (import.meta.env.VITE_WS_URL || SERVER_URL).replace(/\/api\/v1\/?$/, '');
 
 /**
  * 🎙️ PANEL MODERADOR DE SUBASTA (/admin/subasta/:id) — el "modo en vivo":

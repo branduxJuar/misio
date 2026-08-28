@@ -16,7 +16,7 @@ import { toEmbedSrc } from '../../utils/stream';
 
 const { Title, Text } = Typography;
 const { Timer } = Statistic;
-const WS_URL = import.meta.env.VITE_WS_URL ?? 'http://localhost:3000';
+const WS_URL = (import.meta.env.VITE_WS_URL || SERVER_URL).replace(/\/api\/v1\/?$/, '');
 
 /**
  * 🔨 SALA DE SUBASTA (/subasta/:id) — SOLO matriculados.

@@ -14,12 +14,12 @@ import {
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { toEmbedSrc } from '../../utils/stream';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api, tokenStore } from '../../auth/api';
+import { api, tokenStore, SERVER_URL } from '../../auth/api';
 import { useAuth } from '../../auth/AuthContext';
 
 const { Title, Text } = Typography;
 
-const WS_URL = import.meta.env.VITE_WS_URL ?? 'http://localhost:3000';
+const WS_URL = (import.meta.env.VITE_WS_URL || SERVER_URL).replace(/\/api\/v1\/?$/, '');
 
 /**
  * LiveDrawRoom v2 — "Modo Presentador" en TIEMPO REAL.
