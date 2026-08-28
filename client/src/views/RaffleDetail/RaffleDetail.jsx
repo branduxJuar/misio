@@ -16,7 +16,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { api, SERVER_URL, tokenStore } from '../../auth/api';
 import { io } from 'socket.io-client';
 
-const WS_URL = import.meta.env.VITE_WS_URL ?? 'http://localhost:3000';
+const WS_URL = (import.meta.env.VITE_WS_URL || SERVER_URL).replace(/\/api\/v1\/?$/, '');
 import RechargeModal from '../../components/RechargeModal';
 import { printTickets, shareWhatsAppImage } from '../../utils/ticketPrinter';
 

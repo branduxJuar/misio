@@ -12,10 +12,10 @@ import {
 import { io } from 'socket.io-client';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useAuth } from '../../auth/AuthContext';
-import { api, tokenStore } from '../../auth/api';
+import { api, tokenStore, SERVER_URL } from '../../auth/api';
 
 const { Title, Text } = Typography;
-const WS_URL = import.meta.env.VITE_WS_URL ?? 'http://localhost:3000';
+const WS_URL = (import.meta.env.VITE_WS_URL || SERVER_URL).replace(/\/api\/v1\/?$/, '');
 const BINGO_LETTERS = ['B', 'I', 'N', 'G', 'O'];
 /** Un color por columna, como las cartillas de toda la vida. */
 const COL_COLORS = ['#0d9488', '#38bdf8', '#34d399', '#e8b84a', '#f0526b'];
