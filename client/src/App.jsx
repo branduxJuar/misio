@@ -16,8 +16,7 @@ import { useSite } from './theme/SiteProvider';
 import { api, SERVER_URL } from './auth/api';
 import Announcements from './components/Announcements';
 import ForcePasswordChange from './components/ForcePasswordChange';
-import InstallPrompt, { useInstallApp } from './components/InstallPrompt';
-import ReloadPrompt from './components/ReloadPrompt';
+
 import AdminShell, { ADMIN_MENU } from './views/AdminShell/AdminShell';
 import ProtectedRoute from './auth/ProtectedRoute';
 import { MISIO_COLORS } from './theme/misioTheme';
@@ -143,7 +142,6 @@ function UnreadBadge() {
 function SessionCorner({ compact }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { canInstall, install } = useInstallApp();
 
   if (!user) {
     return (
@@ -191,16 +189,7 @@ function SessionCorner({ compact }) {
             onClick: () => navigate('/perfil'),
             style: { padding: '10px 14px', borderRadius: 8 }
           },
-          ...(canInstall
-            ? [{ type: 'divider' },
-               {
-                 key: 'install',
-                 icon: <ThunderboltFilled style={{ fontSize: 16, color: '#0284c7' }} />,
-                 label: <span style={{ fontWeight: 600, color: '#334155' }}>Instalar App</span>,
-                 onClick: () => { install(); },
-                 style: { padding: '10px 14px', borderRadius: 8 }
-               }]
-            : []),
+
           // El panel de administración solo aparece para el personal
           ...(isStaff
             ? [{ type: 'divider' },
@@ -622,8 +611,7 @@ export default function App() {
         >
           <Announcements />
           <ForcePasswordChange />
-          <InstallPrompt />
-          <ReloadPrompt />
+
           <Routes>
             {/* 1 · Acceso */}
             <Route path="/login" element={<AuthPage />} />
