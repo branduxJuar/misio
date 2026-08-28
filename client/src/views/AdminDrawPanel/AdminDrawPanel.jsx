@@ -18,7 +18,7 @@ import * as XLSX from 'xlsx';
 import Roulette from '../../components/Roulette';
 
 const { Title, Text } = Typography;
-const WS_URL = (import.meta.env.VITE_WS_URL || SERVER_URL).replace(/\/api\/v1\/?$/, '');
+const WS_URL = (import.meta.env.VITE_WS_URL || SERVER_URL).replace(/\/api\/v1\/?$/, '').replace(/\/+$/, '');
 
 /**
  * SPRINT 2 — PANEL ESPECIALIZADO DEL SORTEO (/admin/sorteo/:id).

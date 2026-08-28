@@ -19,7 +19,7 @@ import { useAuth } from '../../auth/AuthContext';
 
 const { Title, Text } = Typography;
 
-const WS_URL = (import.meta.env.VITE_WS_URL || SERVER_URL).replace(/\/api\/v1\/?$/, '');
+const WS_URL = (import.meta.env.VITE_WS_URL || SERVER_URL).replace(/\/api\/v1\/?$/, '').replace(/\/+$/, '');
 
 /**
  * LiveDrawRoom v2 — "Modo Presentador" en TIEMPO REAL.
