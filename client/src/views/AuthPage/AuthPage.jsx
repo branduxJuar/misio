@@ -34,6 +34,7 @@ export default function AuthPage() {
   const site = useSite();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const [tab, setTab] = useState('login');
   const [submitting, setSubmitting] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
@@ -43,6 +44,19 @@ export default function AuthPage() {
   const [msgApi, contextHolder] = message.useMessage();
 
   const redirectTo = location.state?.from ?? '/';
+
+  React.useEffect(() => {
+    if (user && !verifying) {
+      // Si ya hay usuario, sacarlo de aquí
+      let finalRedirect = redirectTo;
+      if (finalRedirect === '/') {
+        finalRedirect = ['admin', 'operator', 'presenter', 'seller'].includes(user.role) 
+          ? '/admin' 
+          : '/mi-cuenta';
+      }
+      navigate(finalRedirect, { replace: true });
+    }
+  }, [user, verifying, navigate, redirectTo]);
 
   // UTM tracking: si el usuario llegó con ?utm_source=whatsapp&utm_campaign=iphone16,
   // lo mandamos al backend al registrarse. Una línea que te dice de dónde viene cada usuario.
@@ -69,7 +83,22 @@ export default function AuthPage() {
       } else {
         msgApi.success(`¡Bienvenido a ${site.brandName}! ⚡`);
       }
-      navigate(redirectTo, { replace: true });
+
+      let finalRedirect = redirectTo;
+      if (finalRedirect === '/') {
+        const role = res?.user?.role;
+        if (role === 'admin' || role === 'operator' || role === 'presenter' || role === 'seller') {
+          finalRedirect = '/admin';
+        } else {
+          finalRedirect = '/mi-cuenta';
+        }
+      }
+
+      // Dar un pequeño respiro para que React actualice el AuthContext global
+      // antes de que el router evalúe ProtectedRoute.
+      setTimeout(() => {
+        navigate(finalRedirect, { replace: true });
+      }, 50);
     } catch (err) {
       if (err.message?.startsWith('VERIFY_EMAIL:')) {
         const dni = loginRef.current;
