@@ -303,7 +303,7 @@ export default function UserDashboard() {
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: 8 }}>
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex: 1, position: 'relative' }}>
                         <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, display: 'block' }}>Saldo de Canje</Text>
                         <Tooltip title={
                           profile.canjeTranches?.length > 0 ? (
@@ -326,6 +326,26 @@ export default function UserDashboard() {
                             )}
                           </Text>
                         </Tooltip>
+                        
+                        {/* ⚠️ ALERTA VISIBLE DE VENCIMIENTO */}
+                        {profile.canjeTranches?.length > 0 && (() => {
+                           // Tomamos el tramo que vence más pronto
+                           const soonest = [...profile.canjeTranches].sort((a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime())[0];
+                           const days = Math.ceil((new Date(soonest.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                           if (days <= 5) {
+                             return (
+                               <div style={{ marginTop: 2 }}>
+                                 <span style={{ 
+                                   fontSize: 10, background: 'rgba(255,77,109,0.2)', color: MISIO_COLORS.danger, 
+                                   padding: '2px 6px', borderRadius: 4, fontWeight: 600, display: 'inline-block' 
+                                 }}>
+                                   ⚠️ Expira en {days > 0 ? `${days}d` : 'hoy'}
+                                 </span>
+                               </div>
+                             );
+                           }
+                           return null;
+                        })()}
                       </div>
                       <div style={{ flex: 1, textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.1)', borderRight: Number(profile.walletHeld ?? 0) > 0 ? '1px solid rgba(255,255,255,0.1)' : 'none', padding: '0 8px' }}>
                         <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, display: 'block' }}>En Juego</Text>
