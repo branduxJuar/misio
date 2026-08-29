@@ -57,7 +57,7 @@ export class AccountingController {
 
     const [
       deposits, ticketSales, storeCanje, storeVenta, refundsCanje,
-      cancelRefunds, bonuses, auctionPayments, walletAgg, erpAgg, pendingDeposits,
+      cancelRefunds, bonuses, auctionPayments, walletAgg, erpAgg, pendingDeposits, expiringAgg,
     ] = await Promise.all([
       sum({ type: { $in: [TransactionType.DEPOSIT_YAPE, TransactionType.OFFLINE_SALE] } }), // 💵 dinero real que ENTRÓ
       sum({ type: TransactionType.TICKET_PURCHASE }),
@@ -86,6 +86,17 @@ export class AccountingController {
         type: TransactionType.DEPOSIT_YAPE,
         status: TransactionStatus.PENDING,
       }),
+      this.userModel.aggregate([
+        { $unwind: '$canjeTranches' },
+        { $match: { 'canjeTranches.expiresAt': { $gt: new Date() } } },
+        {
+          $group: {
+            _id: null,
+            totalExpiring: { $sum: '$canjeTranches.amount' },
+            nextExpirationDate: { $min: '$canjeTranches.expiresAt' },
+          },
+        },
+      ]),
     ]);
 
     const wallets = walletAgg[0] ?? { contable: 0, canje: 0, held: 0 };
@@ -117,6 +128,8 @@ export class AccountingController {
         canje: wallets.canje ?? 0,
         held: wallets.held ?? 0,
         total: (wallets.contable ?? 0) + (wallets.canje ?? 0) + (wallets.held ?? 0),
+        expiringAmount: expiringAgg[0]?.totalExpiring ?? 0,
+        nextExpirationDate: expiringAgg[0]?.nextExpirationDate ?? null,
       },
       queue: { pendingDeposits },
     };

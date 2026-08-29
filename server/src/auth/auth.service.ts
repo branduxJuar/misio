@@ -81,7 +81,8 @@ export class AuthService {
       if (fresh) user.walletBalance = fresh.walletBalance;
     }
 
-    return { ...this.buildAuthResponse(user), welcomeBonus };
+    const authResponse = await this.buildAuthResponse(user);
+    return { ...authResponse, welcomeBonus };
   }
 
   /** Login por DNI + contraseña. Mensaje genérico para no filtrar si el DNI existe. */
