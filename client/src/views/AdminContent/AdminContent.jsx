@@ -4,7 +4,7 @@ import 'react-quill/dist/quill.snow.css';
 import {
   Card, Col, Row, Typography, Form, Input, Button, message, Upload, Space,
   Alert, Tag, ColorPicker, Divider, Image, Switch, Popconfirm, Select, Tabs,
-  Table, Modal
+  Table, Modal, Grid
 } from 'antd';
 import { SaveOutlined, UploadOutlined, EyeOutlined } from '@ant-design/icons';
 import { MISIO_COLORS } from '../../theme/misioTheme';
@@ -23,6 +23,8 @@ const { Title, Text } = Typography;
 export default function AdminContent() {
   const [msgApi, contextHolder] = message.useMessage();
   const site = useSite();
+  const screens = Grid.useBreakpoint();
+  const isDesktop = screens.md;
   const { data, demo, refresh } = useApiOrMock('/site', {});
   const demoRef = useRef(demo);
   useEffect(() => { demoRef.current = demo; }, [demo]);
@@ -242,6 +244,17 @@ export default function AdminContent() {
     },
   };
 
+  const [activeTab, setActiveTab] = useState('identity');
+
+  const tabOptions = [
+    { value: 'identity', label: '🎨 Identidad visual' },
+    { value: 'home', label: '🚀 Página Principal' },
+    { value: 'about', label: '🏢 Nosotros & Beneficios' },
+    { value: 'legal', label: '⚖️ Legal' },
+    { value: 'announcements', label: '📢 Avisos' },
+    { value: 'system', label: '🔧 Sistema' },
+  ];
+
   return (
     <div>
       {contextHolder}
@@ -255,8 +268,23 @@ export default function AdminContent() {
       {demo && <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Modo demo." />}
 
       <Form form={form} layout="vertical" onFinish={save} requiredMark={false}>
+        {!isDesktop && (
+          <div style={{ marginBottom: 16 }}>
+            <Select 
+              value={activeTab}
+              onChange={setActiveTab}
+              style={{ width: '100%' }}
+              size="large"
+              options={tabOptions}
+            />
+          </div>
+        )}
         <Tabs
-          tabPosition="left"
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          tabPosition={isDesktop ? 'left' : 'top'}
+          renderTabBar={!isDesktop ? () => null : undefined}
+          style={{ width: '100%' }}
           items={[
             {
               key: 'identity',

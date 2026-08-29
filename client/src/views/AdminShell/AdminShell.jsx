@@ -50,10 +50,10 @@ export const ADMIN_MENU = [
   {
     group: 'Configuración',
     items: [
-      { key: '/admin/usuarios', perm: 'usuarios', icon: <TeamOutlined />, label: 'Usuarios y permisos' },
+      { key: '/admin/usuarios', perm: 'usuarios', icon: <TeamOutlined />, label: 'Usuarios' },
       { key: '/admin/contenido', perm: 'contenido', icon: <LayoutOutlined />, label: 'Contenido y marca' },
       { key: '/admin/auditoria', perm: 'usuarios', icon: <SafetyCertificateOutlined />, label: 'Auditoría' },
-      { key: '/admin/server-stats', perm: 'dashboard', icon: <DesktopOutlined />, label: 'Estado del Servidor' },
+      { key: '/admin/server-stats', perm: 'dashboard', icon: <DesktopOutlined />, label: 'Servidor' },
     ],
   },
 ];
@@ -139,10 +139,10 @@ export default function AdminShell() {
       )}
       {!collapsed && (
         <div style={{ overflow: 'hidden' }}>
-          <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.1, color: mode === 'dark' ? '#ffffff' : 'var(--z-primary)' }}>
+          <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.1, color: '#ffffff' }}>
             {site.brandName}
           </div>
-          <div style={{ fontSize: 11, color: mode === 'dark' ? 'rgba(255,255,255,0.6)' : 'var(--z-text-muted)', fontWeight: 500, marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 500, marginTop: 2 }}>
             Workspace
           </div>
         </div>
@@ -152,7 +152,7 @@ export default function AdminShell() {
 
   const sideMenu = (
     <Menu
-      theme={mode}
+      theme="dark"
       mode="inline"
       selectedKeys={[selected]}
       items={menuItems}
@@ -171,8 +171,8 @@ export default function AdminShell() {
           trigger={null}
           width={236}
           style={{
-            background: mode === 'dark' ? 'var(--z-admin-side)' : 'var(--z-bg-elevated)',
-            borderRight: '1px solid var(--z-border)',
+            background: 'var(--z-admin-side)',
+            borderRight: '1px solid rgba(255,255,255,0.1)',
             position: 'fixed',
             insetInlineStart: 0,
             top: 0,
@@ -190,7 +190,7 @@ export default function AdminShell() {
           onClose={() => setDrawer(false)}
           placement="left"
           width={260}
-          styles={{ body: { padding: 0, background: mode === 'dark' ? 'var(--z-admin-side)' : 'var(--z-bg-elevated)' }, header: { display: 'none' } }}
+          styles={{ body: { padding: 0, background: 'var(--z-admin-side)' }, header: { display: 'none' } }}
         >
           {brand}
           {sideMenu}
@@ -249,7 +249,7 @@ export default function AdminShell() {
             >
               <div style={{ 
                 display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
-                background: 'var(--z-admin-bg)', padding: '4px 12px 4px 4px', borderRadius: 999,
+                background: 'var(--z-admin-bg)', padding: isDesktop ? '4px 12px 4px 4px' : '4px', borderRadius: 999,
                 border: '1px solid var(--z-border)', transition: 'background 0.2s'
               }}
               onMouseEnter={(e) => e.currentTarget.style.background = 'var(--z-bg-elevated)'}

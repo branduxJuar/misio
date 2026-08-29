@@ -461,7 +461,7 @@ export default function AdminRaffles() {
                   <Button
                     type="primary"
                     icon={['completed', 'live'].includes(r.status) ? <EyeFilled /> : <PlayCircleFilled />}
-                    onClick={() => navigate(`/admin/sorteo-en-vivo/${r._id}`)}
+                    onClick={() => navigate(`/admin/sorteo/${r._id}`)}
                   >
                     Panel
                   </Button>
@@ -538,18 +538,18 @@ export default function AdminRaffles() {
           </Space.Compact>
 
           <Form.Item name="type" label="Tipo de sorteo" rules={[{ required: true }]}>
-            <Radio.Group buttonStyle="solid">
-              <Radio.Button value="normal">Normal (1 premio)</Radio.Button>
-              <Radio.Button value="paquete">Paquete (Múltiples premios)</Radio.Button>
+            <Radio.Group buttonStyle="solid" style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              <Radio.Button value="normal" style={{ flex: '1 1 auto', textAlign: 'center', borderRadius: 6 }}>Normal (1 premio)</Radio.Button>
+              <Radio.Button value="paquete" style={{ flex: '1 1 auto', textAlign: 'center', borderRadius: 6 }}>Paquete (Múltiples premios)</Radio.Button>
             </Radio.Group>
           </Form.Item>
 
           {watchType !== 'paquete' ? (
             <>
               <Form.Item name="drawMode" label="Formato del sorteo" rules={[{ required: true }]}>
-                <Radio.Group>
-                  <Radio.Button value="direct">🎯 Ganador directo</Radio.Button>
-                  <Radio.Button value="al_agua">💧 Con tiradas al agua</Radio.Button>
+                <Radio.Group style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  <Radio.Button value="direct" style={{ flex: '1 1 auto', textAlign: 'center', borderRadius: 6 }}>🎯 Ganador directo</Radio.Button>
+                  <Radio.Button value="al_agua" style={{ flex: '1 1 auto', textAlign: 'center', borderRadius: 6 }}>💧 Con tiradas al agua</Radio.Button>
                 </Radio.Group>
               </Form.Item>
               {watchMode === 'al_agua' && (

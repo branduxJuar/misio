@@ -647,10 +647,10 @@ export default function AdminDrawPanel() {
             <Col xs={24} md={13} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <Segmented
                 options={[
-                  { label: 'Estadística', value: 'resumen' },
-                  { label: 'En Juego', value: 'en_juego' },
-                  { label: 'Al Agua', value: 'al_agua' },
-                  { label: 'Ganadores', value: 'ganadores' }
+                  { label: <span style={{ fontSize: 12, fontWeight: 500 }}>Estadísticas</span>, value: 'resumen' },
+                  { label: <span style={{ fontSize: 12, fontWeight: 500 }}>En Juego</span>, value: 'en_juego' },
+                  { label: <span style={{ fontSize: 12, fontWeight: 500 }}>Al Agua</span>, value: 'al_agua' },
+                  { label: <span style={{ fontSize: 12, fontWeight: 500 }}>Ganadores</span>, value: 'ganadores' }
                 ]}
                 value={activeTab}
                 onChange={setActiveTab}
@@ -755,7 +755,11 @@ export default function AdminDrawPanel() {
                                   {(p.unmaskedName || p.user?.name || p.name || 'C').charAt(0).toUpperCase()}
                                 </Avatar>
                                 <Text strong style={{ fontSize: 12, color: '#1a1a1a' }} ellipsis>
-                                  {p.unmaskedName || p.user?.name || p.name || 'Cliente Misio'}
+                                  {(() => {
+                                    const raw = p.unmaskedName || p.user?.name || p.name || 'Cliente Misio';
+                                    if (raw.length <= 3) return raw.charAt(0).toUpperCase() + raw.slice(1) + '...';
+                                    return raw.charAt(0).toUpperCase() + raw.slice(1, 3) + '...';
+                                  })()}
                                 </Text>
                                 {p.isOffline && <span style={{ backgroundColor: '#ffe5e5', color: '#ff4d4f', fontSize: 9, padding: '2px 4px', borderRadius: 4, fontWeight: 'bold', flexShrink: 0 }}>POS</span>}
                               </div>

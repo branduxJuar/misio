@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Card, Table, Tag, Typography, Select, Space, Alert, Button, Tooltip,
+  Card, Table, Tag, Typography, Select, Space, Alert, Button, Tooltip, List, Grid,
 } from 'antd';
 import { ReloadOutlined, SafetyCertificateFilled } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -34,6 +34,8 @@ const MODULES = ['pagos', 'usuarios', 'sorteos', 'tienda', 'erp', 'subastas', 'c
  */
 export default function AdminAudit() {
   const [module, setModule] = useState();
+  const screens = Grid.useBreakpoint();
+  const isDesktop = screens.lg;
   const { data: logs, demo, refresh } = useApiOrMock(
     module ? `/audit?module=${module}` : '/audit', MOCK,
   );
@@ -111,14 +113,14 @@ export default function AdminAudit() {
 
       <Card
         size="small"
-        style={{ marginTop: 16 }}
+        style={{ marginTop: 16, borderRadius: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.05)' }}
         title={<>Registros <Tag>{logs.length}</Tag></>}
         extra={
           <Space>
             <Select
               allowClear
               placeholder="Todos los módulos"
-              style={{ width: 170 }}
+              style={{ width: isDesktop ? 170 : 130 }}
               value={module}
               onChange={setModule}
               options={MODULES.map((m) => ({ value: m, label: m }))}
@@ -127,14 +129,50 @@ export default function AdminAudit() {
           </Space>
         }
       >
-        <Table
-          dataSource={logs}
-          columns={columns}
-          rowKey="_id"
-          size="small"
-          scroll={{ x: 720 }}
-          pagination={{ pageSize: 20, showSizeChanger: false }}
-        />
+        {isDesktop ? (
+          <Table
+            dataSource={logs}
+            columns={columns}
+            rowKey="_id"
+            size="small"
+            pagination={{ pageSize: 20, showSizeChanger: false }}
+          />
+        ) : (
+          <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: 4 }}>
+            <List
+              dataSource={logs}
+              pagination={{ pageSize: 20, size: 'small', showSizeChanger: false }}
+              renderItem={(r) => (
+                <List.Item style={{ padding: '0 0 12px' }}>
+                  <Card size="small" style={{ width: '100%', borderRadius: 12, border: 'none', backgroundColor: MISIO_COLORS.primary, boxShadow: '0 4px 16px rgba(0,163,143,0.3)' }} styles={{ body: { padding: '16px' } }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#fff' }}>{r.actorName}</Text>
+                      {r.success ? <Tag color="success" style={{ margin: 0 }}>✓</Tag> : <Tag color="error" style={{ margin: 0 }}>✗</Tag>}
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <Tag color={r.actorRole === 'admin' ? MISIO_COLORS.prizeGold : MISIO_COLORS.electricBlue} style={{ fontSize: 10, border: 'none' }}>
+                        {r.actorRole?.toUpperCase()}
+                      </Tag>
+                      <Tag style={{ margin: 0, fontSize: 10, border: 'none', color: MISIO_COLORS.primary, backgroundColor: '#fff' }}>{r.module || '—'}</Tag>
+                      <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginLeft: 8 }}>
+                        {dayjs(r.createdAt).format('DD/MM HH:mm')}
+                      </Text>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.1)', padding: 8, borderRadius: 6, border: '1px solid rgba(255,255,255,0.2)' }}>
+                      <Text code style={{ fontSize: 11, display: 'block', wordBreak: 'break-all', whiteSpace: 'normal', backgroundColor: 'rgba(255,255,255,0.2)', color: '#fff', border: 'none' }}>{r.action}</Text>
+                      {r.targetId && <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', display: 'block', marginTop: 4 }}>sobre {r.targetId}</Text>}
+                      {Object.keys(r.meta ?? {}).length > 0 && (
+                        <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', display: 'block', marginTop: 4 }}>
+                          {Object.entries(r.meta).map(([k, v]) => `${k}: ${v}`).join(' · ')}
+                        </Text>
+                      )}
+                    </div>
+                  </Card>
+                </List.Item>
+              )}
+            />
+          </div>
+        )}
       </Card>
     </div>
   );

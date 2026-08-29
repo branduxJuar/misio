@@ -3,7 +3,7 @@ import TicketCard from '../../components/TicketCard';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Divider, Tabs, Grid, Space, Steps, Tooltip,
-  Card, Col, Row, Statistic, Table, Tag, Typography, Button, List, Avatar, message, Alert, Empty,
+  Card, Col, Row, Statistic, Table, Tag, Typography, Button, List, Avatar, message, Alert, Empty, Select,
 } from 'antd';
 import {
   WalletFilled, HistoryOutlined, GiftFilled, ArrowUpOutlined, ArrowDownOutlined, TrophyFilled, FilePdfOutlined, InfoCircleOutlined
@@ -86,7 +86,7 @@ const ticketColumns = [
 export default function UserDashboard() {
   const { useBreakpoint } = Grid;
   const screens = useBreakpoint();
-  const [msgApi, contextHolder] = message.useMessage();
+  const isMobile = !screens.md;
   const navigate = useNavigate();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
@@ -94,11 +94,12 @@ export default function UserDashboard() {
 
   const [recharging, setRecharging] = useState(false);
   const [activeTab, setActiveTab] = useState(defaultTab);
+  const [msgApi, contextHolder] = message.useMessage();
 
   const { data: profile, demo, refresh: reloadProfile } = useApiOrMock('/users/me', MOCK_USER);
   const { data: rawTickets } = useApiOrMock('/tickets/mine', MOCK_USER_TICKETS);
   const { data: rawTxs } = useApiOrMock('/transactions/mine', MOCK_TRANSACTIONS);
-  const { data: notifications } = useApiOrMock('/notifications/mine', []);
+  const { data: inbox } = useApiOrMock('/inbox', []);
   const { data: storeItems, refresh: refreshStore } = useApiOrMock('/store/items', MOCK_STORE_ITEMS);
   const { data: rawMyRedemptions } = useApiOrMock('/store/redemptions/mine', []);
   const { refresh: refreshProfile } = { refresh: () => {} };
@@ -122,7 +123,7 @@ export default function UserDashboard() {
       key: '2',
       label: 'Premios & Correo',
       icon: '🏆',
-      badge: notifications.filter(n => !n.read).length > 0 ? notifications.filter(n => !n.read).length : null,
+      badge: inbox.filter(n => !n.read).length > 0 ? inbox.filter(n => !n.read).length : null,
     },
     {
       key: '3',
@@ -251,29 +252,54 @@ export default function UserDashboard() {
       `}</style>
 
       {/* ── NAVEGACIÓN DE PESTAÑAS (TABS REALES Y COMPACTOS) ───────────── */}
-      <div className="misio-tabs-container">
-        {tabOptions.map((item) => {
-          const isActive = activeTab === item.key;
-          return (
-            <div
-              key={item.key}
-              className={`misio-real-tab ${isActive ? 'active' : 'inactive'}`}
-              onClick={() => setActiveTab(item.key)}
-            >
-              <span style={{ fontSize: '16px', display: 'flex', alignItems: 'center' }}>
-                {item.icon}
-              </span>
-              <span>{item.label}</span>
-              
-              {item.badge !== null && item.badge !== undefined && (
-                <span className="tab-badge">
-                  {item.badge}
+      {isMobile ? (
+        <div style={{ marginBottom: 24 }}>
+          <Select
+            value={activeTab}
+            onChange={setActiveTab}
+            style={{ width: '100%', height: 48 }}
+            size="large"
+            options={tabOptions.map(t => ({
+              value: t.key,
+              label: (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>{t.icon}</span>
+                  <span style={{ fontWeight: 600 }}>{t.label}</span>
+                  {t.badge && (
+                    <Tag color="error" style={{ borderRadius: 10, margin: 0, marginLeft: 'auto' }}>
+                      {t.badge}
+                    </Tag>
+                  )}
+                </div>
+              )
+            }))}
+          />
+        </div>
+      ) : (
+        <div className="misio-tabs-container">
+          {tabOptions.map((item) => {
+            const isActive = activeTab === item.key;
+            return (
+              <div
+                key={item.key}
+                className={`misio-real-tab ${isActive ? 'active' : 'inactive'}`}
+                onClick={() => setActiveTab(item.key)}
+              >
+                <span style={{ fontSize: '16px', display: 'flex', alignItems: 'center' }}>
+                  {item.icon}
                 </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                <span>{item.label}</span>
+                
+                {item.badge !== null && item.badge !== undefined && (
+                  <span className="tab-badge">
+                    {item.badge}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── CONTENIDO DE LA PESTAÑA ACTIVA ───────────────────────────── */}
       <div className="tab-content-fade" key={activeTab}>

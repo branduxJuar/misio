@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import {
   Card, Table, Tag, Button, Space, Typography, message, Alert, Modal, Form,
   Input, InputNumber, Radio, Select, Switch, Row, Col, Tooltip, Popconfirm,
-  Segmented,
+  Segmented, Grid, List,
 } from 'antd';
 import {
   StopOutlined, CheckCircleOutlined, SearchOutlined, GiftOutlined, SaveOutlined, KeyOutlined,
@@ -48,6 +48,8 @@ const ROLE_PRESET = {
 
 export default function AdminUsers() {
   const { user: currentUser } = useAuth();
+  const screens = Grid.useBreakpoint();
+  const isDesktop = screens.lg;
   const [msgApi, contextHolder] = message.useMessage();
   // Paginación y búsqueda EN EL SERVIDOR: traer 100.000 usuarios al
   // navegador para filtrarlos aquí no escala — se pide solo la página.
@@ -474,49 +476,158 @@ export default function AdminUsers() {
         {/* ── Tabla de usuarios ───────────────────────────────────── */}
         <Col xs={24} xl={16}>
           <Card
+            style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.05)', border: 'none', borderRadius: 16 }}
             title={
-              <Space>
-                <Segmented
-                  options={[
-                    { label: 'Todos', value: 'all' },
-                    { label: 'En sesión', value: 'active' }
-                  ]}
-                  value={viewMode}
-                  onChange={setViewMode}
-                />
-                <Tag>{viewMode === 'all' ? (paged.total ?? users.length) : activeUsers.length}</Tag>
-              </Space>
-            }
-            extra={
-              <Space wrap>
-                <Input
-                  prefix={<SearchOutlined />}
-                  placeholder="Buscar por nombre, DNI o celular"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  allowClear
-                  style={{ width: 200 }}
-                />
-                <Button type="primary" icon={<UserAddOutlined />} onClick={() => setCreating(true)}>
-                  Crear usuario
-                </Button>
-              </Space>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <Space>
+                  <Segmented
+                    options={[
+                      { label: 'Todos', value: 'all' },
+                      { label: 'En sesión', value: 'active' }
+                    ]}
+                    value={viewMode}
+                    onChange={setViewMode}
+                  />
+                  <Tag>{viewMode === 'all' ? (paged.total ?? users.length) : activeUsers.length}</Tag>
+                </Space>
+                <div style={{ display: 'flex', gap: 8, flex: '1 1 auto', justifyContent: isDesktop ? 'flex-end' : 'stretch', width: isDesktop ? 'auto' : '100%' }}>
+                  <Input
+                    prefix={<SearchOutlined />}
+                    placeholder="Buscar..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    allowClear
+                    style={{ flex: 1, minWidth: 0, maxWidth: isDesktop ? 220 : 'none' }}
+                  />
+                  <Tooltip title="Crear usuario">
+                    <Button type="primary" icon={<UserAddOutlined />} onClick={() => setCreating(true)}>
+                      {isDesktop && 'Crear usuario'}
+                    </Button>
+                  </Tooltip>
+                </div>
+              </div>
             }
           >
-            <Table
-              dataSource={viewMode === 'all' ? users : activeUsers}
-              columns={viewMode === 'all' ? columns : activeColumns}
-              rowKey="_id"
-              size="middle"
-              scroll={{ x: 560 }}
-              pagination={viewMode === 'all' ? {
-                current: paged.page ?? 1,
-                pageSize: paged.limit ?? 25,
-                total: paged.total ?? users.length,
-                showSizeChanger: false,
-                onChange: setPage,
-              } : { pageSize: 25 }}
-            />
+            {isDesktop ? (
+              <Table
+                dataSource={viewMode === 'all' ? users : activeUsers}
+                columns={viewMode === 'all' ? columns : activeColumns}
+                rowKey="_id"
+                size="middle"
+                scroll={{ x: 560 }}
+                pagination={viewMode === 'all' ? {
+                  current: paged.page ?? 1,
+                  pageSize: paged.limit ?? 25,
+                  total: paged.total ?? users.length,
+                  showSizeChanger: false,
+                  onChange: setPage,
+                } : { pageSize: 25 }}
+              />
+            ) : (
+            <div style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: 4 }}>
+              <List
+                dataSource={viewMode === 'all' ? users : activeUsers}
+                pagination={viewMode === 'all' ? {
+                  current: paged.page ?? 1,
+                  pageSize: paged.limit ?? 25,
+                  total: paged.total ?? users.length,
+                  showSizeChanger: false,
+                  onChange: setPage,
+                  size: 'small',
+                } : { pageSize: 25, size: 'small' }}
+                renderItem={(u) => (
+                  <List.Item style={{ padding: '0 0 12px' }}>
+                    <Card
+                      size="small"
+                      style={{
+                        width: '100%',
+                        borderRadius: 12,
+                        border: '1px solid',
+                        borderColor: u.role === 'admin' ? '#ffd666' : u.role === 'operator' ? '#91caff' : u.role === 'presenter' ? '#ffadd2' : u.role === 'seller' ? '#b7eb8f' : u.role === 'systems' ? '#d3adf7' : MISIO_COLORS.primary,
+                        backgroundColor: u.role === 'admin' ? '#fffbe6' : u.role === 'operator' ? '#e6f4ff' : u.role === 'presenter' ? '#fff0f6' : u.role === 'seller' ? '#f6ffed' : u.role === 'systems' ? '#f9f0ff' : '#f8fafc',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                      }}
+                      styles={{ body: { padding: '16px' } }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+                          <Text strong style={{ fontSize: 14, marginRight: 4 }}>{u.name}</Text>
+                          {u.role === 'admin' && <Tag color={MISIO_COLORS.prizeGold} style={{ margin: 0 }}>ADMIN</Tag>}
+                          {u.role === 'operator' && <Tag color={MISIO_COLORS.electricBlue} style={{ margin: 0 }}>OPER</Tag>}
+                          {u.role === 'presenter' && <Tag color={MISIO_COLORS.primary} style={{ margin: 0 }}>PRESEN</Tag>}
+                          {u.role === 'seller' && <Tag color={MISIO_COLORS.green} style={{ margin: 0 }}>VEND</Tag>}
+                          {u.role === 'systems' && <Tag color="purple" style={{ margin: 0 }}>SISTEMAS</Tag>}
+                        </div>
+                        <div>
+                          {u.banned ? <Tag color="error" style={{ margin: 0 }}>🚫 Banned</Tag> : <Tag color="success" style={{ margin: 0 }}>Activo</Tag>}
+                        </div>
+                      </div>
+                      
+                      <div style={{ marginBottom: 12, background: '#fff', padding: 12, borderRadius: 8, border: '1px solid #f0f0f0' }}>
+                        <Text style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>
+                          {u.email ? `${u.email} · ` : ''}DNI {u.dni} · {u.phone}
+                        </Text>
+                        {u.email && !u.emailVerifiedAt && (
+                          <div style={{ marginTop: 4 }}>
+                            <Tag color="warning" style={{ margin: 0 }}>Falta verificar correo</Tag>
+                          </div>
+                        )}
+                        {viewMode === 'active' && u.sessionStart && (
+                          <div style={{ marginTop: 4 }}>
+                            <Text style={{ fontSize: 11, color: MISIO_COLORS.electricBlue }}>
+                              En sesión: {dayjs().diff(dayjs(u.sessionStart), 'minute') < 1 ? 'Ahora' : `${dayjs().diff(dayjs(u.sessionStart), 'minute')} min`}
+                            </Text>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {viewMode === 'all' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 12 }}>
+                          <Text style={{ color: MISIO_COLORS.saldoGreen, fontSize: 12 }}>Principal: S/ {Number(u.walletBalance ?? 0).toFixed(2)}</Text>
+                          <Text style={{ color: MISIO_COLORS.electricBlue, fontSize: 12 }}>Canje: S/ {Number(u.walletCanje ?? 0).toFixed(2)}</Text>
+                          <Text style={{ color: '#ff4d4f', fontSize: 12 }}>Retenido: S/ {Number(u.walletHeld ?? 0).toFixed(2)}</Text>
+                        </div>
+                      )}
+                      
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--z-border)' }}>
+                        {viewMode === 'all' ? (
+                          <>
+                            {currentUser?.role === 'admin' && (
+                              <Button size="small" icon={<WalletOutlined />} onClick={() => {
+                                setEditingBalances(u);
+                                balancesForm.setFieldsValue({ walletBalance: u.walletBalance ?? 0, walletCanje: u.walletCanje ?? 0, walletHeld: u.walletHeld ?? 0 });
+                              }}>Saldos</Button>
+                            )}
+                            <Button size="small" icon={<MailOutlined />} onClick={() => { messageForm.resetFields(); setMessaging(u); }}>Mensaje</Button>
+                            <Popconfirm title="¿Resetear clave?" okText="Resetear" cancelText="Cancelar" onConfirm={() => resetPassword(u)}>
+                               <Button size="small" icon={<KeyOutlined />}>Clave</Button>
+                            </Popconfirm>
+                            {u.email && !u.emailVerifiedAt && (
+                              <Button size="small" icon={<CheckCircleOutlined />} onClick={() => manualVerifyEmail(u)} style={{ color: MISIO_COLORS.prizeGold, borderColor: MISIO_COLORS.prizeGold }}>
+                                Verificar
+                              </Button>
+                            )}
+                            {u.role !== 'admin' && (u.banned ? (
+                              <Button size="small" icon={<CheckCircleOutlined />} onClick={() => unban(u)}>Reactivar</Button>
+                            ) : (
+                              <Button size="small" danger icon={<StopOutlined />} onClick={() => { banForm.resetFields(); setBanning(u); }}>Banear</Button>
+                            ))}
+                          </>
+                        ) : (
+                          <>
+                            <Button size="small" icon={<MailOutlined />} onClick={() => { messageForm.resetFields(); setMessaging(u); }}>Mensaje</Button>
+                            <Popconfirm title={`Expulsar a ${u.name}`} onConfirm={() => kickUser(u)}>
+                              <Button size="small" danger icon={<StopOutlined />}>Expulsar</Button>
+                            </Popconfirm>
+                          </>
+                        )}
+                      </div>
+                    </Card>
+                  </List.Item>
+                )}
+              />
+            </div>
+            )}
           </Card>
         </Col>
       </Row>

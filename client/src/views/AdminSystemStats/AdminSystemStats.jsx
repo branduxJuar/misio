@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Col, Row, Typography, Statistic, Table, message, Space, Progress, Tag, Button } from 'antd';
+import { Card, Col, Row, Typography, Statistic, Table, message, Space, Progress, Tag, Button, List, Grid } from 'antd';
 import {
   DashboardOutlined, TeamOutlined, DesktopOutlined,
   ThunderboltOutlined, ClockCircleOutlined,
@@ -16,6 +16,8 @@ const { Title, Text } = Typography;
 export default function AdminSystemStats() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
+  const screens = Grid.useBreakpoint();
+  const isDesktop = screens.lg;
 
   useEffect(() => {
     fetchStats();
@@ -64,7 +66,7 @@ export default function AdminSystemStats() {
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px' }}>
       <Title level={2} style={{ marginBottom: 24, marginTop: 0 }}>
         <DashboardOutlined style={{ marginRight: 8, color: MISIO_COLORS.primary }} />
-        Estado del Servidor
+        Servidor
       </Title>
 
       {data && (
@@ -123,16 +125,47 @@ export default function AdminSystemStats() {
           <Card
             title={<Space><TeamOutlined /> Usuarios Activos Recientemente</Space>}
             style={{ borderColor: MISIO_COLORS.border }}
-            bodyStyle={{ padding: 0 }}
+            bodyStyle={isDesktop ? { padding: 0 } : { padding: 12 }}
           >
-            <Table
-              dataSource={data.activeUsers}
-              columns={columns}
-              rowKey="_id"
-              pagination={false}
-              loading={loading}
-              size="middle"
-            />
+            {isDesktop ? (
+              <Table
+                dataSource={data.activeUsers}
+                columns={columns}
+                rowKey="_id"
+                pagination={false}
+                loading={loading}
+                size="middle"
+              />
+            ) : (
+              <div style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                <List
+                  dataSource={data.activeUsers}
+                  loading={loading}
+                  pagination={false}
+                  renderItem={(u) => (
+                    <List.Item style={{ padding: '0 0 12px' }}>
+                      <Card size="small" style={{ width: '100%', borderRadius: 12, border: 'none', backgroundColor: MISIO_COLORS.primary, boxShadow: '0 4px 16px rgba(0,163,143,0.3)' }} styles={{ body: { padding: '16px' } }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                          <Text strong style={{ fontSize: 14, color: '#fff' }}>{u.name}</Text>
+                          <Tag color="processing" style={{ margin: 0, border: 'none' }}>Activo {dayjs(u.updatedAt).fromNow()}</Tag>
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,0.1)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)' }}>
+                          <Text style={{ fontSize: 13, color: '#fff', display: 'block', marginBottom: 4 }}>
+                            <span style={{ color: 'rgba(255,255,255,0.7)' }}>DNI:</span> {u.dni || '—'}
+                          </Text>
+                          <Text style={{ fontSize: 13, color: '#fff', display: 'block' }}>
+                            <span style={{ color: 'rgba(255,255,255,0.7)' }}>Tel:</span> {u.phone || '—'}
+                          </Text>
+                        </div>
+                        <div style={{ marginTop: 12, textAlign: 'right' }}>
+                          <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{dayjs(u.updatedAt).format('DD/MM/YYYY HH:mm')}</Text>
+                        </div>
+                      </Card>
+                    </List.Item>
+                  )}
+                />
+              </div>
+            )}
           </Card>
         </>
       )}

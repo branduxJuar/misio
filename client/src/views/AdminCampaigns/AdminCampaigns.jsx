@@ -240,9 +240,9 @@ export default function AdminCampaigns() {
             pagination={{ pageSize: 10, size: 'small' }}
             renderItem={(r) => (
               <List.Item style={{ padding: '0 0 12px' }}>
-                <Card size="small" style={{ width: '100%', borderRadius: 12, border: '1px solid var(--z-border)', backgroundColor: '#fafafa' }} styles={{ body: { padding: '16px' } }}>
+                <Card size="small" style={{ width: '100%', borderRadius: 12, border: 'none', backgroundColor: MISIO_COLORS.primary, boxShadow: '0 4px 16px rgba(0,163,143,0.3)' }} styles={{ body: { padding: '16px' } }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, alignItems: 'flex-start' }}>
-                    <Text strong style={{ fontSize: 14, flex: 1, marginRight: 8 }}>{r.title}</Text>
+                    <Text strong style={{ fontSize: 14, flex: 1, marginRight: 8, color: '#fff' }}>{r.title}</Text>
                     <div>
                       {r.status === 'sent' ? <Tag color="green" style={{ margin: 0 }}>Activa</Tag>
                         : r.status === 'finished' ? <Tag color="default" style={{ margin: 0 }}>Finalizada</Tag>
@@ -252,27 +252,27 @@ export default function AdminCampaigns() {
                   
                   <div style={{ marginBottom: 12 }}>
                     <Space direction="vertical" size={0}>
-                      {r.target?.audienceType === 'new' && <Text type="secondary" style={{ fontSize: 12 }}>- Público: Nuevos (Sin recargas)</Text>}
-                      {r.target?.audienceType === 'inactive' && <Text type="secondary" style={{ fontSize: 12 }}>- Público: Inactivos ({r.target.monthsInactive} meses)</Text>}
-                      {(!r.target?.audienceType || r.target?.audienceType === 'all') && <Text type="secondary" style={{ fontSize: 12 }}>- Público: Todos los usuarios</Text>}
-                      {r.target?.country ? <Text type="secondary" style={{ fontSize: 12 }}>- País: {r.target.country}</Text> : <Text type="secondary" style={{ fontSize: 12 }}>- País: Global (Todos)</Text>}
+                      {r.target?.audienceType === 'new' && <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>- Público: Nuevos (Sin recargas)</Text>}
+                      {r.target?.audienceType === 'inactive' && <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>- Público: Inactivos ({r.target.monthsInactive} meses)</Text>}
+                      {(!r.target?.audienceType || r.target?.audienceType === 'all') && <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>- Público: Todos los usuarios</Text>}
+                      {r.target?.country ? <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>- País: {r.target.country}</Text> : <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>- País: Global (Todos)</Text>}
                       {r.promo && <Tag color="purple" style={{ marginTop: 4 }}>Código: {r.promo.code}</Tag>}
                     </Space>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--z-text-muted)', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 12 }}>
                     <span>{dayjs(r.createdAt).format('DD/MM/YYYY HH:mm')}</span>
-                    {r.status === 'sent' ? <Text strong>{r.sentCount} usuarios</Text> : <span>-</span>}
+                    {r.status === 'sent' ? <Text strong style={{ color: '#fff' }}>{r.sentCount} usuarios</Text> : <span>-</span>}
                   </div>
 
                   <div style={{ display: 'flex', gap: 8 }}>
                     {r.status === 'draft' && (
-                      <Button block type="primary" size="small" icon={<SendOutlined />} onClick={() => handleSend(r._id)}>
+                      <Button block type="primary" size="small" icon={<SendOutlined />} onClick={() => handleSend(r._id)} style={{ backgroundColor: '#fff', color: MISIO_COLORS.primary }}>
                         Disparar
                       </Button>
                     )}
                     {r.status === 'sent' && (
-                      <Button block danger size="small" onClick={() => handleFinish(r._id)}>
+                      <Button block danger size="small" onClick={() => handleFinish(r._id)} style={{ backgroundColor: '#fecaca', color: '#7f1d1d', borderColor: 'transparent' }}>
                         Finalizar
                       </Button>
                     )}
