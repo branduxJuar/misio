@@ -15,6 +15,15 @@ export class AuthController {
   register(@Body() dto: RegisterDto) {
     if (dto.password) {
       dto.password = Buffer.from(dto.password, 'base64').toString('utf8');
+      
+      if (dto.password.length < 8) {
+        throw new BadRequestException('La contraseña debe tener al menos 8 caracteres');
+      }
+      if (!/^(?=.*[A-Za-z])(?=.*\d).+$/.test(dto.password)) {
+        throw new BadRequestException('La contraseña debe combinar letras y números');
+      }
+    } else {
+      throw new BadRequestException('La contraseña es requerida');
     }
     return this.authService.register(dto);
   }

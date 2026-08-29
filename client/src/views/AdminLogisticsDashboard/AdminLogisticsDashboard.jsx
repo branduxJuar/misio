@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   Card, Col, Row, Statistic, Table, Tag, Timeline, Typography, Progress,
   Button, Modal, Form, Input, Select, Upload, Space, message, Alert, Empty,
-  Popconfirm, Spin, Segmented
+  Popconfirm, Spin, Segmented, Grid, List
 } from 'antd';
 import {
   RiseOutlined, FallOutlined, DollarCircleFilled, InboxOutlined,
@@ -56,6 +56,8 @@ const normalizeRow = (r) => ({
  */
 export default function AdminLogisticsDashboard() {
   const [msgApi, contextHolder] = message.useMessage();
+  const screens = Grid.useBreakpoint();
+  const isDesktop = screens.lg;
 
   const { data: summary, demo } = useApiOrMock('/logistics/summary', MOCK_ERP_SUMMARY);
   const { data: rawInventory, refresh } = useApiOrMock('/logistics', MOCK_ERP_INVENTORY);
@@ -346,33 +348,30 @@ export default function AdminLogisticsDashboard() {
       {/* ── Estado de las entregas (operación, no finanzas) ───────── */}
       <Row gutter={[14, 14]} style={{ marginTop: 16 }}>
         <Col xs={8}>
-          <Card size="small">
+          <Card size="small" style={{ height: '100%' }}>
             <Statistic
               title={<Text style={{ color: MISIO_COLORS.textMuted, fontSize: 12 }}>En almacén</Text>}
               value={prizesInStock}
               valueStyle={{ color: MISIO_COLORS.electricBlue, fontWeight: 700 }}
             />
-            <Text style={{ fontSize: 11, color: MISIO_COLORS.textMuted }}>esperando despacho</Text>
           </Card>
         </Col>
         <Col xs={8}>
-          <Card size="small">
+          <Card size="small" style={{ height: '100%' }}>
             <Statistic
               title={<Text style={{ color: MISIO_COLORS.textMuted, fontSize: 12 }}>En tránsito</Text>}
               value={prizesInTransit}
               valueStyle={{ color: MISIO_COLORS.prizeGold, fontWeight: 700 }}
             />
-            <Text style={{ fontSize: 11, color: MISIO_COLORS.textMuted }}>en ruta al ganador</Text>
           </Card>
         </Col>
         <Col xs={8}>
-          <Card size="small">
+          <Card size="small" style={{ height: '100%' }}>
             <Statistic
               title={<Text style={{ color: MISIO_COLORS.textMuted, fontSize: 12 }}>Entregados</Text>}
               value={inventory.filter((r) => r.deliveryStatus === 'delivered').length}
               valueStyle={{ color: MISIO_COLORS.saldoGreen, fontWeight: 700 }}
             />
-            <Text style={{ fontSize: 11, color: MISIO_COLORS.textMuted }}>con evidencia</Text>
           </Card>
         </Col>
       </Row>
@@ -381,48 +380,103 @@ export default function AdminLogisticsDashboard() {
         {/* ── Inventario y márgenes ───────────────────────────────── */}
         <Col xs={24} xl={24}>
           <Card
+            style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.05)', border: 'none', borderRadius: 16 }}
             title={
-              <Space wrap>
-                <span>📦 Premios y entregas</span>
-                <Segmented
-                  options={[
-                    { label: 'Todos', value: 'all' },
-                    { label: 'Almacén', value: 'in_stock' },
-                    { label: 'Tránsito', value: 'transit' },
-                    { label: 'Entregados', value: 'delivered' },
-                  ]}
-                  value={filterStatus}
-                  onChange={setFilterStatus}
-                  style={{ marginLeft: 8 }}
-                />
-              </Space>
-            }
-            extra={
-              <Popconfirm
-                title="Sincronizar ganadores"
-                description="Recorre los sorteos completados y crea el envío de cada ganador que falte (repara datos antiguos)."
-                okText="Sincronizar" cancelText="No"
-                onConfirm={async () => {
-                  if (demo) return msgApi.info('Modo demo: conecta el backend.');
-                  try {
-                    const res = await api('/logistics/sync-winners', { method: 'POST' });
-                    msgApi.success(res.mensaje, 6);
-                    refresh();
-                  } catch (err) { msgApi.error(err.message); }
-                }}
-              >
-                <Button size="small" icon={<ReloadOutlined />}>🔗 Sincronizar ganadores</Button>
-              </Popconfirm>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
+                <Space wrap>
+                  <span>📦 Premios y entregas</span>
+                  <Segmented
+                    options={[
+                      { label: 'Todos', value: 'all' },
+                      { label: 'Almacén', value: 'in_stock' },
+                      { label: 'Tránsito', value: 'transit' },
+                      { label: 'Entregados', value: 'delivered' },
+                    ]}
+                    value={filterStatus}
+                    onChange={setFilterStatus}
+                  />
+                </Space>
+                <Popconfirm
+                  title="Sincronizar ganadores"
+                  description="Recorre los sorteos completados y crea el envío de cada ganador que falte (repara datos antiguos)."
+                  okText="Sincronizar" cancelText="No"
+                  onConfirm={async () => {
+                    if (demo) return msgApi.info('Modo demo: conecta el backend.');
+                    try {
+                      const res = await api('/logistics/sync-winners', { method: 'POST' });
+                      msgApi.success(res.mensaje, 6);
+                      refresh();
+                    } catch (err) { msgApi.error(err.message); }
+                  }}
+                >
+                  <Button size="small" icon={<ReloadOutlined />}>🔗 Sincronizar ganadores</Button>
+                </Popconfirm>
+              </div>
             }
           >
-            <Table
-              dataSource={filteredInventory}
-              columns={inventoryColumns}
-              rowKey="_id"
-              pagination={{ pageSize: 6 }}
-              size="middle"
-              scroll={{ x: 760 }}
-            />
+            {isDesktop ? (
+              <Table
+                dataSource={filteredInventory}
+                columns={inventoryColumns}
+                rowKey="_id"
+                pagination={{ pageSize: 6 }}
+                size="middle"
+                scroll={{ x: 760 }}
+              />
+            ) : (
+              <List
+                dataSource={filteredInventory}
+                pagination={{ pageSize: 6, size: 'small' }}
+                renderItem={(r) => (
+                  <List.Item style={{ padding: '0 0 12px' }}>
+                    <Card size="small" style={{ width: '100%', borderRadius: 12, border: '1px solid var(--z-border)', backgroundColor: '#fafafa' }} styles={{ body: { padding: '16px' } }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <Text strong style={{ fontSize: 14 }}>{r.productName}</Text>
+                        <Tag color={DELIVERY_TAG[r.deliveryStatus]?.color} icon={DELIVERY_TAG[r.deliveryStatus]?.icon} style={{ margin: 0 }}>
+                          {DELIVERY_TAG[r.deliveryStatus]?.label}
+                        </Tag>
+                      </div>
+                      
+                      <div style={{ marginBottom: 12 }}>
+                        {r.winnerId ? (
+                          <>
+                            <Text style={{ fontSize: 13 }}>{r.winnerId.name}</Text><br />
+                            <Text style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>📱 {r.winnerId.phone ?? '—'} {r.winnerId.address?.city ? `· ${r.winnerId.address.city}` : ''}</Text>
+                          </>
+                        ) : r.offlineWinnerName ? (
+                          <>
+                            <Text style={{ fontSize: 13 }}>{r.offlineWinnerName} <Tag color="orange" style={{ marginLeft: 4 }}>Venta Externa</Tag></Text><br />
+                            <Text style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>📱 {r.offlineWinnerPhone ?? '—'}</Text>
+                          </>
+                        ) : <Tag>Sin sortear</Tag>}
+                      </div>
+
+                      {r.courier && (
+                        <div style={{ background: '#fff', padding: 8, borderRadius: 8, border: '1px solid #f0f0f0', marginBottom: 12 }}>
+                          <Text style={{ fontSize: 12, display: 'block' }}>🚚 {r.courier}</Text>
+                          <Text code style={{ fontSize: 11 }}>{r.trackingNumber}</Text>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {(!r.winnerId && !r.offlineWinnerName) ? (
+                          <Button block size="small" icon={<UnorderedListOutlined />} onClick={() => openBitacora(r._id)}>Bitácora</Button>
+                        ) : (
+                          <>
+                            <Button block size="small" type="primary" ghost icon={<SettingOutlined />} onClick={() => openManage(r)}>
+                              {r.deliveryStatus === 'delivered' ? 'Detalles' : 'Gestionar Envío'}
+                            </Button>
+                            <Button block size="small" icon={<UnorderedListOutlined />} onClick={() => openBitacora(r._id)}>
+                              Bitácora
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </Card>
+                  </List.Item>
+                )}
+              />
+            )}
           </Card>
         </Col>
       </Row>

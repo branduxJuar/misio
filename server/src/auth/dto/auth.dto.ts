@@ -20,10 +20,6 @@ export class RegisterDto {
   phone: string;
 
   @IsString()
-  @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
-  @Matches(/(?=.*[A-Za-z])(?=.*\d)/, {
-    message: 'La contraseña debe combinar letras y números',
-  })
   password: string;
 
   @IsEmail({}, { message: 'Ingresa un correo válido' })
