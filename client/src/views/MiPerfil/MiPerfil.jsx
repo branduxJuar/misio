@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Card, Col, Row, Typography, Form, Input, Button, message, Upload, Avatar,
-  Tag, List, Space, Alert, Tooltip, Tabs,
+  Tag, List, Space, Alert, Tooltip, Tabs, Grid, Select,
 } from 'antd';
 import {
   UserOutlined, CameraOutlined, SaveOutlined, EnvironmentOutlined,
@@ -38,6 +38,9 @@ export default function MiPerfil() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('datos');
   const [form] = Form.useForm();
+
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
 
   const deposits = txs.filter((t) => t.type === 'deposit_yape');
 
@@ -193,48 +196,77 @@ export default function MiPerfil() {
           100% { opacity: 1; transform: translateY(0); }
         }
       `}</style>
-
-      {/* ── NAVEGACIÓN DE PESTAÑAS (ESTILO TABS CONECTADOS A LÍNEA BASE) ───── */}
-      <div className="misio-tabs-container">
-        {tabOptions.map((item) => {
-          const isActive = activeTab === item.key;
-          return (
-            <div
-              key={item.key}
-              className={`misio-real-tab ${isActive ? 'active' : 'inactive'}`}
-              onClick={() => setActiveTab(item.key)}
-            >
-              <span style={{ fontSize: '16px', display: 'flex', alignItems: 'center' }}>
-                {item.icon}
-              </span>
-              <span>{item.label}</span>
-              
-              {item.badge !== null && item.badge !== undefined && (
-                <span className="tab-badge">
-                  {item.badge}
+      {/* ── NAVEGACIÓN DE PESTAÑAS ───────────── */}
+      {isMobile ? (
+        <div style={{ marginBottom: 24 }}>
+          <Select
+            value={activeTab}
+            onChange={setActiveTab}
+            style={{ width: '100%', height: 48 }}
+            size="large"
+            options={tabOptions.map(t => ({
+              value: t.key,
+              label: (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>{t.icon}</span>
+                  <span style={{ fontWeight: 600 }}>{t.label}</span>
+                  {t.badge && (
+                    <Tag color="error" style={{ borderRadius: 10, margin: 0, marginLeft: 'auto' }}>
+                      {t.badge}
+                    </Tag>
+                  )}
+                  {t.activeStatus && (
+                    <Tag color="processing" style={{ borderRadius: 10, margin: 0, marginLeft: 'auto' }}>
+                      Activo
+                    </Tag>
+                  )}
+                </div>
+              )
+            }))}
+          />
+        </div>
+      ) : (
+        <div className="misio-tabs-container">
+          {tabOptions.map((item) => {
+            const isActive = activeTab === item.key;
+            return (
+              <div
+                key={item.key}
+                className={`misio-real-tab ${isActive ? 'active' : 'inactive'}`}
+                onClick={() => setActiveTab(item.key)}
+              >
+                <span style={{ fontSize: '16px', display: 'flex', alignItems: 'center' }}>
+                  {item.icon}
                 </span>
-              )}
-
-              {item.activeStatus && (
-                <span style={{
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  background: '#dcfce7',
-                  color: '#15803d',
-                  border: '1px solid #86efac',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}>
-                  ● Activo
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                <span>{item.label}</span>
+                
+                {item.badge !== null && item.badge !== undefined && (
+                  <span className="tab-badge">
+                    {item.badge}
+                  </span>
+                )}
+                
+                {item.activeStatus && (
+                  <span style={{
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    background: '#dcfce7',
+                    color: '#15803d',
+                    border: '1px solid #86efac',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    ● Activo
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── CONTENIDO DE LA PESTAÑA ACTIVA ───────────────────────────── */}
       <div className="tab-content-fade" key={activeTab}>
@@ -342,63 +374,60 @@ export default function MiPerfil() {
         {activeTab === 'recibos' && (
           <Card
             title={
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 17, fontWeight: 700, color: '#0f172a' }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#047857', fontSize: 18 }}>
-                  <FileTextOutlined />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 17, fontWeight: 700, color: '#0f172a' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#047857', fontSize: 18 }}>
+                    <FileTextOutlined />
+                  </div>
+                  <span>Mis recargas y recibos emitidos</span>
                 </div>
-                <span>Mis recargas y recibos emitidos</span>
+                <span style={{ background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0', padding: '5px 14px', borderRadius: '20px', fontSize: 12, fontWeight: 600 }}>
+                  Comprobantes oficiales Misio
+                </span>
               </div>
             }
             style={{ borderRadius: 16, border: '1px solid #e2e8f0', boxShadow: '0 4px 15px rgba(0, 0, 0, 0.02)', background: '#ffffff' }}
             styles={{ header: { padding: '18px 24px', borderBottom: '1px solid #f1f5f9' }, body: { padding: '16px 24px' } }}
-            extra={
-              <span style={{ background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0', padding: '5px 14px', borderRadius: '20px', fontSize: 12, fontWeight: 600 }}>
-                Comprobantes oficiales Misio
-              </span>
-            }
           >
             <List
               dataSource={deposits}
               locale={{ emptyText: <div style={{ padding: '30px 0', color: '#94a3b8' }}>Aún no tienes recargas registradas en tu historial.</div> }}
               renderItem={(tx) => (
-                <List.Item
-                  style={{ padding: '16px 8px', borderBottom: '1px solid #f1f5f9', transition: 'all 0.2s', borderRadius: 8 }}
-                  actions={[
-                    tx.meta?.receiptUrl ? (
-                      <Button key="ver" type="primary" size="small" icon={<EyeOutlined />}
-                        style={{ background: '#047857', borderRadius: 6, fontWeight: 600, height: 32, padding: '0 14px' }}
-                        href={`${SERVER_URL}${tx.meta.receiptUrl}`} target="_blank">
-                        Ver recibo
-                      </Button>
-                    ) : (
-                      <Tooltip key="pendiente"
-                        title="Tu recibo se adjuntará cuando el equipo confirme tu recarga">
-                        <span style={{ fontSize: 12, color: '#64748b', background: '#f1f5f9', padding: '5px 12px', borderRadius: 14, fontWeight: 500 }}>
-                          ⏳ Recibo pendiente
-                        </span>
-                      </Tooltip>
-                    ),
-                  ]}
-                >
-                  <List.Item.Meta
-                    title={
-                      <Space wrap size={10}>
-                        <Text strong style={{ color: '#047857', fontSize: 16 }}>
+                <List.Item style={{ padding: '0 0 16px', border: 'none' }}>
+                  <Card size="small" style={{ width: '100%', borderRadius: 12, border: '1px solid #f1f5f9', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }} styles={{ body: { padding: '16px' } }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                      <div>
+                        <Text strong style={{ color: '#047857', fontSize: 18, display: 'block' }}>
                           + S/ {Number(tx.amount).toFixed(2)}
                         </Text>
-                        {STATUS_TAG[tx.status]}
-                        {tx.meta?.methodName && <Tag color="green" style={{ borderRadius: 12, fontWeight: 600 }}>{tx.meta.methodName}</Tag>}
-                        {tx.meta?.operationNumber && (
-                          <Text code style={{ fontSize: 12, borderRadius: 6, color: '#475569' }}>Op: {tx.meta.operationNumber}</Text>
-                        )}
-                      </Space>
-                    }
-                    description={
-                      <Text style={{ fontSize: 13, color: '#64748b', marginTop: 4, display: 'block' }}>
-                        📅 Registrada el {dayjs(tx.createdAt).format('DD/MM/YYYY')} a las {dayjs(tx.createdAt).format('hh:mm A')}
-                      </Text>
-                    }
-                  />
+                        <Text style={{ fontSize: 12, color: '#64748b' }}>
+                          📅 {dayjs(tx.createdAt).format('DD/MM/YYYY')} a las {dayjs(tx.createdAt).format('hh:mm A')}
+                        </Text>
+                      </div>
+                      {STATUS_TAG[tx.status]}
+                    </div>
+                    
+                    <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {tx.meta?.methodName && <Tag color="green" style={{ borderRadius: 8, fontWeight: 600, margin: 0 }}>{tx.meta.methodName}</Tag>}
+                      {tx.meta?.operationNumber && (
+                        <Text code style={{ fontSize: 12, borderRadius: 6, color: '#475569', margin: 0 }}>Op: {tx.meta.operationNumber}</Text>
+                      )}
+                    </div>
+                    
+                    <div style={{ textAlign: 'right' }}>
+                      {tx.meta?.receiptUrl ? (
+                        <Button type="primary" icon={<EyeOutlined />}
+                          style={{ background: '#047857', borderRadius: 8, fontWeight: 600, width: isMobile ? '100%' : 'auto' }}
+                          href={`${SERVER_URL}${tx.meta.receiptUrl}`} target="_blank">
+                          Ver recibo oficial
+                        </Button>
+                      ) : (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#64748b', background: '#f1f5f9', padding: '6px 12px', borderRadius: 8, width: isMobile ? '100%' : 'auto', justifyContent: 'center', fontWeight: 500 }}>
+                          <span>⏳</span> Recibo pendiente de adjuntar
+                        </div>
+                      )}
+                    </div>
+                  </Card>
                 </List.Item>
               )}
             />

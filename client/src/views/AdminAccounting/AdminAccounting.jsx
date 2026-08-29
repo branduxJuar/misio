@@ -247,22 +247,22 @@ export default function AdminAccounting() {
             pagination={{ pageSize: 10, size: 'small' }}
             renderItem={(t) => (
               <List.Item style={{ padding: '0 0 12px' }}>
-                <Card size="small" style={{ width: '100%', borderRadius: 12, border: '1px solid var(--z-border)', backgroundColor: '#fafafa' }} styles={{ body: { padding: '16px' } }}>
+                <Card size="small" style={{ width: '100%', borderRadius: 12, border: 'none', backgroundColor: MISIO_COLORS.primary, boxShadow: '0 4px 16px rgba(0,163,143,0.3)' }} styles={{ body: { padding: '16px' } }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <Text strong style={{ fontSize: 13 }}>{TYPE_LABEL[t.type] ?? t.type}</Text>
-                    <Text strong style={{ fontSize: 14, color: t.amount >= 0 ? MISIO_COLORS.saldoGreen : MISIO_COLORS.danger }}>
+                    <Text strong style={{ fontSize: 13, color: '#fff' }}>{TYPE_LABEL[t.type] ?? t.type}</Text>
+                    <Text strong style={{ fontSize: 14, color: t.amount >= 0 ? '#a7f3d0' : '#fecaca' }}>
                       {t.amount >= 0 ? '+' : ''}{S(t.amount)}
                     </Text>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: MISIO_COLORS.textMuted, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'rgba(255,255,255,0.75)', marginBottom: 8 }}>
                     <span>{dayjs(t.createdAt).format('DD/MM/YY HH:mm')}</span>
                     {t.status === 'completed' ? <Tag color="success" style={{ margin: 0 }}>OK</Tag>
                       : t.status === 'pending' ? <Tag color="warning" style={{ margin: 0 }}>Pdte</Tag> : <Tag color="error" style={{ margin: 0 }}>Falló</Tag>}
                   </div>
                   {t.userId && (
-                    <div style={{ background: '#fff', padding: 8, borderRadius: 8, border: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between' }}>
-                      <Text style={{ fontSize: 12 }}>{t.userId?.name ?? '—'}</Text>
-                      {t.userId?.dni && <Text style={{ fontSize: 11, color: MISIO_COLORS.textMuted }}>{t.userId.dni}</Text>}
+                    <div style={{ background: 'rgba(255,255,255,0.1)', padding: 8, borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', display: 'flex', justifyContent: 'space-between' }}>
+                      <Text style={{ fontSize: 12, color: '#fff' }}>{t.userId?.name ?? '—'}</Text>
+                      {t.userId?.dni && <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{t.userId.dni}</Text>}
                     </div>
                   )}
                   <div style={{ marginTop: 8, textAlign: 'right' }}>

@@ -109,31 +109,32 @@ export default function AdminComplaints() {
             pagination={{ pageSize: 10, size: 'small' }}
             renderItem={(r) => (
               <List.Item style={{ padding: '0 0 12px' }}>
-                <Card size="small" style={{ width: '100%', borderRadius: 12, border: '1px solid var(--z-border)', backgroundColor: '#fafafa' }} styles={{ body: { padding: '16px' } }}>
+                <Card size="small" style={{ width: '100%', borderRadius: 12, border: 'none', backgroundColor: MISIO_COLORS.primary, boxShadow: '0 4px 16px rgba(0,163,143,0.3)' }} styles={{ body: { padding: '16px' } }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <Text code style={{ fontSize: 13 }}>{r.code}</Text>
+                    <Text code style={{ fontSize: 13, backgroundColor: 'rgba(255,255,255,0.2)', color: '#fff', border: 'none' }}>{r.code}</Text>
                     <div>
                       {r.kind === 'queja' ? <Tag style={{ margin: 0 }}>Queja</Tag> : <Tag color="warning" style={{ margin: 0 }}>Reclamo</Tag>}
                     </div>
                   </div>
                   
-                  <div style={{ marginBottom: 12, background: '#fff', padding: 12, borderRadius: 8, border: '1px solid #f0f0f0' }}>
-                    <Text strong style={{ fontSize: 13, display: 'block' }}>{r.fullName}</Text>
-                    <Text style={{ fontSize: 11, color: MISIO_COLORS.textMuted }}>DNI {r.dni} · {r.phone || r.email || 'sin contacto'}</Text>
+                  <div style={{ marginBottom: 12, background: 'rgba(255,255,255,0.1)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)' }}>
+                    <Text strong style={{ fontSize: 13, display: 'block', color: '#fff' }}>{r.fullName}</Text>
+                    <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>DNI {r.dni} · {r.phone || r.email || 'sin contacto'}</Text>
                   </div>
                   
                   <div style={{ marginBottom: 12 }}>
                     {r.orderRef && <Tag color="processing" style={{ marginBottom: 8, display: 'inline-block' }}>{r.orderRef}</Tag>}
-                    <Paragraph style={{ fontSize: 13, margin: 0 }} ellipsis={{ rows: 3, expandable: true, symbol: 'ver más' }}>
+                    <Paragraph style={{ fontSize: 13, margin: 0, color: 'rgba(255,255,255,0.8)' }} ellipsis={{ rows: 3, expandable: true, symbol: <span style={{ color: '#fff', fontWeight: 'bold' }}>ver más</span> }}>
                       {r.detail}
                     </Paragraph>
                   </div>
                   
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--z-border)' }}>
-                    <Text style={{ fontSize: 11, color: MISIO_COLORS.textMuted }}>{dayjs(r.createdAt).format('DD/MM/YY HH:mm')}</Text>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+                    <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{dayjs(r.createdAt).format('DD/MM/YY HH:mm')}</Text>
                     {r.status === 'answered'
                       ? <Tag color="success" style={{ margin: 0 }}>Respondido</Tag>
                       : <Button type="primary" size="small" icon={<SendOutlined />}
+                          style={{ backgroundColor: '#fff', color: MISIO_COLORS.primary }}
                           onClick={() => { form.resetFields(); setResponding(r); }}>
                           Responder
                         </Button>}
