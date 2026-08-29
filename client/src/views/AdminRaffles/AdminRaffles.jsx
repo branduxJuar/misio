@@ -3,13 +3,13 @@ import dayjs from 'dayjs';
 import {
   Card, Table, Tag, Button, Space, Typography, message, Alert, Drawer, Form,
   Input, InputNumber, Radio, DatePicker, Checkbox, Modal, Upload, Image,
-  Popconfirm, Tooltip, Divider,
+  Popconfirm, Tooltip, Divider, Grid, List,
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, PictureOutlined, CalendarOutlined,
   StopOutlined, UploadOutlined, DeleteOutlined, ClockCircleOutlined,
   TeamOutlined, FileExcelOutlined, EyeOutlined, IdcardOutlined, 
-  PhoneOutlined, MailOutlined, UserOutlined
+  PhoneOutlined, MailOutlined, UserOutlined, EyeFilled, PlayCircleFilled
 } from '@ant-design/icons';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +20,7 @@ import { generateTicketsImage } from '../../utils/ticketPrinter';
 import TicketCard from '../../components/TicketCard';
 
 const { Title, Text } = Typography;
+const { useBreakpoint } = Grid;
 
 const STATUS_TAG = {
   active: <Tag color="success">En venta</Tag>,
@@ -78,6 +79,9 @@ function NumerologyPreview({ prefix, total }) {
 export default function AdminRaffles() {
   const [msgApi, contextHolder] = message.useMessage();
   const navigate = useNavigate();
+  const screens = useBreakpoint();
+  const isDesktop = screens.md;
+
   const { data: raffles, demo, refresh } = useApiOrMock('/raffles/admin/all', MOCK_ADMIN_RAFFLES);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -415,10 +419,62 @@ export default function AdminRaffles() {
         </Button>
       </div>
 
-      <Card>
-        <Table dataSource={raffles} columns={columns} rowKey="_id"
-          pagination={{ pageSize: 8 }} size="middle" scroll={{ x: 720 }} />
-      </Card>
+      {isDesktop ? (
+        <Card>
+          <Table dataSource={raffles} columns={columns} rowKey="_id"
+            pagination={{ pageSize: 8 }} size="middle" scroll={{ x: 'max-content' }} />
+        </Card>
+      ) : (
+        <List
+          grid={{ gutter: 16, xs: 1 }}
+          dataSource={raffles}
+          pagination={{ pageSize: 8, align: 'center' }}
+          renderItem={(r) => (
+            <List.Item>
+              <Card size="small" styles={{ header: { borderBottom: 'none', padding: '16px 16px 0' }, body: { padding: '12px 16px 16px' } }} style={{ borderRadius: 16, border: '1px solid var(--z-border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ paddingRight: 8 }}>
+                    <Typography.Text strong style={{ fontSize: 14, lineHeight: 1.2, display: 'block' }}>{r.title}</Typography.Text>
+                    <div style={{ fontSize: 11, color: 'var(--z-text-muted)', marginTop: 4 }}>
+                      Prefijo: <b>{r.ticketPrefix}</b> · <b>S/ {r.ticketPrice}</b>
+                    </div>
+                  </div>
+                  <div>{STATUS_TAG[r.status]}</div>
+                </div>
+
+                <div style={{ marginTop: 16, padding: '12px', background: 'var(--z-bg-elevated)', borderRadius: 8, display: 'flex', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--z-text-muted)', textTransform: 'uppercase' }}>Boletos vendidos</div>
+                    <b style={{ fontSize: 14 }}>{r.soldTickets ?? 0} <span style={{ fontSize: 12, color: 'var(--z-text-muted)', fontWeight: 'normal' }}>/ {r.totalTickets}</span></b>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 10, color: 'var(--z-text-muted)', textTransform: 'uppercase' }}>Fecha de Sorteo</div>
+                    <b style={{ fontSize: 14 }}>{dayjs(r.drawDate).format('DD/MMM HH:mm')}</b>
+                    <div style={{ marginTop: 2 }}><DaysLeft drawDate={r.drawDate} status={r.status} /></div>
+                  </div>
+                </div>
+
+                <Divider style={{ margin: '16px 0' }} />
+                
+                {/* ── Botones de acción adaptados para móvil ── */}
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                  <Button
+                    type="primary"
+                    icon={['completed', 'live'].includes(r.status) ? <EyeFilled /> : <PlayCircleFilled />}
+                    onClick={() => navigate(`/admin/sorteo-en-vivo/${r._id}`)}
+                  >
+                    Panel
+                  </Button>
+                  <Button icon={<EditOutlined />} disabled={r.status !== 'active'} onClick={() => openEdit(r)}>Editar</Button>
+                  <Button icon={<PictureOutlined />} onClick={() => setPhotosOf(r)} />
+                  <Button icon={<CalendarOutlined />} disabled={r.status !== 'active'} onClick={() => { postponeForm.resetFields(); setPostponing(r); }} />
+                  <Button danger icon={<StopOutlined />} disabled={!['active', 'live'].includes(r.status)} onClick={() => { cancelForm.resetFields(); setCancelling(r); }} />
+                </div>
+              </Card>
+            </List.Item>
+          )}
+        />
+      )}
 
       {/* ── Drawer Crear/Editar ─────────────────────────────────── */}
       <Drawer

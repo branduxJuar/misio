@@ -50,7 +50,7 @@ export default function AdminDashboard() {
 
       {/* ── Lo accionable: cajas de color que llevan al módulo ────── */}
       <Row gutter={[14, 14]} style={{ marginTop: 16 }}>
-        <Col xs={12} lg={6}>
+        <Col xs={24} sm={12} lg={6}>
           <StatBox
             color="#3c8dbc"
             value={s.pendingDeposits}
@@ -59,7 +59,7 @@ export default function AdminDashboard() {
             onClick={() => navigate('/admin/pagos')}
           />
         </Col>
-        <Col xs={12} lg={6}>
+        <Col xs={24} sm={12} lg={6}>
           <StatBox
             color="#00a65a"
             value={s.pendingRedemptions}
@@ -68,7 +68,7 @@ export default function AdminDashboard() {
             onClick={() => navigate('/admin/tienda')}
           />
         </Col>
-        <Col xs={12} lg={6}>
+        <Col xs={24} sm={12} lg={6}>
           <StatBox
             color="#f39c12"
             value={s.activeRaffles}
@@ -77,7 +77,7 @@ export default function AdminDashboard() {
             onClick={() => navigate('/admin/rifas')}
           />
         </Col>
-        <Col xs={12} lg={6}>
+        <Col xs={24} sm={12} lg={6}>
           <StatBox
             color="#dd4b39"
             value={s.liveRaffles}
@@ -90,7 +90,7 @@ export default function AdminDashboard() {
 
       {/* ── Cifras de contexto ───────────────────────────────────── */}
       <Row gutter={[14, 14]} style={{ marginTop: 14 }}>
-        <Col xs={12} md={8} xl={6}>
+        <Col xs={24} sm={12} md={8} xl={6}>
           <Card size="small">
             <Statistic
               title={<Text style={{ color: MISIO_COLORS.textMuted, fontSize: 12 }}>Ingresos por boletos</Text>}
@@ -102,7 +102,7 @@ export default function AdminDashboard() {
             </Text>
           </Card>
         </Col>
-        <Col xs={12} md={8} xl={6}>
+        <Col xs={24} sm={12} md={8} xl={6}>
           <Card size="small">
             <Statistic
               title={<Text style={{ color: MISIO_COLORS.textMuted, fontSize: 12 }}>Saldo vivo en billeteras</Text>}
@@ -114,7 +114,7 @@ export default function AdminDashboard() {
             </Text>
           </Card>
         </Col>
-        <Col xs={12} md={8} xl={6}>
+        <Col xs={24} sm={12} md={8} xl={6}>
           <Card size="small">
             <Statistic
               title={<Text style={{ color: MISIO_COLORS.textMuted, fontSize: 12 }}>Boletos vendidos</Text>}
@@ -126,7 +126,7 @@ export default function AdminDashboard() {
             </Text>
           </Card>
         </Col>
-        <Col xs={12} md={8} xl={6}>
+        <Col xs={24} sm={12} md={8} xl={6}>
           <Card size="small">
             <Statistic
               title={<Text style={{ color: MISIO_COLORS.textMuted, fontSize: 12 }}>Usuarios registrados</Text>}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Card, Col, Row, Typography, Table, Tag, DatePicker, Space, Button, Alert, Select,
+  Card, Col, Row, Typography, Table, Tag, DatePicker, Space, Button, Alert, Select, Grid, List,
 } from 'antd';
 import {
   DownloadOutlined, WalletFilled, ShoppingFilled, GiftFilled, BankFilled,
@@ -46,6 +46,8 @@ const MOCK_SUMMARY = {
  * pierdes plata cada vez que alguien no gana — y es al revés.
  */
 export default function AdminAccounting() {
+  const screens = Grid.useBreakpoint();
+  const isDesktop = screens.lg;
   const [range, setRange] = useState([dayjs().startOf('month'), dayjs()]);
   const [type, setType] = useState();
 
@@ -182,6 +184,7 @@ export default function AdminAccounting() {
               ['💵 Saldo contable en billeteras', s.liability?.contable, 'dinero real: si te lo piden, es deuda'],
               ['🎁 Saldo de canje (Cero Pérdida)', s.liability?.canje, 'se paga con producto, a tu costo'],
               ['🔒 Retenido en subastas', s.liability?.held, 'congelado por pujas líderes'],
+              ['⏱️ Saldo próximo a vencer', s.liability?.expiringAmount, s.liability?.nextExpirationDate ? `vencimiento más cercano: ${dayjs(s.liability?.nextExpirationDate).format('DD/MM/YYYY')}` : 'sin saldo por vencer'],
             ].map(([l, v, hint]) => (
               <div key={l} style={{ display: 'flex', justifyContent: 'space-between',
                 alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--z-border)' }}>
@@ -225,16 +228,52 @@ export default function AdminAccounting() {
 
       {/* ── Libro mayor ─────────────────────────────────────────── */}
       <Card
-        style={{ marginTop: 20 }}
-        title={<>📒 Libro de movimientos <Tag>{ledger.length}</Tag></>}
-        extra={
-          <Select allowClear placeholder="Todos los tipos" style={{ width: 220 }}
-            value={type} onChange={setType}
-            options={Object.entries(TYPE_LABEL).map(([v, l]) => ({ value: v, label: l }))} />
+        style={{ marginTop: 20, boxShadow: '0 8px 24px rgba(0,0,0,0.05)', border: 'none', borderRadius: 16 }}
+        title={
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>📒 Libro de movimientos <Tag style={{ marginLeft: 8 }}>{ledger.length}</Tag></span>
+            <Select allowClear placeholder="Todos los tipos" style={{ width: '100%', maxWidth: 220 }}
+              value={type} onChange={setType}
+              options={Object.entries(TYPE_LABEL).map(([v, l]) => ({ value: v, label: l }))} />
+          </div>
         }
       >
-        <Table dataSource={ledger} columns={columns} rowKey="_id" size="small"
-          scroll={{ x: 640 }} pagination={{ pageSize: 15, showSizeChanger: false }} />
+        {isDesktop ? (
+          <Table dataSource={ledger} columns={columns} rowKey="_id" size="small"
+            scroll={{ x: 640 }} pagination={{ pageSize: 15, showSizeChanger: false }} />
+        ) : (
+          <List
+            dataSource={ledger}
+            pagination={{ pageSize: 10, size: 'small' }}
+            renderItem={(t) => (
+              <List.Item style={{ padding: '0 0 12px' }}>
+                <Card size="small" style={{ width: '100%', borderRadius: 12, border: '1px solid var(--z-border)', backgroundColor: '#fafafa' }} styles={{ body: { padding: '16px' } }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text strong style={{ fontSize: 13 }}>{TYPE_LABEL[t.type] ?? t.type}</Text>
+                    <Text strong style={{ fontSize: 14, color: t.amount >= 0 ? MISIO_COLORS.saldoGreen : MISIO_COLORS.danger }}>
+                      {t.amount >= 0 ? '+' : ''}{S(t.amount)}
+                    </Text>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: MISIO_COLORS.textMuted, marginBottom: 8 }}>
+                    <span>{dayjs(t.createdAt).format('DD/MM/YY HH:mm')}</span>
+                    {t.status === 'completed' ? <Tag color="success" style={{ margin: 0 }}>OK</Tag>
+                      : t.status === 'pending' ? <Tag color="warning" style={{ margin: 0 }}>Pdte</Tag> : <Tag color="error" style={{ margin: 0 }}>Falló</Tag>}
+                  </div>
+                  {t.userId && (
+                    <div style={{ background: '#fff', padding: 8, borderRadius: 8, border: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between' }}>
+                      <Text style={{ fontSize: 12 }}>{t.userId?.name ?? '—'}</Text>
+                      {t.userId?.dni && <Text style={{ fontSize: 11, color: MISIO_COLORS.textMuted }}>{t.userId.dni}</Text>}
+                    </div>
+                  )}
+                  <div style={{ marginTop: 8, textAlign: 'right' }}>
+                    {t.wallet === 'canje' ? <Tag color={MISIO_COLORS.prizeGold} style={{ color: '#3d2e00', margin: 0 }}>🎁 Canje</Tag>
+                      : <Tag color={MISIO_COLORS.saldoGreen} style={{ color: '#06281c', margin: 0 }}>💵 Contable</Tag>}
+                  </div>
+                </Card>
+              </List.Item>
+            )}
+          />
+        )}
       </Card>
     </div>
   );

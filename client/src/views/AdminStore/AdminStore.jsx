@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import {
   Card, Table, Tag, Button, Space, Typography, message, Alert, Modal, Form,
   Input, InputNumber, Switch, Row, Col, Popconfirm, Empty, Tooltip, Tabs,
+  Grid, List
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined, ReloadOutlined,
@@ -39,6 +40,8 @@ export default function AdminStore() {
   const { data: delivered, refresh: refreshDel } = useApiOrMock('/store/redemptions/delivered', []);
   const [managing, setManaging] = useState(null); // canje en gestión
   const [redTab, setRedTab] = useState('pending');
+  const screens = Grid.useBreakpoint();
+  const isDesktop = screens.lg; // Desktop if large or above
 
   const [editing, setEditing] = useState(null); // null cerrado, {} nuevo, obj editar
   const [photosOf, setPhotosOf] = useState(null); // Item en el modal de fotos
@@ -193,10 +196,49 @@ export default function AdminStore() {
             title="Catálogo"
             extra={<Button type="primary" size="small" icon={<PlusOutlined />}
               onClick={() => openItem(null)}>Agregar producto</Button>}
+            style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.05)', border: 'none', borderRadius: 16 }}
           >
-            <Table dataSource={items} columns={itemColumns} rowKey="_id"
-              size="small" scroll={{ x: 420 }} pagination={{ pageSize: 8 }}
-              locale={{ emptyText: <Empty description="Agrega tu primer producto canjeable" /> }} />
+            {isDesktop ? (
+              <Table dataSource={items} columns={itemColumns} rowKey="_id"
+                size="small" scroll={{ x: 420 }} pagination={{ pageSize: 8 }}
+                locale={{ emptyText: <Empty description="Agrega tu primer producto canjeable" /> }} />
+            ) : (
+              <List
+                dataSource={items}
+                locale={{ emptyText: <Empty description="Agrega tu primer producto canjeable" /> }}
+                renderItem={(i) => (
+                  <List.Item style={{ padding: '0 12px 12px' }}>
+                    <Card size="small" style={{ width: '100%', borderRadius: 12, border: '1px solid var(--z-border)', backgroundColor: '#fafafa' }} styles={{ body: { padding: '16px' } }}>
+                      <div style={{ display: 'flex', gap: 12 }}>
+                        <div style={{ fontSize: 32, lineHeight: 1 }}>{i.emoji}</div>
+                        <div style={{ flex: 1 }}>
+                          <Text strong style={{ fontSize: 14 }}>{i.name}</Text>
+                          <br />
+                          <Space size={6} wrap style={{ marginTop: 4 }}>
+                            {(i.saleType ?? 'canje') === 'canje'
+                              ? <Tag color={MISIO_COLORS.prizeGold} style={{ color: '#3d2e00', margin: 0 }}>🎁 Canje</Tag>
+                              : <Tag color={MISIO_COLORS.saldoGreen} style={{ color: '#06281c', margin: 0 }}>💵 Venta</Tag>}
+                            {i.active ? <Tag color="success" style={{ margin: 0 }}>Visible</Tag> : <Tag style={{ margin: 0 }}>Oculto</Tag>}
+                            {i.stock === -1 ? <Tag color="processing" style={{ margin: 0 }}>∞ Ilimitado</Tag>
+                              : i.stock === 0 ? <Tag color="error" style={{ margin: 0 }}>Agotado</Tag> : <Tag style={{ margin: 0 }}>Stock: {i.stock}</Tag>}
+                          </Space>
+                        </div>
+                        <div>
+                          <Text strong style={{ color: MISIO_COLORS.saldoGreen, fontSize: 15 }}>S/ {i.priceMisio}</Text>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                        <Button block size="small" icon={<PictureOutlined />} onClick={() => setPhotosOf(i)}>Fotos</Button>
+                        <Button block size="small" icon={<EditOutlined />} onClick={() => openItem(i)}>Editar</Button>
+                        <Popconfirm title="¿Eliminar producto?" onConfirm={() => removeItem(i._id)}>
+                          <Button danger size="small" icon={<DeleteOutlined />} />
+                        </Popconfirm>
+                      </div>
+                    </Card>
+                  </List.Item>
+                )}
+              />
+            )}
           </Card>
         </Col>
 
@@ -205,25 +247,77 @@ export default function AdminStore() {
             title={<>Canjes{' '}
               <Tag color="warning">{redemptions.filter((r) => r.status === 'pending' || r.status === 'processing').length} por atender</Tag></>}
             extra={<Button size="small" icon={<ReloadOutlined />} onClick={() => { refreshRed(); refreshDel(); }} loading={loading} />}
+            style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.05)', border: 'none', borderRadius: 16 }}
           >
             <Tabs activeKey={redTab} onChange={setRedTab}
               items={[
                 {
                   key: 'pending',
                   label: `Pendientes (${redemptions.filter((r) => r.status === 'pending' || r.status === 'processing').length})`,
-                  children: (
+                  children: isDesktop ? (
                     <Table dataSource={redemptions.filter((r) => r.status === 'pending' || r.status === 'processing')} columns={redemptionColumns}
                       rowKey="_id" size="small" scroll={{ x: 520 }} pagination={{ pageSize: 8 }}
                       locale={{ emptyText: <Empty description="Nada pendiente 🎉" /> }} />
+                  ) : (
+                    <List
+                      dataSource={redemptions.filter((r) => r.status === 'pending' || r.status === 'processing')}
+                      locale={{ emptyText: <Empty description="Nada pendiente 🎉" /> }}
+                      renderItem={(r) => (
+                        <List.Item style={{ padding: '0 12px 12px' }}>
+                          <Card size="small" style={{ width: '100%', borderRadius: 12, border: '1px solid var(--z-border)', backgroundColor: 'rgba(0, 163, 143, 0.03)', boxShadow: '0 4px 12px rgba(0,0,0,0.04)' }} styles={{ body: { padding: '16px' } }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <Text strong style={{ fontSize: 14 }}>{r.userId?.name ?? '—'}</Text>
+                              <Text strong style={{ fontSize: 14, color: MISIO_COLORS.saldoGreen }}>S/ {r.price}</Text>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: MISIO_COLORS.textMuted, marginBottom: 8 }}>
+                              <span>{r.userId?.phone}</span>
+                              <span>{dayjs(r.createdAt).format('DD/MMM HH:mm')}</span>
+                            </div>
+                            <Text style={{ display: 'block', fontSize: 13, marginBottom: 12 }}>
+                              <span style={{ marginRight: 6 }}>{r.status === 'processing' && <Tag color="blue">Procesando</Tag>}</span>
+                              {r.itemName}
+                            </Text>
+                            <Button block type="primary" size="small" onClick={() => setManaging(r._id)}>
+                              Gestionar entrega
+                            </Button>
+                          </Card>
+                        </List.Item>
+                      )}
+                    />
                   ),
                 },
                 {
                   key: 'delivered',
                   label: `Entregados (${(delivered ?? []).length})`,
-                  children: (
+                  children: isDesktop ? (
                     <Table dataSource={delivered ?? []} columns={redemptionColumns}
                       rowKey="_id" size="small" scroll={{ x: 520 }} pagination={{ pageSize: 8 }}
                       locale={{ emptyText: <Empty description="Aún no hay entregas registradas" /> }} />
+                  ) : (
+                    <List
+                      dataSource={delivered ?? []}
+                      locale={{ emptyText: <Empty description="Aún no hay entregas registradas" /> }}
+                      renderItem={(r) => (
+                        <List.Item style={{ padding: '0 12px 12px' }}>
+                          <Card size="small" style={{ width: '100%', borderRadius: 12, border: '1px solid var(--z-border)', backgroundColor: '#fafafa' }} styles={{ body: { padding: '16px' } }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <Text strong style={{ fontSize: 14 }}>{r.userId?.name ?? '—'}</Text>
+                              <Text strong style={{ fontSize: 14, color: MISIO_COLORS.saldoGreen }}>S/ {r.price}</Text>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: MISIO_COLORS.textMuted, marginBottom: 8 }}>
+                              <span>{r.userId?.phone}</span>
+                              <span>{dayjs(r.createdAt).format('DD/MMM HH:mm')}</span>
+                            </div>
+                            <Text style={{ display: 'block', fontSize: 13, marginBottom: 12 }}>
+                              {r.itemName}
+                            </Text>
+                            <Button block size="small" onClick={() => setManaging(r._id)}>
+                              Ver detalle
+                            </Button>
+                          </Card>
+                        </List.Item>
+                      )}
+                    />
                   ),
                 },
               ]}
@@ -263,9 +357,9 @@ export default function AdminStore() {
             </Form.Item>
           </Space.Compact>
           <Form.Item name="saleType" label="Tipo de producto">
-            <Radio.Group>
-              <Radio.Button value="canje">🎁 Canje (saldo Cero Pérdida)</Radio.Button>
-              <Radio.Button value="venta">💵 Venta real (saldo contable)</Radio.Button>
+            <Radio.Group buttonStyle="solid" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <Radio.Button value="canje">🎁 Canje</Radio.Button>
+              <Radio.Button value="venta">💵 Venta real</Radio.Button>
             </Radio.Group>
           </Form.Item>
           <Form.Item name="fulfillment" label="Entrega"

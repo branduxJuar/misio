@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Card, Table, Tag, Button, Space, Typography, message, Alert, Modal, Form,
   Input, Switch, Upload, Image, Popconfirm, Row, Col, Empty, Tooltip,
-  Segmented, DatePicker,
+  Segmented, DatePicker, Grid, List, Divider,
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, QrcodeOutlined, CheckOutlined,
@@ -79,6 +79,9 @@ const MOCK_HISTORY = {
  */
 export default function AdminPayments() {
   const [msgApi, contextHolder] = message.useMessage();
+  const screens = Grid.useBreakpoint();
+  const isDesktop = screens.md;
+
   const { data: methods, demo, refresh: refreshMethods } = useApiOrMock('/payments/methods/all', MOCK_METHODS);
   const { data: pending, refresh: refreshPending, loading } = useApiOrMock('/payments/pending', MOCK_PENDING);
 
@@ -372,16 +375,16 @@ export default function AdminPayments() {
       key: 'actions',
       render: (_, r) => (
         <Space>
-          <Popconfirm title="¿El pago llegó por el monto exacto?" okText="Sí, acreditar"
-            cancelText="No" onConfirm={() => act(r._id, 'confirm')}>
-            <Button type="primary" size="small" icon={<CheckOutlined />} loading={processing === r._id}>
-              Confirmar
-            </Button>
-          </Popconfirm>
-          <Button danger size="small" icon={<CloseOutlined />} loading={processing === r._id}
-            onClick={() => act(r._id, 'reject')}>
-            Rechazar
-          </Button>
+          <Tooltip title="Confirmar">
+            <Popconfirm title="¿El pago llegó por el monto exacto?" okText="Sí, acreditar"
+              cancelText="No" onConfirm={() => act(r._id, 'confirm')}>
+              <Button type="primary" size="small" icon={<CheckOutlined />} loading={processing === r._id} />
+            </Popconfirm>
+          </Tooltip>
+          <Tooltip title="Rechazar">
+            <Button danger size="small" icon={<CloseOutlined />} loading={processing === r._id}
+              onClick={() => act(r._id, 'reject')} />
+          </Tooltip>
         </Space>
       ),
     },
@@ -398,10 +401,11 @@ export default function AdminPayments() {
 
       <Row gutter={[20, 20]}>
         {/* ── Métodos de pago configurables ───────────────────────── */}
-        <Col xs={24} xl={9}>
+        <Col xs={24} lg={8} xl={7}>
           <Card
             title="📱 Métodos de pago"
             extra={<Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => openMethod(null)}>Agregar</Button>}
+            style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.05)', border: 'none', borderRadius: 16 }}
           >
             <Space direction="vertical" size="middle" style={{ width: '100%' }}>
               {methods.length === 0 && <Empty description="Configura tu primer método (Yape, Plin…)" />}
@@ -440,29 +444,88 @@ export default function AdminPayments() {
         </Col>
 
         {/* ── Verificación de pagos ───────────────────────────────── */}
-        <Col xs={24} xl={15}>
+        <Col xs={24} lg={16} xl={17}>
           <Card
             title={<>💰 Pagos por verificar <Tag color="warning">{pending.length} en cola</Tag></>}
             extra={<Button size="small" icon={<ReloadOutlined />} onClick={refreshPending} loading={loading} />}
+            style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.05)', border: 'none', borderRadius: 16 }}
+            styles={{ body: { padding: isDesktop ? 24 : '12px 0' } }}
           >
-            <Table
-              dataSource={pending}
-              columns={pendingColumns}
-              rowKey="_id"
-              size="small"
-              scroll={{ x: 780 }}
-              pagination={false}
-              locale={{ emptyText: <Empty description="Sin pagos pendientes 🎉" /> }}
-            />
+            {isDesktop ? (
+              <Table
+                dataSource={pending}
+                columns={pendingColumns}
+                rowKey="_id"
+                size="small"
+                scroll={{ x: 800 }}
+                pagination={false}
+                locale={{ emptyText: <Empty description="Sin pagos pendientes 🎉" /> }}
+              />
+            ) : (
+              <List
+                dataSource={pending}
+                locale={{ emptyText: <Empty description="Sin pagos pendientes 🎉" /> }}
+                renderItem={(r) => (
+                  <List.Item style={{ padding: '0 12px 12px' }}>
+                    <Card size="small" style={{ width: '100%', borderRadius: 12, border: '1px solid var(--z-border)', backgroundColor: 'rgba(0, 163, 143, 0.03)', boxShadow: '0 4px 12px rgba(0,0,0,0.04)' }} styles={{ body: { padding: '16px' } }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <Text strong style={{ fontSize: 14 }}>{r.userId?.name}</Text>
+                        <Text strong style={{ fontSize: 14, color: MISIO_COLORS.saldoGreen }}>S/ {r.amount}</Text>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: MISIO_COLORS.textMuted }}>
+                        <span>{r.meta?.methodName} · Op: {r.meta?.operationNumber}</span>
+                        <span>{dayjs(r.createdAt).format('DD/MMM HH:mm')}</span>
+                      </div>
+                      <div style={{ marginTop: 6 }}>
+                        {r.meta?.receiptUrl ? (
+                          <Space size={6}>
+                            <a href={`${SERVER_URL}${r.meta.receiptUrl}`} target="_blank" rel="noreferrer"
+                              style={{ fontSize: 11 }}>🧾 Ver recibo</a>
+                            <Upload {...receiptUploader(r)}>
+                              <a style={{ fontSize: 11, color: MISIO_COLORS.textMuted }}>reemplazar</a>
+                            </Upload>
+                          </Space>
+                        ) : (
+                          <Upload {...receiptUploader(r)}>
+                            <a style={{ fontSize: 11 }}><UploadOutlined /> Adjuntar recibo</a>
+                          </Upload>
+                        )}
+                      </div>
+                      <Divider style={{ margin: '12px 0' }} />
+                      
+                      {/* Lógica de Tickets similar a la tabla pero en Card */}
+                      {r.intentDetails?.type === 'raffle' && (
+                        <div style={{ marginBottom: 16 }}>
+                          <Text style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>
+                            🛒 <b>Intención:</b> {r.intentDetails.raffleTitle}
+                          </Text>
+                          {/* (El resto de la lógica de conflicto ya está en columns, para simplificar renderizamos la misma celda de Detalles) */}
+                          {pendingColumns.find(c => c.key === 'intentDetails').render(null, r)}
+                        </div>
+                      )}
+                      
+                      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                        <Popconfirm title="¿Rechazar?" onConfirm={() => act(r._id, 'reject')}>
+                          <Button block danger icon={<CloseOutlined />} loading={processing === r._id}>Rechazar</Button>
+                        </Popconfirm>
+                        <Popconfirm title="¿Acreditar?" okText="Sí" onConfirm={() => act(r._id, 'confirm')}>
+                          <Button block type="primary" icon={<CheckOutlined />} loading={processing === r._id}>Confirmar</Button>
+                        </Popconfirm>
+                      </div>
+                    </Card>
+                  </List.Item>
+                )}
+              />
+            )}
           </Card>
         </Col>
       </Row>
 
       {/* ── Historial de pagos resueltos ──────────────────────────── */}
       <Card
-        style={{ marginTop: 18 }}
+        style={{ marginTop: 18, boxShadow: '0 8px 24px rgba(0,0,0,0.05)', border: 'none', borderRadius: 16 }}
         title={<>🧾 Historial de pagos <Tag>{history?.total ?? histRows.length}</Tag></>}
-        extra={
+        extra={isDesktop ? (
           <Space wrap>
             <Segmented
               size="small"
@@ -477,20 +540,31 @@ export default function AdminPayments() {
               format="DD/MM/YYYY" allowClear />
             <Button size="small" icon={<ReloadOutlined />} onClick={refreshHistory} loading={loadingHist} />
           </Space>
-        }
+        ) : null}
+        styles={{ body: { padding: isDesktop ? 24 : '12px 0' } }}
       >
-        <Text style={{ fontSize: 12, color: MISIO_COLORS.textMuted, display: 'block', marginBottom: 10 }}>
+        {!isDesktop && (
+           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 12px 16px' }}>
+              <Segmented block value={histStatus} onChange={setHistStatus} options={[{ label: 'Aprobados', value: 'completed' }, { label: 'Rechazados', value: 'failed' }]} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <DatePicker.RangePicker style={{ flex: 1 }} size="small" value={histRange} onChange={setHistRange} format="DD/MM/YY" allowClear />
+                <Button size="small" icon={<ReloadOutlined />} onClick={refreshHistory} loading={loadingHist} />
+              </div>
+           </div>
+        )}
+        <Text style={{ fontSize: 12, color: MISIO_COLORS.textMuted, display: 'block', marginBottom: 10, padding: isDesktop ? 0 : '0 12px' }}>
           Aquí vuelves a un pago ya aprobado para adjuntarle su recibo. El
           usuario lo ve al instante en Mi Perfil → Mis recargas.
         </Text>
-        <Table
-          dataSource={histRows}
-          rowKey="_id"
-          size="small"
-          scroll={{ x: 720 }}
-          pagination={{ pageSize: 10, showSizeChanger: false }}
-          locale={{ emptyText: <Empty description="Sin pagos en este rango" /> }}
-          columns={[
+        {isDesktop ? (
+          <Table
+            dataSource={histRows}
+            rowKey="_id"
+            size="small"
+            scroll={{ x: 800 }}
+            pagination={{ pageSize: 10, showSizeChanger: false }}
+            locale={{ emptyText: <Empty description="Sin pagos en este rango" /> }}
+            columns={[
             {
               title: 'Fecha', key: 'date', width: 120,
               render: (_, r) => (
@@ -560,9 +634,49 @@ export default function AdminPayments() {
                   )}
                 </Space>
               ),
-            },
-          ]}
-        />
+              },
+            ]}
+          />
+        ) : (
+          <List
+            dataSource={histRows}
+            pagination={{ pageSize: 10, align: 'center', size: 'small' }}
+            locale={{ emptyText: <Empty description="Sin pagos" /> }}
+            renderItem={(r) => {
+              const isOffline = r.type === 'offline_sale';
+              const name = isOffline ? (r.meta?.buyerName || 'Cliente POS') : (r.userId?.name ?? '—');
+              const isAppr = r.status === 'completed';
+              return (
+                <List.Item style={{ padding: '0 12px 12px' }}>
+                  <Card size="small" style={{ width: '100%', borderRadius: 12, border: '1px solid var(--z-border)', backgroundColor: '#fafafa' }} styles={{ body: { padding: '16px' } }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Text strong style={{ fontSize: 13 }}>{name} {isOffline && <Tag color="cyan">POS</Tag>}</Text>
+                      <Text strong style={{ fontSize: 13, color: isAppr ? MISIO_COLORS.saldoGreen : MISIO_COLORS.danger }}>
+                        S/ {r.amount}
+                      </Text>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: MISIO_COLORS.textMuted }}>
+                      <span>{dayjs(r.createdAt).format('DD/MMM/YY HH:mm')}</span>
+                      <span>{r.meta?.methodName} · Op: {r.meta?.operationNumber}</span>
+                    </div>
+                    {isAppr && (
+                      <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        {r.meta?.receiptUrl ? (
+                          <Tag color="success" icon={<FileTextOutlined />}>Recibo cargado</Tag>
+                        ) : (
+                          <Tag color="warning">Sin recibo</Tag>
+                        )}
+                        <Upload {...receiptUploader(r._id)}>
+                          <Button size="small" icon={<UploadOutlined />}>Subir recibo</Button>
+                        </Upload>
+                      </div>
+                    )}
+                  </Card>
+                </List.Item>
+              );
+            }}
+          />
+        )}
       </Card>
 
       {/* ── Modal método de pago ──────────────────────────────────── */}

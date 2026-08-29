@@ -43,7 +43,7 @@ export const ADMIN_MENU = [
     items: [
       { key: '/admin/erp', perm: 'erp', icon: <DatabaseOutlined />, label: 'ERP Logístico' },
       { key: '/admin/contabilidad', perm: 'contabilidad', icon: <CalculatorOutlined />, label: 'Contabilidad' },
-      { key: '/admin/campanas', perm: 'marketing', icon: <RocketOutlined />, label: 'Promociones y Campañas' },
+      { key: '/admin/campanas', perm: 'marketing', icon: <RocketOutlined />, label: 'Promos' },
       { key: '/admin/reclamos', perm: 'reclamos', icon: <BookOutlined />, label: 'Reclamos' },
     ],
   },
@@ -205,15 +205,15 @@ export default function AdminShell() {
         {/* ── Cabecera del panel: Flotante estilo Web Pública ── */}
         <Header style={{
           background: 'var(--z-admin-header)',
-          margin: '16px 24px 8px 24px',
+          margin: isDesktop ? '16px 24px 8px 24px' : '8px 8px 8px 8px',
           borderRadius: 999, /* Bordes completamente redondeados (píldora) */
-          padding: '0 24px',
+          padding: isDesktop ? '0 24px' : '0 12px',
           display: 'flex',
           alignItems: 'center',
-          gap: 16,
+          gap: isDesktop ? 16 : 8,
           height: 64,
           position: 'sticky',
-          top: 16,
+          top: isDesktop ? 16 : 8,
           zIndex: 10,
           boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
           border: '1px solid var(--z-border)',
@@ -270,7 +270,7 @@ export default function AdminShell() {
           </div>
         </Header>
 
-        <Content style={{ padding: 'clamp(14px, 2vw, 24px)' }}>
+        <Content style={{ padding: isDesktop ? '24px' : '12px 8px' }}>
           <Outlet />
         </Content>
 
