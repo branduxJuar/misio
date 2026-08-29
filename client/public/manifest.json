@@ -1,0 +1,24 @@
+{
+  "name": "Misio",
+  "short_name": "Misio",
+  "description": "Sorteos donde nunca pierdes: si tu boleto no gana, su valor vuelve como saldo de canje. Transmitidos en vivo desde Perú.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#06181b",
+  "theme_color": "#047857",
+  "icons": [
+    {
+      "src": "/pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "lang": "es-PE"
+}
