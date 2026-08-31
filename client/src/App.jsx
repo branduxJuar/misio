@@ -73,15 +73,21 @@ const navKey = (path) => {
  * desde el card de la rifa cuando está en vivo. El personal (admin u
  * operador) ve UN solo ítem "Admin" — dentro está todo con su dashboard.
  */
-function buildNavItems(role, auctionsEnabled = false) {
+function buildNavItems(role, auctionsEnabled = false, isDesktop = true) {
   const items = [
     { key: '/sorteos', path: '/sorteos', text: 'Sorteos', icon: <GiftOutlined />, label: <NavLink to="/sorteos">Sorteos</NavLink> },
     { key: '/tienda', path: '/tienda', text: 'Tienda', icon: <ShopOutlined />, label: <NavLink to="/tienda">Tienda</NavLink> },
     ...(auctionsEnabled ? [{ key: '/subastas', path: '/subastas', text: 'Subastas', icon: <FireOutlined />, label: <NavLink to="/subastas">Subastas</NavLink> }] : []),
     { key: '/ganadores', path: '/ganadores', text: 'Ganadores', icon: <TrophyOutlined />, label: <NavLink to="/ganadores">Ganadores</NavLink> },
     { key: '/bingo', path: '/bingo', text: 'Bingo', icon: <SmileOutlined />, label: <NavLink to="/bingo">Bingo Gratis</NavLink> },
-    { key: '/mi-cuenta', path: '/mi-cuenta', text: 'Mi cuenta', icon: <UserOutlined />, label: <NavLink to="/mi-cuenta">Mi cuenta</NavLink> },
   ];
+
+  if (isDesktop) {
+    items.push({ key: '/nosotros', path: '/nosotros', text: 'Nosotros', icon: <TeamOutlined />, label: <NavLink to="/nosotros">Nosotros</NavLink> });
+  } else {
+    items.push({ key: '/mi-cuenta', path: '/mi-cuenta', text: 'Mi cuenta', icon: <UserOutlined />, label: <NavLink to="/mi-cuenta">Mi cuenta</NavLink> });
+  }
+
   return items;
 }
 
@@ -260,7 +266,7 @@ function MobileBottomNav({ items, currentPath }) {
         background: 'linear-gradient(90deg, #10b981, #6ee7b7, #10b981)',
         boxShadow: '0 1px 4px rgba(16, 185, 129, 0.3)'
       }} />
-      {items.slice(0, 5).map(item => {
+      {items.slice(0, 6).map(item => {
         const isActive = navKey(currentPath) === item.key;
         return (
           <NavLink key={item.key} to={item.path} style={{
@@ -346,7 +352,7 @@ function PublicShell() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const isDesktop = screens.lg; // ≥ 992px
-  const navItems = buildNavItems(user?.role, auctionsEnabled);
+  const navItems = buildNavItems(user?.role, auctionsEnabled, isDesktop);
 
   if (maintenance?.enabled) {
     return <MaintenanceScreen maintenance={maintenance} />;
