@@ -80,7 +80,7 @@ function buildNavItems(role, auctionsEnabled = false) {
     ...(auctionsEnabled ? [{ key: '/subastas', path: '/subastas', text: 'Subastas', icon: <FireOutlined />, label: <NavLink to="/subastas">Subastas</NavLink> }] : []),
     { key: '/ganadores', path: '/ganadores', text: 'Ganadores', icon: <TrophyOutlined />, label: <NavLink to="/ganadores">Ganadores</NavLink> },
     { key: '/bingo', path: '/bingo', text: 'Bingo', icon: <SmileOutlined />, label: <NavLink to="/bingo">Bingo Gratis</NavLink> },
-    { key: '/nosotros', path: '/nosotros', text: 'Nosotros', icon: <TeamOutlined />, label: <NavLink to="/nosotros">Quiénes somos</NavLink> },
+    { key: '/mi-cuenta', path: '/mi-cuenta', text: 'Mi cuenta', icon: <UserOutlined />, label: <NavLink to="/mi-cuenta">Mi cuenta</NavLink> },
   ];
   return items;
 }
