@@ -44,11 +44,11 @@ export default function SiteProvider({ children }) {
     if (pColor) {
       document.documentElement.style.setProperty('--z-primary', pColor);
     }
-    document.title = `${site.brandName} — ${site.tagline}`;
+    document.title = "Misio.pe";
 
     // 1. Cambiar favicons y apple-touch-icon en vivo
-    const logo = site.logoUrl ? `${SERVER_URL}${site.logoUrl}` : '/favicon.svg';
-    const logoPng = site.logoUrl ? logo : '/pwa-192.png';
+    const logo = '/favicon.svg';
+    const logoPng = '/pwa-192.png';
     
     let iconLink = document.querySelector("link[rel~='icon']");
     if (iconLink) iconLink.href = logo;
