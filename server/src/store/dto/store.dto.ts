@@ -69,6 +69,7 @@ export class CheckoutDto {
 
 export class DeliverRedemptionDto {
   @IsOptional() @IsString() virtualCode?: string;
+  @IsOptional() @IsArray() virtualCodes?: { itemName: string; code: string }[];
   @IsOptional() @IsString() deliveryNote?: string;
   @IsOptional() @IsArray() @IsString({ each: true }) evidence?: string[];
 }

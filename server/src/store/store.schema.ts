@@ -130,9 +130,20 @@ export class Redemption {
   /**
    * Código del producto virtual que el admin entrega (gift card, PIN de
    * recarga). Se guarda al marcar entregado y se le muestra al usuario.
+   * @deprecated Usar virtualCodes para múltiples ítems.
    */
   @Prop({ default: '' })
   virtualCode: string;
+
+  /**
+   * Lista de códigos para órdenes con múltiples ítems o cantidades > 1.
+   */
+  @Prop({
+    type: [{ itemName: String, code: String }],
+    default: [],
+    _id: false,
+  })
+  virtualCodes: { itemName: string; code: string }[];
 
   /** Evidencia de entrega: capturas/fotos que sube el admin (legal). */
   @Prop({ type: [String], default: [] })

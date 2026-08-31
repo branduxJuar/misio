@@ -14,14 +14,30 @@ const { Dragger } = Upload;
 
 export default function RedemptionManager({ redemptionId, open, onClose, onDelivered, msgApi }) {
   const [detail, setDetail] = useState(null);
-  const [code, setCode] = useState('');
+  const [codes, setCodes] = useState([]);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (open && redemptionId) {
       api(`/store/redemptions/${redemptionId}`).then((d) => {
-        setDetail(d); setCode(d.virtualCode ?? ''); setNote(d.deliveryNote ?? '');
+        setDetail(d); 
+        setNote(d.deliveryNote ?? '');
+        if (d.virtualCodes && d.virtualCodes.length > 0) {
+          setCodes(d.virtualCodes);
+        } else {
+          let requiredCodes = [];
+          if (d.items && d.items.length > 0) {
+            d.items.forEach(it => {
+              for (let i = 0; i < it.qty; i++) {
+                requiredCodes.push({ itemName: `${it.name}${it.qty > 1 ? ` #${i + 1}` : ''}`, code: '' });
+              }
+            });
+          } else {
+            requiredCodes.push({ itemName: d.itemName || 'Código', code: d.virtualCode || '' });
+          }
+          setCodes(requiredCodes);
+        }
       }).catch(() => {});
     }
   }, [open, redemptionId]);
@@ -94,11 +110,12 @@ export default function RedemptionManager({ redemptionId, open, onClose, onDeliv
   });
 
   const deliver = async () => {
-    if (isVirtual && !code.trim()) { msgApi.error('Ingresa el código a entregar'); return; }
+    if (isVirtual && codes.some(c => !c.code.trim())) { msgApi.error('Faltan ingresar códigos (puedes completarlos luego, pero necesitas al menos uno)'); }
+    
     setBusy(true);
     try {
       await api(`/store/redemptions/${redemptionId}/deliver`, {
-        method: 'PATCH', body: { virtualCode: code.trim(), deliveryNote: note.trim() },
+        method: 'PATCH', body: { virtualCodes: codes.map(c => ({ itemName: c.itemName, code: c.code.trim() })), deliveryNote: note.trim() },
       });
       msgApi.success(isVirtual
         ? 'Entregado — el código se envió por correo interno, email y push ✓'
@@ -121,7 +138,7 @@ export default function RedemptionManager({ redemptionId, open, onClose, onDeliv
   };
 
   const waLink = d.phone
-    ? `https://wa.me/51${String(d.phone).replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${detail.userId?.name}, tu código de "${detail.itemName}" es: ${code}`)}`
+    ? `https://wa.me/51${String(d.phone).replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${detail.userId?.name}, aquí tienes tus códigos de "${detail.itemName}": \n${codes.map(c => `- ${c.itemName}: ${c.code}`).join('\n')}`)}`
     : null;
 
   return (
@@ -230,20 +247,32 @@ export default function RedemptionManager({ redemptionId, open, onClose, onDeliv
           <Card bordered={false} style={{ borderRadius: 12, background: isVirtual ? '#f8fafc' : 'transparent', border: isVirtual ? '1px dashed #cbd5e1' : 'none' }}>
             {isVirtual && (
               <div style={{ marginBottom: 24 }}>
-                <Title level={5} style={{ marginTop: 0 }}>Código a entregar</Title>
-                {done && detail.virtualCode ? (
-                  <Alert type="success" showIcon message={<span>Entregado: <Text copyable strong style={{ fontSize: 16 }}>{detail.virtualCode}</Text></span>} />
+                <Title level={5} style={{ marginTop: 0 }}>Códigos a entregar</Title>
+                {done && codes.some(c => !!c.code) ? (
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    {codes.map((c, i) => (
+                      <Alert key={i} type="success" showIcon message={<span><Text type="secondary">{c.itemName}:</Text> <Text copyable strong style={{ fontSize: 15 }}>{c.code}</Text></span>} />
+                    ))}
+                  </Space>
                 ) : (
                   <Space direction="vertical" style={{ width: '100%' }}>
-                    <Input.TextArea rows={2} placeholder="Pega aquí el código / PIN de la gift card o recarga"
-                      value={code} onChange={(e) => setCode(e.target.value)} 
-                      style={{ fontSize: 16, borderRadius: 8 }} />
-                    <Space wrap>
-                      {code && <Button icon={<CopyOutlined />} onClick={() => { navigator.clipboard.writeText(code); msgApi.success('Copiado'); }}>Copiar</Button>}
+                    {codes.map((c, i) => (
+                      <div key={i} style={{ display: 'flex', flexDirection: 'column', marginBottom: 8 }}>
+                        <Text strong style={{ fontSize: 12, marginBottom: 4 }}>{c.itemName}</Text>
+                        <Input.TextArea rows={1} placeholder="Pega aquí el código / PIN"
+                          value={c.code} onChange={(e) => {
+                            const newCodes = [...codes];
+                            newCodes[i].code = e.target.value;
+                            setCodes(newCodes);
+                          }} 
+                          style={{ fontSize: 16, borderRadius: 8 }} />
+                      </div>
+                    ))}
+                    <Space wrap style={{ marginTop: 8 }}>
                       {waLink && <Button href={waLink} target="_blank" style={{ borderColor: '#25D366', color: '#25D366' }}>📲 WhatsApp</Button>}
                     </Space>
                     <Text style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>
-                      El código llegará al usuario por correo interno, email y notificación push.
+                      Los códigos llegarán al usuario por correo interno, email y notificación push.
                     </Text>
                   </Space>
                 )}

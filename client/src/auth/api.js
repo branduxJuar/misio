@@ -85,7 +85,13 @@ export async function api(path, { method = 'GET', body } = {}) {
     }
     
     // Si llegamos aquí, falló la renovación o no había refresh token
+    const wasLoggedIn = !!token; // ¿Intentamos enviar un token en este request?
     tokenStore.clear();
+    
+    // Si no estábamos logueados, o ya estamos en la página de login, no mostramos el modal molesto
+    if (!wasLoggedIn || window.location.pathname === '/login') {
+      throw new Error(msg || 'Unauthorized');
+    }
     
     if (!msg || msg === 'Unauthorized') {
       msg = 'Por tu seguridad, tu sesión ha expirado o ya no es válida. Por favor, vuelve a iniciar sesión para continuar.';
@@ -109,7 +115,7 @@ export async function api(path, { method = 'GET', body } = {}) {
       });
     }
     
-    throw new Error(msg);
+    throw new Error(msg || 'Sesión expirada');
   }
 
   if (!res.ok) {

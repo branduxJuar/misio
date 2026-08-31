@@ -126,9 +126,9 @@ export default function InstallPrompt() {
             <Space align="start" style={{ width: '100%' }}>
               <div style={{
                 width: 44, height: 44, borderRadius: 12, display: 'grid', placeItems: 'center',
-                background: MISIO_COLORS.primary, fontSize: 22, flexShrink: 0,
+                background: MISIO_COLORS.primary, color: '#fff', fontWeight: 900, fontStyle: 'italic', fontSize: 22, flexShrink: 0,
               }}>
-                ⚡
+                M
               </div>
               <div style={{ flex: 1 }}>
                 <Text strong style={{ display: 'block' }}>Instala Misio en tu celular</Text>
@@ -151,7 +151,7 @@ export default function InstallPrompt() {
 
       {/* iOS: instrucciones (Safari no permite instalador automático) */}
       <Modal open={iosHelp} onCancel={() => setIosHelp(false)} footer={null} centered
-        title={<><ThunderboltFilled style={{ color: MISIO_COLORS.primary }} /> Instalar Misio en tu iPhone</>}>
+        title={<><span style={{ color: MISIO_COLORS.primary, fontWeight: 900, fontStyle: 'italic', padding: '0 4px' }}>M</span> Instalar Misio en tu iPhone</>}>
         <Paragraph style={{ color: MISIO_COLORS.textMuted }}>
           En iPhone, Safari pide hacerlo a mano — son 3 toques:
         </Paragraph>

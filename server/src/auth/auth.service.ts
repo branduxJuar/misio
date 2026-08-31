@@ -128,8 +128,8 @@ export class AuthService {
       // Mismo mensaje exista o no el DNI: no confirmamos qué cuentas hay
       throw new UnauthorizedException('DNI o contraseña incorrectos');
     }
-    if (user.failedLogins || user.lockedUntil) {
-      await this.userModel.updateOne({ _id: user._id }, { failedLogins: 0, lockedUntil: null });
+    if (user.failedLogins || user.lockedUntil || user.forgotPasswordAttempts) {
+      await this.userModel.updateOne({ _id: user._id }, { failedLogins: 0, lockedUntil: null, forgotPasswordAttempts: 0 });
     }
 
     // 2FA activo: no entregar tokens todavía — el frontend debe pedir
@@ -204,7 +204,8 @@ export class AuthService {
 
     // El bono de bienvenida se aplica recién al VERIFICAR (cuenta real)
     const welcomeBonus = await this.settingsService.applyWelcomeBonus(user._id.toString());
-    return { ...this.buildAuthResponse(user), welcomeBonus };
+    const authResponse = await this.buildAuthResponse(user);
+    return { ...authResponse, welcomeBonus };
   }
 
   /** POST /auth/resend-code — reenvía el código (si sigue sin verificar). */
@@ -292,22 +293,49 @@ export class AuthService {
    * Paso 1: el usuario pide recuperar. Genera un token temporal (1h) y
    * envía el correo. Por seguridad, responde igual exista o no el correo.
    */
-  async forgotPassword(dni: string) {
-    const user = await this.userModel.findOne({ dni });
-    if (user) {
-      const token = randomBytes(32).toString('hex');
-      const hash = createHash('sha256').update(token).digest('hex');
+  async forgotPassword(email: string) {
+    const user = await this.userModel.findOne({ email: email.trim().toLowerCase() });
+    
+    // Si el usuario no existe, devolvemos éxito sin enviar nada (para evitar filtrado de correos válidos)
+    if (!user) {
+      return { sent: true, message: 'Si el correo está registrado, enviamos las instrucciones.' };
+    }
+
+    const attempts = (user.forgotPasswordAttempts || 0) + 1;
+    
+    if (attempts > 3) {
       await this.userModel.updateOne(
         { _id: user._id },
-        { resetToken: hash, resetTokenExpires: new Date(Date.now() + 3600_000) },
+        { 
+          forgotPasswordAttempts: attempts,
+          banned: true,
+          bannedAt: new Date(),
+          banReason: 'Exceso de intentos de recuperación de contraseña'
+        }
       );
-      if (user.email) {
-        try {
-          await this.mailService.sendPasswordReset(user.email, user.name, token);
-        } catch { /* el correo nunca rompe el flujo */ }
-      }
+      await this.mailService.sendAccountBannedForSpam(user.email, user.name);
+      // Retornamos el mismo mensaje para no dar indicios al atacante
+      return { sent: true, message: 'Si el correo está registrado, enviamos las instrucciones.' };
     }
-    return { sent: true, message: 'Si el DNI está registrado con un correo, enviamos las instrucciones.' };
+
+    const token = randomBytes(32).toString('hex');
+    const hash = createHash('sha256').update(token).digest('hex');
+    await this.userModel.updateOne(
+      { _id: user._id },
+      { 
+        resetToken: hash, 
+        resetTokenExpires: new Date(Date.now() + 3600_000),
+        forgotPasswordAttempts: attempts
+      },
+    );
+    
+    if (user.email) {
+      try {
+        await this.mailService.sendPasswordReset(user.email, user.name, token);
+      } catch { /* el correo nunca rompe el flujo */ }
+    }
+    
+    return { sent: true, message: 'Si el correo está registrado, enviamos las instrucciones.' };
   }
 
   /** Paso 2: el usuario llega con el token del correo y su nueva clave. */
@@ -325,7 +353,7 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(newPassword, 10);
     await this.userModel.updateOne(
       { _id: user._id },
-      { passwordHash, resetToken: '', resetTokenExpires: null, mustChangePassword: false, failedLogins: 0, lockedUntil: null },
+      { passwordHash, resetToken: '', resetTokenExpires: null, mustChangePassword: false, failedLogins: 0, lockedUntil: null, forgotPasswordAttempts: 0 },
     );
     return { ok: true, message: 'Contraseña actualizada. Ya puedes iniciar sesión.' };
   }

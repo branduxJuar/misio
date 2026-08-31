@@ -328,6 +328,7 @@ export class StoreService {
    */
   async markDelivered(id: string, opts: {
     virtualCode?: string;
+    virtualCodes?: { itemName: string; code: string }[];
     deliveryNote?: string;
     evidence?: string[];
   } = {}) {
@@ -340,6 +341,7 @@ export class StoreService {
     doc.status = RedemptionStatus.DELIVERED;
     doc.deliveredAt = new Date();
     if (opts.virtualCode) doc.virtualCode = opts.virtualCode;
+    if (opts.virtualCodes) doc.virtualCodes = opts.virtualCodes;
     if (opts.deliveryNote) doc.deliveryNote = opts.deliveryNote;
     if (opts.evidence?.length) doc.evidence = [...(doc.evidence ?? []), ...opts.evidence];
     await doc.save();

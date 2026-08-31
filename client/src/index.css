@@ -600,59 +600,163 @@ body.light .z-bingo-cell {
   display: grid;
   place-items: center;
   padding: 16px;
-  background-color: var(--z-bg-base);
+  background-color: #dcfce7;
   background-image: 
-    radial-gradient(900px 500px at 10% 10%, color-mix(in srgb, var(--z-primary) 12%, transparent), transparent 70%),
-    radial-gradient(800px 600px at 90% 90%, color-mix(in srgb, var(--z-blue) 12%, transparent), transparent 70%);
+    radial-gradient(400px 400px at 15% 15%, color-mix(in srgb, var(--z-primary) 10%, transparent), transparent 70%),
+    radial-gradient(300px 300px at 85% 85%, color-mix(in srgb, var(--z-primary) 15%, transparent), transparent 70%);
   background-attachment: fixed;
 }
 
 .z-auth-split {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  min-height: 560px;
-  background: color-mix(in srgb, var(--z-bg-surface) 85%, transparent);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid color-mix(in srgb, var(--z-border) 50%, transparent);
-  border-radius: 24px;
-  box-shadow: var(--z-shadow-lg);
-  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  max-width: 1080px;
+  min-height: 540px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.08);
 }
 
 .z-auth-brand {
+  flex: 1.45;
   display: flex;
   flex-direction: column;
-  padding: 48px 40px;
-  background: linear-gradient(135deg, var(--z-primary), #064e3b);
-  border-right: none;
+  padding: 56px 48px;
+  background: var(--z-primary);
+  color: #fff;
+  border-radius: 20px 0 0 20px;
   position: relative;
   overflow: hidden;
 }
 
 .z-auth-brand::before {
-  content: "";
-  position: absolute;
-  top: -50%; left: -50%; right: -50%; bottom: -50%;
-  background: radial-gradient(circle at center, rgba(52, 211, 153, 0.3), transparent 60%);
-  pointer-events: none;
+  display: none;
 }
 
 .z-auth-form {
-  padding: 48px 40px;
+  flex: 1;
+  padding: 40px 48px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   background: transparent;
+  border-radius: 0 20px 20px 0;
+  position: relative;
+}
+
+.auth-tabs.ant-segmented {
+  background: #f3f4f6;
+  border-radius: 999px;
+  padding: 6px;
+}
+.auth-tabs.ant-segmented .ant-segmented-item {
+  border-radius: 999px;
+  color: #6b7280;
+}
+.auth-tabs.ant-segmented .ant-segmented-item-selected {
+  background: var(--z-primary);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(4, 120, 87, 0.3);
+}
+
+.auth-input .ant-input-affix-wrapper,
+.auth-input.ant-input {
+  border-radius: 999px !important;
+  background-color: #f3f4f6;
+  border: 1px solid transparent;
+  padding: 10px 20px;
+}
+.auth-input .ant-input-affix-wrapper:focus-within,
+.auth-input.ant-input:focus {
+  background-color: #fff;
+  border-color: var(--z-primary);
+  box-shadow: 0 0 0 2px rgba(4, 120, 87, 0.1);
+}
+.auth-input input {
+  background-color: transparent !important;
+}
+
+.btn-pill {
+  border-radius: 999px !important;
+  font-weight: 600;
 }
 
 .z-auth-mobile-brand { display: none; }
 
 @media (max-width: 768px) {
-  .z-auth-split { grid-template-columns: 1fr; min-height: 0; border-radius: 20px; }
-  .z-auth-brand { display: none; }
-  .z-auth-form { padding: 32px 24px; }
-  .z-auth-mobile-brand { display: block; text-align: center; }
+  .z-auth-page {
+    padding: 0;
+    background-color: var(--z-primary);
+  }
+  .z-auth-split {
+    flex-direction: column;
+    min-height: 100vh;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+  .z-auth-brand {
+    display: flex;
+    flex: 0;
+    padding: 48px 24px 32px 24px;
+    border-radius: 0;
+    background: transparent;
+  }
+  .z-auth-brand h1 {
+    font-size: 28px !important;
+  }
+  .z-auth-form {
+    flex: 1;
+    padding: 32px 24px;
+    background: #ffffff;
+    border-radius: 32px 32px 0 0;
+    justify-content: flex-start;
+  }
+  .z-auth-mobile-brand {
+    display: none;
+  }
+  .z-auth-brand-logo {
+    position: absolute !important;
+    top: -8px;
+    right: 16px;
+    width: auto !important;
+  }
+  .z-auth-brand-logo h2 {
+    text-align: center;
+  }
+  .z-auth-brand-tagline {
+    text-align: center !important;
+    margin-top: 48px !important;
+  }
+  .z-auth-features {
+    width: 100%;
+    flex-direction: row !important;
+    justify-content: space-between;
+    gap: 8px !important;
+    margin-top: 16px !important;
+  }
+  .z-auth-feature-item {
+    width: 32%;
+    flex-direction: column !important;
+    text-align: center;
+    gap: 8px !important;
+  }
+  .z-auth-feature-item > div:last-child {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .z-auth-feature-item span {
+    font-size: 13px !important;
+    line-height: 1.1 !important;
+  }
+  .z-auth-feature-desc {
+    display: none !important;
+  }
+  .z-auth-form-title {
+    display: none !important;
+  }
 }
 
 /* ═══ Panel de administración: Look Premium / Corporativo ═══ */

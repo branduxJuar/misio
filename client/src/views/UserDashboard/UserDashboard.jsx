@@ -3,7 +3,7 @@ import TicketCard from '../../components/TicketCard';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Divider, Tabs, Grid, Space, Steps, Tooltip,
-  Card, Col, Row, Statistic, Table, Tag, Typography, Button, List, Avatar, message, Alert, Empty, Select,
+  Card, Col, Row, Statistic, Table, Tag, Typography, Button, List, Avatar, message, Alert, Empty, Select, Collapse, Image
 } from 'antd';
 import {
   WalletFilled, HistoryOutlined, GiftFilled, ArrowUpOutlined, ArrowDownOutlined, TrophyFilled, FilePdfOutlined, InfoCircleOutlined
@@ -524,7 +524,13 @@ export default function UserDashboard() {
                 {myRedemptions.length === 0 ? (
                   <Empty description="No tienes compras en la tienda aún." style={{ margin: '40px 0' }} />
                 ) : (() => {
-                  const sortedRedemptions = [...myRedemptions].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                  const statusWeight = { pending: 1, processing: 2, delivered: 3 };
+                  const sortedRedemptions = [...myRedemptions].sort((a, b) => {
+                    const weightA = statusWeight[a.status] || 99;
+                    const weightB = statusWeight[b.status] || 99;
+                    if (weightA !== weightB) return weightA - weightB;
+                    return new Date(b.createdAt) - new Date(a.createdAt);
+                  });
                   const pendientes = sortedRedemptions.filter(r => r.status === 'pending');
                   const proceso = sortedRedemptions.filter(r => r.status === 'processing');
                   const entregados = sortedRedemptions.filter(r => r.status === 'delivered');
@@ -550,8 +556,8 @@ export default function UserDashboard() {
                                       {item.emoji || '📦'}
                                     </div>
                                     <div style={{ minWidth: 0 }}>
-                                      <Text strong style={{ fontSize: 16, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</Text>
-                                      <Text type="secondary" style={{ fontSize: 12 }}>{new Date(r.createdAt).toLocaleDateString('es-PE')}</Text>
+                                      <Text strong style={{ fontSize: 16, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.itemName || item.name}</Text>
+                                      <Text type="secondary" style={{ fontSize: 12 }}>{new Date(r.createdAt).toLocaleDateString('es-PE')} • S/ {r.price}</Text>
                                     </div>
                                   </div>
                                 </Col>
@@ -579,6 +585,70 @@ export default function UserDashboard() {
                                   )}
                                 </Col>
                               </Row>
+
+                              {/* Detalles adicionales: Código virtual, notas, envío */}
+                              {(r.virtualCode || (r.virtualCodes && r.virtualCodes.length > 0) || r.deliveryNote || (r.delivery && Object.keys(r.delivery).length > 0) || (r.items && r.items.length > 1)) && (
+                                <Collapse
+                                  ghost
+                                  size="small"
+                                  items={[{
+                                    key: '1',
+                                    label: <Text type="secondary" style={{ fontSize: 13 }}>Ver detalles (códigos, envío, productos)</Text>,
+                                    children: (
+                                      <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, fontSize: 13, marginTop: -8, display: 'flex', gap: 16 }}>
+                                        <div style={{ flex: 1 }}>
+                                          {r.items && r.items.length > 1 && (
+                                            <div style={{ marginBottom: 8 }}>
+                                              <Text strong>Productos:</Text>
+                                              <ul style={{ paddingLeft: 20, margin: '4px 0 8px 0', color: 'var(--z-text-muted)' }}>
+                                                {r.items.map((it, idx) => (
+                                                  <li key={idx}>{it.qty}x {it.name} (S/ {it.price})</li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          )}
+                                          {r.virtualCodes && r.virtualCodes.length > 0 ? (
+                                            <div style={{ marginBottom: 6 }}>
+                                              <Text strong style={{ color: 'var(--z-primary)' }}>Códigos / Pines:</Text>
+                                              <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                {r.virtualCodes.map((vc, i) => (
+                                                  <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
+                                                    <Text type="secondary" style={{ marginRight: 8, fontSize: 12 }}>{vc.itemName}:</Text>
+                                                    <Text copyable style={{ background: '#fff', padding: '2px 8px', borderRadius: 4, border: '1px solid #e2e8f0' }}>{vc.code}</Text>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          ) : r.virtualCode && (
+                                            <div style={{ marginBottom: 6 }}>
+                                              <Text strong style={{ color: 'var(--z-primary)' }}>Código / Pin:</Text>
+                                              <Text copyable style={{ marginLeft: 8, background: '#fff', padding: '2px 8px', borderRadius: 4, border: '1px solid #e2e8f0' }}>{r.virtualCode}</Text>
+                                            </div>
+                                          )}
+                                          {r.delivery && Object.keys(r.delivery).length > 0 && (
+                                            <div style={{ marginBottom: 6 }}>
+                                              <Text strong>Datos de envío:</Text>
+                                              <Text style={{ marginLeft: 8, color: 'var(--z-text-muted)' }}>
+                                                {[r.delivery.address, r.delivery.reference, r.delivery.email, r.delivery.phone].filter(Boolean).join(' • ')}
+                                              </Text>
+                                            </div>
+                                          )}
+                                        </div>
+                                        {r.evidence && r.evidence.length > 0 && (
+                                          <div style={{ width: 120, flexShrink: 0, textAlign: 'right' }}>
+                                            <Text strong style={{ fontSize: 11, color: 'var(--z-text-muted)', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>Evidencia de Envío</Text>
+                                            <Space direction="vertical" size="small" style={{ width: '100%', alignItems: 'flex-end' }}>
+                                              {r.evidence.map((url, i) => (
+                                                <Image key={i} src={`${SERVER_URL}${url}`} width={80} style={{ borderRadius: 8, border: '1px solid var(--z-border)', objectFit: 'cover' }} />
+                                              ))}
+                                            </Space>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  }]}
+                                />
+                              )}
                             </Card>
                           </Col>
                         );
