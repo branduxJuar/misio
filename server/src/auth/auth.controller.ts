@@ -89,9 +89,9 @@ export class AuthController {
   /** POST /auth/forgot-password — envía el correo con el enlace de reset. */
   @Post('forgot-password')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  forgotPassword(@Body('dni') dni: string) {
-    if (!dni) throw new BadRequestException('Ingresa tu DNI');
-    return this.authService.forgotPassword(dni);
+  forgotPassword(@Body('email') email: string) {
+    if (!email) throw new BadRequestException('Ingresa tu correo electrónico');
+    return this.authService.forgotPassword(email);
   }
 
   /** POST /auth/reset-password — aplica la nueva clave con el token. */

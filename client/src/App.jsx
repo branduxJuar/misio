@@ -389,7 +389,7 @@ function PublicShell() {
           ) : site.loading ? (
             <Skeleton.Avatar active size="small" shape="circle" style={{ width: 28, height: 28, minWidth: 28 }} />
           ) : (
-            <ThunderboltFilled style={{ color: MISIO_COLORS.primary }} />
+            <div style={{ color: MISIO_COLORS.primary, fontWeight: 900, fontStyle: 'italic', fontSize: 24, lineHeight: 1, padding: '0 4px' }}>M</div>
           )}
           {site.brandName}
         </Typography.Title>
@@ -516,7 +516,7 @@ function MaintenanceScreen({ maintenance }) {
       {site.logoUrl ? (
         <img src={`${SERVER_URL}${site.logoUrl}`} alt="Logo" style={{ height: 60, marginBottom: 24, objectFit: 'contain' }} />
       ) : (
-        <ThunderboltFilled style={{ fontSize: 60, color: 'var(--z-primary)', marginBottom: 24 }} />
+        <div style={{ fontSize: 60, color: 'var(--z-primary)', marginBottom: 24, fontWeight: 900, fontStyle: 'italic', lineHeight: 1 }}>M</div>
       )}
       <Typography.Title level={2} style={{ marginBottom: 16 }}>
         Volvemos en breve

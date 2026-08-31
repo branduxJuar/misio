@@ -68,6 +68,7 @@ export interface IUser {
     lastModifiedAt?: Date | string | null;
   };
   readAnnouncements?: string[];
+  forgotPasswordAttempts?: number;
   createdAt: Date;
 }
 
@@ -262,6 +263,9 @@ export class User implements IUser {
 
   @Prop({ type: Date, default: null })
   resetTokenExpires: Date | null;
+
+  @Prop({ type: Number, default: 0 })
+  forgotPasswordAttempts: number;
 
   /**
    * TRACKING: de dónde vino este usuario. Se captura una sola vez al

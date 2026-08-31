@@ -153,6 +153,22 @@ export class MailService {
       `));
   }
 
+  /** ⛔ Cuenta suspendida por spam en recuperación de clave. */
+  async sendAccountBannedForSpam(email: string, name: string) {
+    return this.send(email, '⛔ Tu cuenta ha sido bloqueada por seguridad — Misio',
+      this.wrap(`
+        <p>Hola <b>${name}</b>,</p>
+        <p>Hemos detectado múltiples intentos fallidos de recuperación de contraseña en tu cuenta y, por tu seguridad, la hemos bloqueado preventivamente.</p>
+        <p>Para recuperar el acceso a tu cuenta, por favor comunícate con soporte técnico.</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="https://wa.me/51999999999" target="_blank"
+             style="background:#000;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;">
+            Contactar a Soporte
+          </a>
+        </div>
+      `));
+  }
+
   /** 🔑 Recuperación de contraseña. */
   async sendPasswordReset(email: string, name: string, token: string) {
     const link = `${process.env.CLIENT_URL ?? 'https://misio.pe'}/reset-password?token=${token}`;
