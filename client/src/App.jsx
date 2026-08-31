@@ -240,8 +240,8 @@ function MobileBottomNav({ items, currentPath }) {
       right: 0,
       height: 58,
       background: 'color-mix(in srgb, var(--z-header-bg) 85%, transparent)',
-      borderTop: '1px solid color-mix(in srgb, var(--z-border) 40%, transparent)',
-      boxShadow: '0 -4px 24px rgba(0,0,0,0.06)',
+      borderTop: 'none',
+      boxShadow: '0 -6px 30px rgba(0,0,0,0.12)',
       display: 'flex',
       justifyContent: 'space-around',
       alignItems: 'center',
@@ -250,6 +250,16 @@ function MobileBottomNav({ items, currentPath }) {
       WebkitBackdropFilter: 'blur(30px)',
       paddingBottom: 'env(safe-area-inset-bottom, 0px)'
     }}>
+      {/* Línea dorada en toda la barra */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 1,
+        background: 'linear-gradient(90deg, #10b981, #6ee7b7, #10b981)',
+        boxShadow: '0 1px 4px rgba(16, 185, 129, 0.3)'
+      }} />
       {items.slice(0, 5).map(item => {
         const isActive = navKey(currentPath) === item.key;
         return (
@@ -268,17 +278,17 @@ function MobileBottomNav({ items, currentPath }) {
           }}>
             <div style={{
               position: 'relative',
-              width: 44,
-              height: 28,
+              width: 48,
+              height: 30,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: 14,
-              background: isActive ? 'color-mix(in srgb, var(--z-primary) 15%, transparent)' : 'transparent',
+              borderRadius: 15,
+              background: isActive ? 'color-mix(in srgb, var(--z-primary) 22%, transparent)' : 'transparent',
               transition: 'background 0.2s',
               marginBottom: 4,
             }}>
-              <div style={{ fontSize: 20, transition: 'transform 0.2s', transform: isActive ? 'scale(1.1)' : 'scale(1)' }}>
+              <div style={{ fontSize: 22, transition: 'transform 0.2s', transform: isActive ? 'scale(1.15)' : 'scale(1)' }}>
                 {item.icon}
               </div>
             </div>
