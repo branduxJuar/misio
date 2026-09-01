@@ -199,7 +199,7 @@ export class MailService {
   }
 
   /** 🎟️ Compra Física Exitosa — se manda al realizar venta offline (POS) */
-  async sendOfflineSaleTickets(email: string, name: string, raffleTitle: string, raffleDate: Date, tickets: string[]) {
+  async sendOfflineSaleTickets(email: string, name: string, raffleId: string, raffleTitle: string, raffleDate: Date, tickets: string[]) {
     // Generar representación HTML de los boletos
     const ticketsHtml = tickets.map(ticketCode => `
       <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;display:flex;margin-bottom:12px;overflow:hidden;max-width:320px;margin-left:auto;margin-right:auto;">
@@ -220,7 +220,9 @@ export class MailService {
       </div>
     `).join('');
 
-    const loginUrl = `${process.env.CLIENT_URL ?? 'https://misio.pe'}/login`;
+    const baseUrl = process.env.CLIENT_URL ?? 'https://misio.pe';
+    const loginUrl = `${baseUrl}/login`;
+    const raffleUrl = `${baseUrl}/rifa/${raffleId}`;
     const drawDateFormatted = new Intl.DateTimeFormat('es-PE', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(raffleDate));
 
     return this.send(email, `🎟️ Tus boletos para "${raffleTitle}" — Misio`,
@@ -235,6 +237,19 @@ export class MailService {
         <p style="text-align:center;font-size:15px;color:#334155;">
           ¡Mucha suerte! 🍀
         </p>
+        
+        <div style="background:#ecfdf5; border:1px solid #10b981; border-radius:12px; padding:16px; margin:24px 0; text-align:center;">
+          <h3 style="color:#047857; margin-top:0; margin-bottom:8px; font-size:16px;">📺 ¿Dónde veo el sorteo?</h3>
+          <p style="color:#065f46; font-size:14px; margin-bottom:16px; margin-top:0;">
+            La transmisión en vivo se realizará en nuestra plataforma. Entra al siguiente enlace el día del sorteo:
+          </p>
+          <a href="${raffleUrl}"
+             style="display:inline-block;padding:10px 20px;background:#10b981;color:#fff;
+                    border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
+            Ir al Sorteo
+          </a>
+        </div>
+
         <hr style="border:0;border-top:1px solid #e2e8f0;margin:24px 0;" />
         <p style="text-align:center;font-size:14px;color:#475569;">
           <b>¿Aún no tienes cuenta en Misio?</b><br />
