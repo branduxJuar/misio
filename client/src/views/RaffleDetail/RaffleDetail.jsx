@@ -9,7 +9,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import {
   ShoppingCartOutlined, CalendarOutlined, ThunderboltFilled, DeleteOutlined,
-  FireFilled, ShopOutlined, WhatsAppOutlined, PrinterOutlined, BookOutlined
+  FireFilled, ShopOutlined, WhatsAppOutlined, PrinterOutlined, BookOutlined, SearchOutlined
 } from '@ant-design/icons';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useAuth } from '../../auth/AuthContext';
