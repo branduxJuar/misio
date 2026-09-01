@@ -13,7 +13,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     MongooseModule.forFeature([{ name: Setting.name, schema: SettingSchema }]),
     UsersModule,
     TransactionsModule,
-    TicketsModule,
+    forwardRef(() => TicketsModule),
     NotificationsModule,
   ],
   controllers: [PublicSettingsController, SettingsController, PublicSiteController],
