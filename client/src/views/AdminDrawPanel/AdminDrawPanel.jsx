@@ -14,7 +14,6 @@ import { io } from 'socket.io-client';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { toEmbedSrc } from '../../utils/stream';
 import { api, tokenStore, SERVER_URL } from '../../auth/api';
-import * as XLSX from 'xlsx';
 import Roulette from '../../components/Roulette';
 
 const { Title, Text } = Typography;
@@ -106,7 +105,7 @@ export default function AdminDrawPanel() {
     finally { setFixing(false); }
   };
 
-  const downloadTickets = () => {
+  const downloadTickets = async () => {
     if (!participants.length) return msgApi.warning('No hay participantes');
     const data = participants.map(p => ({
       Boleto: `#${String(p.ticketNumber).padStart(4, '0')}`,
@@ -114,6 +113,7 @@ export default function AdminDrawPanel() {
       DNI: p.user?.dni || '-',
       Estado: p.status
     }));
+    const XLSX = await import('xlsx');
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Boletos');

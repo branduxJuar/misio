@@ -1,6 +1,5 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import html2canvas from 'html2canvas';
 import dayjs from 'dayjs';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -118,6 +117,7 @@ export async function generateTicketsImage(raffle, tickets, buyerName, date = ne
     setTimeout(async () => {
       try {
         const element = document.getElementById('tickets-render-container');
+        const { default: html2canvas } = await import('html2canvas');
         const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff' });
         const dataUrl = canvas.toDataURL('image/png');
         root.unmount();

@@ -101,7 +101,7 @@ export class TicketsService {
     // Match robusto: acepta raffleId como ObjectId o string.
     const rid: any = { $in: [new Types.ObjectId(raffleId), raffleId] };
     return this.ticketModel.find({ raffleId: rid })
-      .populate('userId', 'name phone email')
+      .populate('userId', 'name phone email dni')
       .populate('soldBy', 'name')
       .lean();
   }
