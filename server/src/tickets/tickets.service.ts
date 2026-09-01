@@ -10,6 +10,8 @@ import { PromoCodesService } from '../promocodes/promocodes.service';
 import { PromoCodeType } from '../promocodes/promocode.schema';
 import { CashService } from '../cash/cash.service';
 import { CashMovementType } from '../cash/cash.schema';
+import { MailService } from '../auth/mail.service';
+
 
 /** Reintentos ante colisión de números (dos compras simultáneas). */
 const PURCHASE_RETRIES = 3;
@@ -34,6 +36,7 @@ export class TicketsService {
     private readonly txService: TransactionsService,
     private readonly promoCodesService: PromoCodesService,
     private readonly cashService: CashService,
+    private readonly mailService: MailService,
   ) {}
 
   /**
@@ -477,6 +480,17 @@ export class TicketsService {
                 ticketNumbers: numbers
               }
             }, session ?? undefined);
+          }
+
+          if (opts.buyerEmail) {
+            const ticketCodes = tickets.map(t => t.code);
+            this.mailService.sendOfflineSaleTickets(
+              opts.buyerEmail,
+              opts.buyerName || 'Participante',
+              raffle.title,
+              raffle.drawDate,
+              ticketCodes
+            ).catch(e => this.logger.error(`Error sending offline tickets email to ${opts.buyerEmail}: ${e.message}`));
           }
 
           result = { tickets };

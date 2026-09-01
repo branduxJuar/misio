@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Ticket, TicketSchema } from './ticket.schema';
 import { Raffle, RaffleSchema } from '../raffles/raffle.schema';
@@ -8,6 +8,8 @@ import { UsersModule } from '../users/users.module';
 import { TransactionsModule } from '../transactions/transactions.module';
 import { PromoCodesModule } from '../promocodes/promocodes.module';
 import { CashModule } from '../cash/cash.module';
+import { AuthModule } from '../auth/auth.module';
+
 
 @Module({
   imports: [
@@ -19,6 +21,7 @@ import { CashModule } from '../cash/cash.module';
     TransactionsModule, // Registro en el ledger
     PromoCodesModule,
     CashModule,
+    forwardRef(() => AuthModule),
   ],
   controllers: [TicketsController],
   providers: [TicketsService],

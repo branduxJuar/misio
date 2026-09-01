@@ -197,4 +197,59 @@ export class MailService {
            o seguirlo en Mi Misio → Mis premios.</p>
       `));
   }
+
+  /** 🎟️ Compra Física Exitosa — se manda al realizar venta offline (POS) */
+  async sendOfflineSaleTickets(email: string, name: string, raffleTitle: string, raffleDate: Date, tickets: string[]) {
+    // Generar representación HTML de los boletos
+    const ticketsHtml = tickets.map(ticketCode => `
+      <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;display:flex;margin-bottom:12px;overflow:hidden;max-width:320px;margin-left:auto;margin-right:auto;">
+        <div style="flex:1;padding:16px;">
+          <div style="color:#047857;font-weight:900;font-size:16px;">
+            <span style="color:#f59e0b">⚡</span> Misio
+          </div>
+          <div style="font-size:14px;font-weight:800;color:#0f172a;margin-top:8px;">${raffleTitle}</div>
+          <div style="font-size:10px;color:#475569;margin-top:2px;">👤 ${name}</div>
+          <div style="font-size:12px;font-weight:700;color:#047857;background:#ecfdf5;padding:2px 8px;border-radius:12px;display:inline-block;margin-top:12px;">
+            Comprado
+          </div>
+        </div>
+        <div style="width:100px;background:#047857;color:#ffffff;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:10px;">
+          <div style="font-size:10px;font-weight:600;">Nº BOLETO</div>
+          <div style="font-size:14px;font-weight:900;margin-top:8px;">${ticketCode}</div>
+        </div>
+      </div>
+    `).join('');
+
+    const loginUrl = `${process.env.CLIENT_URL ?? 'https://misio.pe'}/login`;
+    const drawDateFormatted = new Intl.DateTimeFormat('es-PE', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(raffleDate));
+
+    return this.send(email, `🎟️ Tus boletos para "${raffleTitle}" — Misio`,
+      this.wrap(`
+        <h2 style="color:#047857;text-align:center">¡Felicidades por tu compra, ${name}! 🎉</h2>
+        <p style="text-align:center;font-size:15px;color:#334155;">
+          Has adquirido boletos para el sorteo <b>"${raffleTitle}"</b> que se realizará el <b>${drawDateFormatted}</b>.
+        </p>
+        <div style="margin:24px 0;">
+          ${ticketsHtml}
+        </div>
+        <p style="text-align:center;font-size:15px;color:#334155;">
+          ¡Mucha suerte! 🍀
+        </p>
+        <hr style="border:0;border-top:1px solid #e2e8f0;margin:24px 0;" />
+        <p style="text-align:center;font-size:14px;color:#475569;">
+          <b>¿Aún no tienes cuenta en Misio?</b><br />
+          Tus boletos ya están seguros, pero si quieres verlos en cualquier momento y participar más fácilmente:
+        </p>
+        <div style="text-align:center;margin-top:16px">
+          <a href="${loginUrl}"
+             style="display:inline-block;padding:12px 28px;background:#0f172a;color:#fff;
+                    border-radius:10px;text-decoration:none;font-weight:700">
+            Crea tu usuario o Inicia Sesión →
+          </a>
+        </div>
+        <p style="text-align:center;font-size:12px;color:#64748b;margin-top:8px;">
+          Usa el mismo correo o número de celular con el que te registraron.
+        </p>
+      `));
+  }
 }
