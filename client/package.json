@@ -26,6 +26,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
     "vite": "^5.4.0",
+    "vite-plugin-compression": "^0.5.1",
     "vite-plugin-pwa": "^0.20.0"
   }
 }

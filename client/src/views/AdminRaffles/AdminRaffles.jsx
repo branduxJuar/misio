@@ -15,7 +15,6 @@ import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useNavigate } from 'react-router-dom';
 import { useApiOrMock } from '../../hooks/useApiOrMock';
 import { api, apiUpload, SERVER_URL } from '../../auth/api';
-import * as XLSX from 'xlsx';
 import { generateTicketsImage } from '../../utils/ticketPrinter';
 import TicketCard from '../../components/TicketCard';
 
@@ -264,7 +263,7 @@ export default function AdminRaffles() {
     }
   };
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     if (!participants || participants.length === 0) {
       msgApi.warning('No hay datos para exportar');
       return;
@@ -284,6 +283,7 @@ export default function AdminRaffles() {
       'Estado': t.status
     }));
 
+    const XLSX = await import('xlsx');
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Tickets');

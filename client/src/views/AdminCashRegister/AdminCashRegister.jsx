@@ -4,7 +4,6 @@ import { AppstoreAddOutlined, LockOutlined, UnlockOutlined, RetweetOutlined, Upl
 import { useApiOrMock } from '../../hooks/useApiOrMock';
 import { api } from '../../auth/api';
 import { MISIO_COLORS } from '../../theme/misioTheme';
-import * as XLSX from 'xlsx';
 
 const { Title, Text } = Typography;
 
@@ -98,7 +97,7 @@ export default function AdminCashRegister() {
     }
   };
 
-  const handleDownloadExcel = () => {
+  const handleDownloadExcel = async () => {
     if (!currentDetails) return;
     
     const rows = [];
@@ -122,6 +121,7 @@ export default function AdminCashRegister() {
     // Ordenar por fecha descendente igual que en la tabla
     rows.sort((a, b) => new Date(b.Fecha).getTime() - new Date(a.Fecha).getTime());
     
+    const XLSX = await import('xlsx');
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Movimientos");
