@@ -450,7 +450,7 @@ export default function RaffleDetail() {
             </div>
           </Card>
 
-          <Card style={{ marginTop: 20, height: 'auto', borderRadius: 16, border: '1px solid #cbd5e1', background: '#ffffff', boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.08)' }} styles={{ body: { padding: '24px' } }}>
+          <Card className="z-stretch-card" style={{ borderRadius: 16, border: '1px solid #cbd5e1', background: '#ffffff', boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.08)' }} styles={{ body: { padding: '24px' } }}>
             <Space direction="vertical" size="middle" style={{ width: '100%' }}>
               
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
@@ -720,7 +720,7 @@ export default function RaffleDetail() {
             )}
             <div className="z-raffle-grid" style={{
               display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(68px, 1fr))',
-              gap: 8, maxHeight: 560, overflowY: 'auto', paddingRight: 4,
+              gap: 8, paddingRight: 4,
               paddingBottom: 30,
             }}>
               {visibleNumbers.map((n) => {
@@ -781,6 +781,7 @@ export default function RaffleDetail() {
         {/* ── Columna 3: Carrito de Boletos Fixed/Sticky ───────── */}
         <Col xs={24} lg={6} xl={6} id="seccion-carrito" className="z-sticky-col">
           <Card
+            className="z-stretch-card"
             style={{ 
               borderRadius: 16,
               border: cart.length > 0 ? '2px solid #047857' : '1px solid #cbd5e1',
@@ -828,8 +829,8 @@ export default function RaffleDetail() {
               </div>
             )}
 
-            <Space direction="vertical" size={16} style={{ width: '100%' }}>
-              <div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                   <Text style={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>Mis Boletos ({cart.length}):</Text>
                   {cart.length > 0 && (
@@ -840,7 +841,7 @@ export default function RaffleDetail() {
                 </div>
 
                 {cart.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '30px 14px', height: 190, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#f8fafc', borderRadius: 12, border: '1px dashed #cbd5e1' }}>
+                  <div style={{ textAlign: 'center', padding: '30px 14px', flex: 1, minHeight: 190, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#f8fafc', borderRadius: 12, border: '1px dashed #cbd5e1' }}>
                     <div style={{ fontSize: 48, marginBottom: 12, opacity: 0.7 }}>🎟️</div>
                     <Text style={{ fontSize: 15, color: '#0f172a', fontWeight: 700, display: 'block', marginBottom: 6 }}>
                       Tu carrito está vacío
@@ -850,7 +851,7 @@ export default function RaffleDetail() {
                     </Text>
                   </div>
                 ) : (
-                  <div style={{ maxHeight: 190, display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '6px 8px' }}>
+                  <div style={{ flex: 1, minHeight: 190, display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '6px 8px' }}>
                     {/* Caja de tickets con scroll automático después de 4 items */}
                     {cart.map((n) => (
                       <div
@@ -1064,7 +1065,7 @@ export default function RaffleDetail() {
                     </div>
                   )}
                 </div>
-              </Space>
+              </div>
           </Card>
         </Col>
       </Row>
