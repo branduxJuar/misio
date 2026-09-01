@@ -482,21 +482,25 @@ export class TicketsService {
             }, session ?? undefined);
           }
 
-          if (opts.buyerEmail) {
-            const ticketCodes = tickets.map(t => t.code);
+          result = { tickets };
+        };
+        if (session) await session.withTransaction(body);
+        else await body();
+
+        if (result?.tickets && opts.buyerEmail) {
+          const ticketCodes = result.tickets.map(t => t.code);
+          const raffle = await this.raffleModel.findById(raffleId); // Re-fetch to get title/date
+          if (raffle) {
             this.mailService.sendOfflineSaleTickets(
               opts.buyerEmail,
               opts.buyerName || 'Participante',
+              raffleId,
               raffle.title,
               raffle.drawDate,
               ticketCodes
             ).catch(e => this.logger.error(`Error sending offline tickets email to ${opts.buyerEmail}: ${e.message}`));
           }
-
-          result = { tickets };
-        };
-        if (session) await session.withTransaction(body);
-        else await body();
+        }
 
         return result;
       } catch (err: any) {
