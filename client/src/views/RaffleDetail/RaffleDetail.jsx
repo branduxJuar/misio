@@ -9,7 +9,8 @@ import {
 import ReactMarkdown from 'react-markdown';
 import {
   ShoppingCartOutlined, CalendarOutlined, ThunderboltFilled, DeleteOutlined,
-  FireFilled, ShopOutlined, WhatsAppOutlined, PrinterOutlined, BookOutlined, SearchOutlined
+  FireFilled, ShopOutlined, WhatsAppOutlined, PrinterOutlined, BookOutlined, SearchOutlined,
+  EyeOutlined, EyeInvisibleOutlined
 } from '@ant-design/icons';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useAuth } from '../../auth/AuthContext';
@@ -59,6 +60,7 @@ export default function RaffleDetail() {
   const [posSuccess, setPosSuccess] = useState(null);
   const [legalPages, setLegalPages] = useState(null);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [showBalance, setShowBalance] = useState(false);
 
   // ── Carga: rifa + vendidos + (si hay sesión) mis boletos ─────────
   const [promoCode, setPromoCode] = useState('');
@@ -499,7 +501,7 @@ export default function RaffleDetail() {
           {/* ── Acciones Flotantes (Compartir y Bases) ── */}
           <Card 
             style={{ 
-              marginTop: 16, 
+              marginTop: 12, 
               borderRadius: 16, 
               border: '1px solid #e2e8f0', 
               background: '#ffffff', 
@@ -514,7 +516,7 @@ export default function RaffleDetail() {
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               style={{ 
-                padding: '16px', 
+                padding: '10px 14px', 
                 cursor: 'pointer',
                 display: 'flex', 
                 alignItems: 'center', 
@@ -523,26 +525,26 @@ export default function RaffleDetail() {
                 borderBottom: '1px solid #f1f5f9'
               }}
             >
-               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                  <div style={{ 
-                   width: 44, 
-                   height: 44, 
-                   borderRadius: 12, 
+                   width: 36, 
+                   height: 36, 
+                   borderRadius: 10, 
                    background: '#dcfce7', 
                    display: 'flex', 
                    alignItems: 'center', 
                    justifyContent: 'center', 
                    color: '#16a34a', 
-                   fontSize: 22,
+                   fontSize: 18,
                    boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.5), 0 2px 4px rgba(22, 163, 74, 0.15)'
                  }}>
                    <WhatsAppOutlined />
                  </div>
                  <div>
-                   <Typography.Text strong style={{ display: 'block', color: '#0f172a', fontSize: 15, fontFamily: 'Outfit, sans-serif' }}>
+                   <Typography.Text strong style={{ display: 'block', color: '#0f172a', fontSize: 13, fontFamily: 'Outfit, sans-serif' }}>
                      Compartir por WhatsApp
                    </Typography.Text>
-                   <Typography.Text style={{ fontSize: 12, color: '#64748b' }}>
+                   <Typography.Text style={{ fontSize: 11, color: '#64748b' }}>
                      Invita a tus amigos a participar
                    </Typography.Text>
                  </div>
@@ -551,12 +553,12 @@ export default function RaffleDetail() {
                  color: '#16a34a', 
                  background: '#dcfce7', 
                  borderRadius: '50%', 
-                 width: 28, 
-                 height: 28, 
+                 width: 24, 
+                 height: 24, 
                  display: 'flex', 
                  alignItems: 'center', 
                  justifyContent: 'center',
-                 fontSize: 12
+                 fontSize: 10
                }}>
                  ➔
                </div>
@@ -568,7 +570,7 @@ export default function RaffleDetail() {
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               style={{ 
-                padding: '16px', 
+                padding: '10px 14px', 
                 cursor: 'pointer',
                 display: 'flex', 
                 alignItems: 'center', 
@@ -576,26 +578,26 @@ export default function RaffleDetail() {
                 transition: 'background-color 0.2s ease'
               }}
             >
-               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                  <div style={{ 
-                   width: 44, 
-                   height: 44, 
-                   borderRadius: 12, 
+                   width: 36, 
+                   height: 36, 
+                   borderRadius: 10, 
                    background: '#eff6ff', 
                    display: 'flex', 
                    alignItems: 'center', 
                    justifyContent: 'center', 
                    color: '#3b82f6', 
-                   fontSize: 20,
+                   fontSize: 18,
                    boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.5), 0 2px 4px rgba(59, 130, 246, 0.15)'
                  }}>
                    <BookOutlined />
                  </div>
                  <div>
-                   <Typography.Text strong style={{ display: 'block', color: '#0f172a', fontSize: 15, fontFamily: 'Outfit, sans-serif' }}>
+                   <Typography.Text strong style={{ display: 'block', color: '#0f172a', fontSize: 13, fontFamily: 'Outfit, sans-serif' }}>
                      Bases y reglas del sorteo
                    </Typography.Text>
-                   <Typography.Text style={{ fontSize: 12, color: '#64748b' }}>
+                   <Typography.Text style={{ fontSize: 11, color: '#64748b' }}>
                      Lee los términos para participar
                    </Typography.Text>
                  </div>
@@ -604,12 +606,12 @@ export default function RaffleDetail() {
                  color: '#3b82f6', 
                  background: '#eff6ff', 
                  borderRadius: '50%', 
-                 width: 28, 
-                 height: 28, 
+                 width: 24, 
+                 height: 24, 
                  display: 'flex', 
                  alignItems: 'center', 
                  justifyContent: 'center',
-                 fontSize: 12
+                 fontSize: 10
                }}>
                  ➔
                </div>
@@ -787,15 +789,22 @@ export default function RaffleDetail() {
               border: cart.length > 0 ? '2px solid #047857' : '1px solid #cbd5e1',
               background: '#ffffff',
               boxShadow: cart.length > 0 ? '0 10px 30px rgba(4, 120, 87, 0.15)' : '0 4px 20px rgba(0, 0, 0, 0.05)',
-              maxHeight: 'calc(100vh - 40px)',
+              maxHeight: 'calc(100vh - 130px)',
               display: 'flex',
               flexDirection: 'column'
             }}
             styles={{ 
+              header: {
+                padding: '12px 16px 4px 16px',
+                minHeight: 'auto'
+              },
               body: { 
-                padding: '20px', 
-                overflowY: 'auto', 
-                flex: 1
+                padding: '8px 16px 16px 16px', 
+                display: 'flex',
+                flexDirection: 'column',
+                flex: 1,
+                overflow: 'hidden',
+                minHeight: 0
               } 
             }}
             title={<><ShoppingCartOutlined style={{ color: '#047857', marginRight: 8, fontSize: 18 }} /><span style={{ fontFamily: 'Outfit', fontWeight: 800, color: '#0f172a', fontSize: 16 }}>TU CARRITO</span></>}
@@ -805,8 +814,8 @@ export default function RaffleDetail() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              paddingBottom: 10,
-              marginBottom: 12,
+              paddingBottom: 6,
+              marginBottom: 8,
               borderBottom: '1px solid #f1f5f9',
               fontSize: 12,
               color: '#64748b'
@@ -824,14 +833,14 @@ export default function RaffleDetail() {
             </div>
 
             {myNumbers.size > 0 && (
-              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12, marginTop: -8 }}>
+              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8, marginTop: -4 }}>
                 ℹ️ Ya tienes {myNumbers.size} {myNumbers.size === 1 ? 'ticket comprado' : 'tickets comprados'} en tu cuenta.
               </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0 }}>
               <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <Text style={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>Mis Boletos ({cart.length}):</Text>
                   {cart.length > 0 && (
                     <Button size="small" type="text" icon={<DeleteOutlined />} onClick={() => setCart([])} style={{ color: '#ef4444', fontWeight: 600, padding: 0 }}>
@@ -841,7 +850,7 @@ export default function RaffleDetail() {
                 </div>
 
                 {cart.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '30px 14px', flex: 1, minHeight: 190, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#f8fafc', borderRadius: 12, border: '1px dashed #cbd5e1' }}>
+                  <div style={{ textAlign: 'center', padding: '30px 14px', flex: 1, minHeight: 100, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#f8fafc', borderRadius: 12, border: '1px dashed #cbd5e1' }}>
                     <div style={{ fontSize: 48, marginBottom: 12, opacity: 0.7 }}>🎟️</div>
                     <Text style={{ fontSize: 15, color: '#0f172a', fontWeight: 700, display: 'block', marginBottom: 6 }}>
                       Tu carrito está vacío
@@ -851,7 +860,7 @@ export default function RaffleDetail() {
                     </Text>
                   </div>
                 ) : (
-                  <div style={{ flex: 1, minHeight: 190, display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '6px 8px' }}>
+                  <div style={{ flex: 1, minHeight: 60, display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '6px 8px' }}>
                     {/* Caja de tickets con scroll automático después de 4 items */}
                     {cart.map((n) => (
                       <div
@@ -954,19 +963,28 @@ export default function RaffleDetail() {
                 )}
               </div>
 
-                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 12 }}>
-                  <span style={{ fontSize: 13, color: '#475569', fontWeight: 600, display: 'block' }}>Total a pagar:</span>
-                  <span style={{ fontSize: 30, fontWeight: 900, lineHeight: 1.1, color: '#047857', display: 'block' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10 }}>
+                  <span style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'block' }}>Total a pagar:</span>
+                  <span style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.1, color: '#047857', display: 'block' }}>
                     S/ {total.toFixed(2)}
                   </span>
                   {user && (
-                    <Text style={{ fontSize: 12, color: '#64748b', fontWeight: 500, display: 'block', marginTop: 2 }}>
-                      Mi Misio disponible: S/ {Number(user.walletBalance ?? 0).toFixed(2)}
-                    </Text>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                      <Text style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>
+                        Mi Misio disponible: S/ {showBalance ? Number(user.walletBalance ?? 0).toFixed(2) : '***'}
+                      </Text>
+                      <span 
+                        onClick={() => setShowBalance(!showBalance)} 
+                        style={{ cursor: 'pointer', color: '#64748b', fontSize: 13, display: 'flex', alignItems: 'center' }}
+                      >
+                        {showBalance ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                      </span>
+                    </div>
                   )}
                 </div>
                 
-                <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <Space direction="vertical" size={6} style={{ width: '100%' }}>
                   <Button
                     type="primary"
                     icon={<ThunderboltFilled style={{ color: '#fef08a' }} />}
@@ -976,7 +994,7 @@ export default function RaffleDetail() {
                       background: '#047857', 
                       borderColor: '#047857', 
                       color: '#ffffff',
-                      height: 38, 
+                      height: 34, 
                       fontSize: 13, 
                       fontWeight: 700, 
                       borderRadius: 8, 
@@ -1000,7 +1018,7 @@ export default function RaffleDetail() {
                       background: '#742284', 
                       color: '#ffffff', 
                       border: 'none', 
-                      height: 38, 
+                      height: 34, 
                       fontSize: 13, 
                       fontWeight: 700, 
                       borderRadius: 8, 
@@ -1018,7 +1036,7 @@ export default function RaffleDetail() {
                         background: '#1e293b', 
                         color: '#ffffff', 
                         border: 'none', 
-                        height: 38, 
+                        height: 34, 
                         fontSize: 13, 
                         fontWeight: 700, 
                         borderRadius: 8,
@@ -1031,7 +1049,7 @@ export default function RaffleDetail() {
                   )}
                 </Space>
 
-                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 6, marginTop: -4 }}>
+                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 6 }}>
                   {!showPromo ? (
                     <div style={{ textAlign: 'center' }}>
                       <a style={{ fontSize: 13, color: '#047857', fontWeight: 600, textDecoration: 'underline' }} onClick={() => setShowPromo(true)}>
@@ -1066,6 +1084,7 @@ export default function RaffleDetail() {
                   )}
                 </div>
               </div>
+            </div>
           </Card>
         </Col>
       </Row>
