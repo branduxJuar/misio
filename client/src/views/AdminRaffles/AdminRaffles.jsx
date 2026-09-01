@@ -273,7 +273,7 @@ export default function AdminRaffles() {
       'Nº Boleto': String(t.ticketNumber).padStart(4, '0'),
       'Código': t.code,
       'Cliente': t.isOffline ? t.buyerName : (t.userId?.name || 'Anónimo'),
-      'DNI': t.isOffline ? (t.buyerDni || '-') : '-',
+      'DNI': t.isOffline ? (t.buyerDni || '-') : (t.userId?.dni || '-'),
       'Teléfono': t.isOffline ? t.buyerPhone : (t.userId?.phone || '-'),
       'Correo': t.isOffline ? (t.buyerEmail || '-') : (t.userId?.email || '-'),
       'Canal': t.isOffline ? 'Venta Externa' : 'Web',
