@@ -620,8 +620,9 @@ export default function RaffleDetail() {
         {/* ── Grilla de tickets ──────────────────────────────────── */}
         <Col xs={24} lg={11} xl={12}>
           <Card
-            style={{ borderRadius: 16, border: '1px solid #cbd5e1', background: '#ffffff', boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.08)' }}
-            styles={{ body: { padding: '16px 18px' } }}
+            style={{ borderRadius: 16, border: '1px solid #cbd5e1', background: '#ffffff', boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.08)', display: 'flex', flexDirection: 'column' }}
+            className="z-grid-card-desktop"
+            styles={{ body: { padding: '16px 18px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 } }}
             title={<span style={{ fontFamily: 'Outfit', fontWeight: 900, fontSize: 17, color: '#0f172a' }}>🎟️ ELIGE TUS NÚMEROS</span>}
             extra={
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -638,14 +639,14 @@ export default function RaffleDetail() {
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>Estado:</span>
                 <Badge color="#047857" text={<Text style={{ fontSize: 11, color: '#0f172a', fontWeight: 700 }}>Elegido</Text>} />
                 <Badge color="#94a3b8" text={<Text style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>Vendido</Text>} />
-                <Badge color="#f97316" text={<Text style={{ fontSize: 11, color: '#7c2d12', fontWeight: 700 }}>En proceso</Text>} />
-                <Badge color="#0284c7" text={<Text style={{ fontSize: 11, color: '#0369a1', fontWeight: 700 }}>Ocupado</Text>} />
-                <Badge color="#eab308" text={<Text style={{ fontSize: 11, color: '#713f12', fontWeight: 700 }}>Tuyo</Text>} />
+                <Badge color="#f97316" text={<Text style={{ fontSize: 11, color: '#ea580c', fontWeight: 600 }}>En proceso</Text>} />
+                <Badge color="#38bdf8" text={<Text style={{ fontSize: 11, color: '#0369a1', fontWeight: 600 }}>Ocupado</Text>} />
+                <Badge color="#fbbf24" text={<Text style={{ fontSize: 11, color: '#b45309', fontWeight: 700 }}>Tuyo</Text>} />
               </div>
 
               <Input
-                allowClear
                 placeholder="🔍 Busca tu número (ej: 77)"
+                prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 style={{ flex: '1 1 200px', minWidth: 150, borderRadius: 8, borderColor: '#cbd5e1', boxShadow: 'none', fontSize: 13 }}
@@ -772,7 +773,7 @@ export default function RaffleDetail() {
                   </button>
                 );
               })}
-            </div>
+              </div>
 
           </Card>
         </Col>
