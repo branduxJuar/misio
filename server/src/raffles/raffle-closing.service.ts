@@ -128,7 +128,9 @@ export class RaffleClosingService {
       const winnerUserIds = winnersToProcess.map(w => w.userId ? new Types.ObjectId(w.userId) : null).filter(Boolean);
 
       // 2. Agrupar boletos perdedores POR USUARIO
-      const groups: { _id: Types.ObjectId; count: number }[] =
+      // Mantenemos el $nin por optimización, pero reforzamos con un filter posterior
+      // para garantizar que ningún ganador reciba devolución bajo ninguna circunstancia.
+      let groups: { _id: Types.ObjectId; count: number }[] =
         await this.ticketModel.aggregate([
           {
             $match: {
@@ -139,6 +141,13 @@ export class RaffleClosingService {
           },
           { $group: { _id: '$userId', count: { $sum: 1 } } },
         ]);
+
+      // FILTRO ESTRICTO POST-AGREGACIÓN: Si por algún problema de tipado (String vs ObjectId) 
+      // el $nin de Mongo falló, aquí los depuramos sí o sí comparando los strings hexadecimales.
+      if (winnerUserIds.length > 0) {
+        const winnerHex = winnerUserIds.map(w => w!.toString());
+        groups = groups.filter(g => !winnerHex.includes(g._id.toString()));
+      }
 
       let refundedTickets = 0;
       let refundedTotal = 0;
