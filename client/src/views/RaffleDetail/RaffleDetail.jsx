@@ -624,7 +624,7 @@ export default function RaffleDetail() {
           <Card
             style={{ borderRadius: 16, border: '1px solid #cbd5e1', background: '#ffffff', boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.08)', display: 'flex', flexDirection: 'column' }}
             className="z-grid-card-desktop"
-            styles={{ body: { padding: '16px 18px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 } }}
+            styles={{ header: { padding: '8px 16px', minHeight: 'auto' }, body: { padding: '8px 16px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 } }}
             title={<span style={{ fontFamily: 'Outfit', fontWeight: 900, fontSize: 17, color: '#0f172a' }}>🎟️ ELIGE TUS NÚMEROS</span>}
             extra={
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -636,8 +636,8 @@ export default function RaffleDetail() {
             }
           >
             {/* Leyenda y Buscador en una sola fila */}
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-              <div style={{ flex: '1 1 auto', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', padding: '4px 12px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+              <div style={{ flex: '1 1 auto', display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', padding: '4px 8px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>Estado:</span>
                 <Badge color="#047857" text={<Text style={{ fontSize: 11, color: '#0f172a', fontWeight: 700 }}>Elegido</Text>} />
                 <Badge color="#94a3b8" text={<Text style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>Vendido</Text>} />
