@@ -262,8 +262,29 @@ export class UsersService {
   async setBalances(userId: string, balances: { walletBalance?: number; walletCanje?: number; walletHeld?: number }) {
     const update: any = {};
     if (balances.walletBalance !== undefined) update.walletBalance = balances.walletBalance;
-    if (balances.walletCanje !== undefined) update.walletCanje = balances.walletCanje;
     if (balances.walletHeld !== undefined) update.walletHeld = balances.walletHeld;
+    
+    if (balances.walletCanje !== undefined) {
+      update.walletCanje = balances.walletCanje;
+      
+      // Cuando el admin asigna saldo de canje manualmente, reiniciamos los tramos
+      // para que comiencen a vencer desde este momento exacto.
+      if (balances.walletCanje > 0) {
+        const expirationDays = Number(process.env.CANJE_EXPIRATION_DAYS || 20);
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + expirationDays);
+        
+        update.canjeTranches = [{
+          amount: balances.walletCanje,
+          originalAmount: balances.walletCanje,
+          expiresAt,
+          source: 'admin_override',
+          createdAt: new Date(),
+        }];
+      } else {
+        update.canjeTranches = [];
+      }
+    }
     
     if (Object.keys(update).length === 0) return null;
 
