@@ -11,12 +11,14 @@ export enum TransactionType {
   WELCOME_BONUS = 'welcome_bonus', // Bono de bienvenida configurable (ingreso)
   AUCTION_PAYMENT = 'auction_payment', // Ganaste la subasta: se consume la retención (egreso)
   OFFLINE_SALE = 'offline_sale', // Venta Externa (ingreso físico, figurativo en historial)
+  POS_SALE_CANCELLED = 'pos_sale_cancelled', // Reversa de una venta POS anulada
 }
 
 export enum TransactionStatus {
   PENDING = 'pending', // Ej: Yape aún no confirmado por el operador
   COMPLETED = 'completed',
   FAILED = 'failed',
+  CANCELLED = 'cancelled', // Transacción anulada manualmente
 }
 
 export interface ITransaction {

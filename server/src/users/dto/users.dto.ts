@@ -99,3 +99,9 @@ export class SetBalancesDto {
   @Min(0)
   walletHeld?: number;
 }
+
+export class SetPosPinDto {
+  @IsString()
+  @Length(4, 6, { message: 'El PIN debe tener entre 4 y 6 dígitos' })
+  pin: string;
+}

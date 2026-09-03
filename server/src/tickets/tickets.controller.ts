@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { TicketsService } from './tickets.service';
 import { AdminAddTicketsDto, PurchaseOfflineDto, PurchaseTicketsDto } from './dto/purchase.dto';
+import { CancelPosSaleDto } from './dto/cancel-pos-sale.dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guards';
 import { AuthUser, CurrentUser, Public, Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/user.schema';
@@ -57,6 +58,13 @@ export class TicketsController {
       buyerEmail: dto.buyerEmail,
       paymentMethod: dto.paymentMethod,
     });
+  }
+
+  /** POST /api/v1/tickets/pos/cancel-sale — Anulación de venta POS por Admin. */
+  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @Post('pos/cancel-sale')
+  cancelPosSale(@CurrentUser() user: AuthUser, @Body() dto: CancelPosSaleDto) {
+    return this.ticketsService.cancelPosSale(dto.transactionId, dto.adminPin, user.userId);
   }
 
   /**

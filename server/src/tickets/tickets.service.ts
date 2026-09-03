@@ -4,6 +4,8 @@ import { Connection, Model, Types } from 'mongoose';
 import { Ticket, TicketDocument, TicketStatus } from './ticket.schema';
 import { formatTicketCode, Raffle, RaffleDocument, RaffleStatus } from '../raffles/raffle.schema';
 import { UsersService } from '../users/users.service';
+import { UserRole } from '../users/user.schema';
+import * as bcrypt from 'bcrypt';
 import { TransactionsService } from '../transactions/transactions.service';
 import { TransactionStatus, TransactionType } from '../transactions/transaction.schema';
 import { PromoCodesService } from '../promocodes/promocodes.service';
@@ -750,6 +752,136 @@ export class TicketsService {
         raffleDate: raffle.drawDate
       }
     };
+  }
+
+  /**
+   * ANULAR VENTA POS (100% ONLINE)
+   * Restricciones: < 24h, solo offline_sale, pin de admin.
+   */
+  async cancelPosSale(transactionId: string, adminPin: string, sellerId: string) {
+    // 1. Validar transacción
+    const tx = await this.txService.findById(transactionId);
+    if (!tx || tx.type !== TransactionType.OFFLINE_SALE || tx.status !== TransactionStatus.COMPLETED) {
+      throw new BadRequestException('Transacción no válida para anulación o ya está anulada.');
+    }
+
+    // 2. Validar regla de 24 horas
+    const HOURS_24_IN_MS = 24 * 60 * 60 * 1000;
+    if (Date.now() - new Date((tx as any).createdAt).getTime() > HOURS_24_IN_MS) {
+      throw new BadRequestException('Solo se pueden anular ventas realizadas en las últimas 24 horas.');
+    }
+
+    // 3. Validar PIN buscando al admin
+    // Como UsersService no expone userModel, accederemos vía txService o userModel si lo inyectamos.
+    // Vamos a pedirselo a usersService (requiere agregar un método en usersService o usar su userModel interno)
+    const admins = await (this.usersService as any).userModel.find({ role: { $in: [UserRole.ADMIN, UserRole.OPERATOR] } }).select('+posPin');
+    let adminAuthorized: any = null;
+    for (const admin of admins) {
+      if (admin.posPin && await bcrypt.compare(adminPin, admin.posPin)) {
+        adminAuthorized = admin;
+        break;
+      }
+    }
+    if (!adminAuthorized) {
+      throw new BadRequestException('PIN de autorización inválido.');
+    }
+
+    const useTx = await this.supportsTransactions();
+    const session = useTx ? await this.connection.startSession() : null;
+
+    let ticketsToCancel: any[] = [];
+    try {
+      let buyerEmail = (tx.meta as any)?.buyerEmail;
+      let buyerName = (tx.meta as any)?.buyerName || 'Participante';
+      let raffleTitle = '';
+
+      const body = async () => {
+        // 4. Buscar boletos
+        ticketsToCancel = await this.ticketModel.find({
+          raffleId: tx.meta?.raffleId,
+          ticketNumber: { $in: tx.meta?.ticketNumbers },
+          isOffline: true,
+          soldBy: tx.userId
+        }).session(session as any);
+
+        if (ticketsToCancel.length === 0) {
+          throw new BadRequestException('No se encontraron los boletos de esta venta.');
+        }
+        if (!buyerEmail) {
+          buyerEmail = ticketsToCancel[0].buyerEmail;
+          buyerName = ticketsToCancel[0].buyerName || buyerName;
+        }
+
+        const raffle = await this.raffleModel.findById(tx.meta?.raffleId).session(session as any);
+        raffleTitle = raffle?.title || 'Sorteo';
+
+        // 5. Actualizar Boletos (Liberar)
+        await this.ticketModel.updateMany(
+          { _id: { $in: ticketsToCancel.map(t => t._id) } },
+          { 
+            $set: { status: TicketStatus.ACTIVE },
+            $unset: { userId: 1, buyerName: 1, buyerPhone: 1, buyerDni: 1, buyerEmail: 1, paymentMethod: 1, soldBy: 1, isOffline: 1 } 
+          },
+          { session: session as any }
+        );
+
+        // 6. Actualizar contador
+        await this.raffleModel.updateOne(
+          { _id: tx.meta?.raffleId },
+          { $inc: { soldCount: -ticketsToCancel.length } },
+          { session: session as any }
+        );
+
+        // 7. Contabilidad e Historial
+        // Marcar la tx original como cancelada
+        await (this.txService as any).txModel.updateOne(
+          { _id: transactionId },
+          { status: TransactionStatus.CANCELLED },
+          { session: session as any }
+        );
+
+        // Crear tx de reversa
+        await this.txService.create({
+          userId: tx.userId.toString(),
+          amount: -tx.amount,
+          type: TransactionType.POS_SALE_CANCELLED,
+          status: TransactionStatus.COMPLETED,
+          meta: {
+            methodName: 'Anulación Venta POS',
+            operationNumber: tx.meta?.operationNumber,
+            raffleId: tx.meta?.raffleId,
+            ticketNumbers: tx.meta?.ticketNumbers,
+            authorizedBy: adminAuthorized?._id?.toString()
+          }
+        }, session as any);
+
+        // Afectar Caja
+        if (tx.amount > 0) {
+          await this.cashService.addMovement(
+            sellerId,
+            CashMovementType.EXPENSE,
+            tx.amount,
+            `Anulación de Venta - ${raffleTitle} (Autorizado por ${adminAuthorized?.name})`,
+            { session: session as any }
+          );
+        }
+      };
+
+      if (session) await session.withTransaction(body);
+      else await body();
+
+      // Enviar correo
+      if (buyerEmail) {
+        this.mailService.sendOfflineSaleCancelled(buyerEmail, buyerName, raffleTitle)
+          .catch(e => this.logger.error(`Error sending cancel email to ${buyerEmail}: ${e.message}`));
+      }
+
+      return { message: 'Venta anulada correctamente, boletos liberados.', ticketsReleased: ticketsToCancel.length };
+    } catch (err) {
+      throw err;
+    } finally {
+      if (session) await session.endSession();
+    }
   }
 
 }

@@ -13,6 +13,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useApiOrMock } from '../../hooks/useApiOrMock';
 import { api, apiUpload, SERVER_URL } from '../../auth/api';
 import AutocontrolSection from './AutocontrolSection';
+import PosPinSection from './PosPinSection';
 
 const { Title, Text } = Typography;
 
@@ -109,6 +110,14 @@ export default function MiPerfil() {
       activeStatus: profile?.autocontrol?.option && profile.autocontrol.option !== 'none',
     },
   ];
+
+  if (['admin', 'operator', 'seller'].includes(user?.role)) {
+    tabOptions.push({
+      key: 'pos',
+      label: 'Configuración POS',
+      icon: <SafetyCertificateOutlined style={{ fontSize: 16 }} />,
+    });
+  }
 
   return (
     <div>
@@ -442,6 +451,12 @@ export default function MiPerfil() {
               refresh={refresh} 
               refreshUser={refreshUser} 
             />
+          </div>
+        )}
+
+        {activeTab === 'pos' && (
+          <div>
+            <PosPinSection profile={profile} demo={demo} />
           </div>
         )}
       </div>

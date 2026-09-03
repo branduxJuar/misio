@@ -12,6 +12,7 @@ import dayjs from 'dayjs';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useApiOrMock } from '../../hooks/useApiOrMock';
 import { api, apiUpload, SERVER_URL, tokenStore } from '../../auth/api';
+import { useAuth } from '../../auth/AuthContext';
 
 const { Title, Text } = Typography;
 
@@ -79,6 +80,7 @@ const MOCK_HISTORY = {
  */
 export default function AdminPayments() {
   const [msgApi, contextHolder] = message.useMessage();
+  const { user } = useAuth();
   const screens = Grid.useBreakpoint();
   const isDesktop = screens.md;
 
@@ -102,6 +104,12 @@ export default function AdminPayments() {
     useApiOrMock(`/payments/history?${histQuery}`, MOCK_HISTORY);
   const histRows = history?.items ?? (Array.isArray(history) ? history : []);
   const [form] = Form.useForm();
+  
+  // Para anulación POS
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [txToCancel, setTxToCancel] = useState(null);
+  const [adminPin, setAdminPin] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
   const guardDemo = () => {
     if (demo) msgApi.info('Modo demo: conecta el backend.');
@@ -216,6 +224,26 @@ export default function AdminPayments() {
         msgApi.error(err.message); 
       }
     } finally { setProcessing(null); }
+  };
+
+  const handleCancelPosSale = async () => {
+    if (!adminPin || adminPin.length < 4) return msgApi.error('Ingresa un PIN válido');
+    setCancelling(true);
+    try {
+      await api('/tickets/pos/cancel-sale', {
+        method: 'POST',
+        body: { transactionId: txToCancel._id, adminPin },
+      });
+      msgApi.success('Venta anulada correctamente');
+      setCancelModalVisible(false);
+      setAdminPin('');
+      setTxToCancel(null);
+      refreshHistory();
+    } catch (err) {
+      msgApi.error(err.message || 'Error al anular la venta');
+    } finally {
+      setCancelling(false);
+    }
   };
 
   const pendingColumns = [
@@ -613,27 +641,42 @@ export default function AdminPayments() {
                 ? <Tag color="success">Aprobado</Tag>
                 : <Tag color="error">Rechazado</Tag>),
             },
-            {
-              title: 'Recibo', key: 'receipt', width: 180,
-              render: (_, r) => (
-                <Space size={4}>
-                  {r.meta?.receiptUrl ? (
-                    <Button size="small" type="link" icon={<FileTextOutlined />}
-                      href={`${SERVER_URL}${r.meta.receiptUrl}`} target="_blank">
-                      Ver
-                    </Button>
-                  ) : (
-                    <Tag style={{ margin: 0 }}>Sin recibo</Tag>
-                  )}
-                  {r.status === 'completed' && (
-                    <Upload {...receiptUploader(r)}>
-                      <Button size="small" icon={<UploadOutlined />}>
-                        {r.meta?.receiptUrl ? 'Reemplazar' : 'Adjuntar'}
+              {
+                title: 'Acciones', key: 'receipt', width: 220,
+                render: (_, r) => {
+                  const isOffline = r.type === 'offline_sale';
+                  const isLessThan24h = (Date.now() - new Date(r.createdAt).getTime()) < 24 * 60 * 60 * 1000;
+                  
+                  return (
+                  <Space size={4} direction="vertical">
+                    <Space size={4}>
+                      {r.meta?.receiptUrl ? (
+                        <Button size="small" type="link" icon={<FileTextOutlined />}
+                          href={`${SERVER_URL}${r.meta.receiptUrl}`} target="_blank">
+                          Ver
+                        </Button>
+                      ) : (
+                        <Tag style={{ margin: 0 }}>Sin recibo</Tag>
+                      )}
+                      {r.status === 'completed' && !isOffline && (
+                        <Upload {...receiptUploader(r)}>
+                          <Button size="small" icon={<UploadOutlined />}>
+                            {r.meta?.receiptUrl ? 'Reemplazar' : 'Adjuntar'}
+                          </Button>
+                        </Upload>
+                      )}
+                    </Space>
+                    
+                    {r.status === 'completed' && isOffline && isLessThan24h && (
+                      <Button size="small" danger icon={<CloseOutlined />} onClick={() => {
+                        setTxToCancel(r);
+                        setCancelModalVisible(true);
+                      }}>
+                        Anular Venta POS
                       </Button>
-                    </Upload>
-                  )}
-                </Space>
-              ),
+                    )}
+                  </Space>
+                )},
               },
             ]}
           />
@@ -666,9 +709,20 @@ export default function AdminPayments() {
                         ) : (
                           <Tag color="warning">Sin recibo</Tag>
                         )}
-                        <Upload {...receiptUploader(r._id)}>
-                          <Button size="small" icon={<UploadOutlined />}>Subir recibo</Button>
-                        </Upload>
+                        
+                        {!isOffline && (
+                          <Upload {...receiptUploader(r._id)}>
+                            <Button size="small" icon={<UploadOutlined />}>Subir recibo</Button>
+                          </Upload>
+                        )}
+                        {isOffline && (Date.now() - new Date(r.createdAt).getTime()) < 24 * 60 * 60 * 1000 && (
+                          <Button size="small" danger onClick={() => {
+                            setTxToCancel(r);
+                            setCancelModalVisible(true);
+                          }}>
+                            Anular POS
+                          </Button>
+                        )}
                       </div>
                     )}
                   </Card>
@@ -709,6 +763,51 @@ export default function AdminPayments() {
           </Button>
         </Form>
       </Modal>
+      {/* Modal Anulación POS */}
+      <Modal
+        title={<><CloseOutlined style={{ color: '#ff4d4f' }} /> Anular Venta POS</>}
+        open={cancelModalVisible}
+        onCancel={() => {
+          setCancelModalVisible(false);
+          setAdminPin('');
+          setTxToCancel(null);
+        }}
+        footer={null}
+        destroyOnClose
+      >
+        <div style={{ marginBottom: 16 }}>
+          <Alert
+            type="error"
+            showIcon
+            message="Estás a punto de anular una venta POS."
+            description="Esta acción liberará los boletos al público y registrará un retiro en la caja. Es irreversible."
+          />
+        </div>
+        <Form layout="vertical" onFinish={handleCancelPosSale}>
+          <Form.Item label="PIN de Administrador" required>
+            <Input.Password
+              size="large"
+              placeholder="Ingresa tu PIN de POS"
+              value={adminPin}
+              onChange={(e) => setAdminPin(e.target.value)}
+              maxLength={6}
+              autoFocus
+            />
+          </Form.Item>
+          <Button
+            type="primary"
+            danger
+            block
+            size="large"
+            htmlType="submit"
+            loading={cancelling}
+            disabled={!adminPin || adminPin.length < 4}
+          >
+            Confirmar Anulación
+          </Button>
+        </Form>
+      </Modal>
+
     </div>
   );
 }

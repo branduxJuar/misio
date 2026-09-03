@@ -267,4 +267,13 @@ export class MailService {
         </p>
       `));
   }
+  /** 🎟️ Compra Anulada — se manda al anular una venta offline (POS) */
+  async sendOfflineSaleCancelled(email: string, name: string, raffleTitle: string) {
+    return this.send(email, `❌ Tu compra para "${raffleTitle}" ha sido anulada — Misio`,
+      this.wrap(`
+        <p>Hola <b>${name}</b>,</p>
+        <p>Te informamos que tu compra de boletos para el sorteo <b>"${raffleTitle}"</b> ha sido <b>anulada</b> a solicitud en el punto de venta.</p>
+        <p style="color:#666">Si tienes alguna duda, por favor contáctanos.</p>
+      `));
+  }
 }

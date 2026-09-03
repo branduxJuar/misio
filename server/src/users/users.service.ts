@@ -562,4 +562,15 @@ export class UsersService {
     this.logger.log(`Limpieza completada. Total expirado: S/ ${totalExpired}`);
   }
 
+  async setPosPin(userId: string, pin: string) {
+    const user = await this.userModel.findById(userId);
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (![UserRole.ADMIN, UserRole.OPERATOR].includes(user.role)) {
+      throw new BadRequestException('Solo administradores u operadores pueden configurar un PIN de POS');
+    }
+    const hashedPin = await bcrypt.hash(pin, 10);
+    user.posPin = hashedPin;
+    await user.save();
+    return { message: 'PIN actualizado exitosamente' };
+  }
 }
