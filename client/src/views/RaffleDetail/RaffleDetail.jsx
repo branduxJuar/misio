@@ -647,7 +647,7 @@ export default function RaffleDetail() {
               </div>
 
               <Input
-                placeholder="🔍 Busca tu número (ej: 77)"
+                placeholder="Busca tu número (ej: 77)"
                 prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
