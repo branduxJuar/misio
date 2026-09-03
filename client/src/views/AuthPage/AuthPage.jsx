@@ -384,7 +384,7 @@ const AuthBackground = () => (
 
       {/* Puerta aparte: siempre hay salida de vuelta al sitio */}
       <Button
-        type="text"
+        shape="circle"
         icon={<ArrowLeftOutlined />}
         onClick={() => {
           if (window.history.state && window.history.state.idx > 0) {
@@ -393,7 +393,22 @@ const AuthBackground = () => (
             navigate('/');
           }
         }}
-        style={{ position: 'absolute', top: 16, left: 16, fontSize: 24, color: '#ffffff' }}
+        style={{ 
+          position: 'absolute', 
+          top: 16, 
+          left: 16, 
+          fontSize: 20, 
+          color: '#ffffff',
+          backgroundColor: 'rgba(255, 255, 255, 0.2)',
+          border: '1px solid rgba(255, 255, 255, 0.4)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 50,
+          width: 40,
+          height: 40,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
       />
       <div
         className="fade-in-up"
