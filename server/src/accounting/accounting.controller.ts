@@ -47,19 +47,19 @@ export class AccountingController {
     const inRange = { createdAt: { $gte: start, $lte: end } };
     const done = { status: TransactionStatus.COMPLETED };
 
-    const sum = async (match: any) => {
+    const sum = async (match: any, useAbs = true) => {
       const [r] = await this.txModel.aggregate([
         { $match: { ...done, ...inRange, ...match } },
-        { $group: { _id: null, total: { $sum: { $abs: '$amount' } }, n: { $sum: 1 } } },
+        { $group: { _id: null, total: { $sum: useAbs ? { $abs: '$amount' } : '$amount' }, n: { $sum: 1 } } },
       ]);
       return { total: r?.total ?? 0, n: r?.n ?? 0 };
     };
 
     const [
       deposits, ticketSales, storeCanje, storeVenta, refundsCanje,
-      cancelRefunds, bonuses, auctionPayments, walletAgg, erpAgg, pendingDeposits, expiringAgg,
+      cancelRefunds, bonuses, auctionPayments, offlineSales, posCancelled, walletAgg, erpAgg, pendingDeposits, expiringAgg,
     ] = await Promise.all([
-      sum({ type: { $in: [TransactionType.DEPOSIT_YAPE, TransactionType.OFFLINE_SALE] } }), // 💵 dinero real que ENTRÓ
+      sum({ type: TransactionType.DEPOSIT_YAPE }), // 💵 dinero real que ENTRÓ por Yape/bancos
       sum({ type: TransactionType.TICKET_PURCHASE }),
       sum({ type: TransactionType.MARKETPLACE_PURCHASE, wallet: 'canje' }),
       sum({ type: TransactionType.MARKETPLACE_PURCHASE, wallet: 'contable' }),
@@ -67,6 +67,8 @@ export class AccountingController {
       sum({ type: TransactionType.RAFFLE_CANCELLED_REFUND }),
       sum({ type: TransactionType.WELCOME_BONUS }),
       sum({ type: TransactionType.AUCTION_PAYMENT }),
+      sum({ type: TransactionType.OFFLINE_SALE }), // Ventas en efectivo POS
+      sum({ type: TransactionType.POS_SALE_CANCELLED }, false), // Devoluciones POS (amount es negativo, sumarlo sin abs restará)
       this.userModel.aggregate([
         {
           $group: {
@@ -105,13 +107,18 @@ export class AccountingController {
     return {
       range: { from: start, to: end },
       // ── Dinero real ──
-      income: { deposits: deposits.total, deposCount: deposits.n },
+      income: { 
+        deposits: deposits.total, 
+        deposCount: deposits.n,
+        posSales: offlineSales.total + posCancelled.total, // POS Cancelled is negative, so this subtracts
+        posCount: offlineSales.n
+      },
       costs: { prizes: prizeCost, prizesCount: erpAgg[0]?.n ?? 0 },
-      cash: deposits.total - prizeCost, // Caja del periodo (aprox.)
+      cash: (deposits.total + offlineSales.total + posCancelled.total) - prizeCost, // Caja del periodo (aprox.)
       // ── Actividad (mueve saldo, no es ingreso nuevo) ──
       activity: {
-        ticketSales: ticketSales.total,
-        ticketsCount: ticketSales.n,
+        ticketSales: ticketSales.total + offlineSales.total + posCancelled.total,
+        ticketsCount: ticketSales.n + offlineSales.n,
         storeVenta: storeVenta.total,
         storeCanje: storeCanje.total,
         auctionPayments: auctionPayments.total,
@@ -163,6 +170,16 @@ export class AccountingController {
       const d = r._id.d;
       byDay[d] ??= { date: d, recargas: 0, boletos: 0, tienda: 0, canjeado: 0 };
       if (r._id.t === TransactionType.DEPOSIT_YAPE) byDay[d].recargas += r.total;
+      if (r._id.t === TransactionType.OFFLINE_SALE) {
+        byDay[d].recargas += r.total;
+        byDay[d].boletos += r.total;
+      }
+      if (r._id.t === TransactionType.POS_SALE_CANCELLED) {
+        // En daily estamos usando $abs en la agregación, por lo que total es positivo. 
+        // Como es una cancelación, debemos restarlo.
+        byDay[d].recargas -= r.total;
+        byDay[d].boletos -= r.total;
+      }
       if (r._id.t === TransactionType.TICKET_PURCHASE) byDay[d].boletos += r.total;
       if (r._id.t === TransactionType.MARKETPLACE_PURCHASE) byDay[d].tienda += r.total;
       if (r._id.t === TransactionType.CERO_PERDIDA_REFUND) byDay[d].canjeado += r.total;

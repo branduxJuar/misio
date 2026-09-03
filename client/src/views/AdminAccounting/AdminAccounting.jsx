@@ -143,8 +143,8 @@ export default function AdminAccounting() {
       <Text strong style={{ display: 'block', marginBottom: 8 }}>💵 Dinero real del periodo</Text>
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={8}>
-          <StatBox color="linear-gradient(135deg,#059669,#34d399)" value={S(s.income?.deposits)}
-            label={`Ingresos por recargas/ventas (${s.income?.deposCount ?? 0})`} icon={<WalletFilled />} />
+          <StatBox color="linear-gradient(135deg,#059669,#34d399)" value={S((s.income?.deposits || 0) + (s.income?.posSales || 0))}
+            label={`Ingresos por recargas y POS (${(s.income?.deposCount ?? 0) + (s.income?.posCount ?? 0)})`} icon={<WalletFilled />} />
         </Col>
         <Col xs={24} sm={12} lg={8}>
           <StatBox color="linear-gradient(135deg,#b45309,#e8b84a)" value={S(s.costs?.prizes)}
