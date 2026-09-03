@@ -51,6 +51,7 @@ export interface IUser {
   dni: string;
   phone: string;
   role: UserRole;
+  posPin?: string;
   walletBalance: number;
   walletCanje: number;
   canjeTranches?: {
@@ -92,6 +93,10 @@ export class User implements IUser {
    */
   @Prop({ required: true, select: false })
   passwordHash: string;
+
+  /** PIN de 4 dígitos para autorizaciones rápidas en POS (solo Admins/Operadores). Guardado con bcrypt. */
+  @Prop({ select: false, default: '' })
+  posPin: string;
 
   @Prop({ type: String, enum: UserRole, default: UserRole.USER, index: true })
   role: UserRole;

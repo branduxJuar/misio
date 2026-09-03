@@ -8,7 +8,7 @@ import { UsersService } from './users.service';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guards';
 import { AuthUser, CurrentUser, Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from './user.schema';
-import { CreateUserDto, SetBalancesDto, SetBanDto, SetPermissionsDto, UpdateAutocontrolDto, UpdateProfileDto } from './dto/users.dto';
+import { CreateUserDto, SetBalancesDto, SetBanDto, SetPermissionsDto, UpdateAutocontrolDto, UpdateProfileDto, SetPosPinDto } from './dto/users.dto';
 
 /**
  * El registro de usuarios ya NO vive aquí: pasó a POST /auth/register
@@ -73,6 +73,15 @@ export class UsersController {
     @Body() body: UpdateProfileDto,
   ) {
     return this.usersService.updateProfile(user.userId, body);
+  }
+
+  /** PATCH /api/v1/users/me/pos-pin — Configura el PIN para anular en POS (solo Admins/Ops). */
+  @Patch('me/pos-pin')
+  updatePosPin(
+    @CurrentUser() user: AuthUser,
+    @Body() body: SetPosPinDto,
+  ) {
+    return this.usersService.setPosPin(user.userId, body.pin);
   }
 
   /** PATCH /api/v1/users/me/autocontrol — configurar o solicitar desactivar límites. */
