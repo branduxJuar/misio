@@ -612,9 +612,27 @@ function NotFound() {
   );
 }
 
+function DocumentTitleManager() {
+  React.useEffect(() => {
+    let originalTitle = document.title;
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        originalTitle = document.title;
+        document.title = '¡Regresa, hay sorteos! 🎁';
+      } else {
+        document.title = originalTitle;
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
+  return null;
+}
+
 export default function App() {
   return (
     <AuthProvider>
+      <DocumentTitleManager />
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Suspense
           fallback={
