@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Card, Col, Row, Typography, Tag, List, Avatar, Steps, Badge, Statistic,
-  Divider, Button, Alert, message, Collapse, Grid, Segmented,
+  Divider, Button, Alert, message, Collapse, Grid, Segmented, Checkbox, Input
 } from 'antd';
 import {
   EyeFilled, PlayCircleFilled, UserOutlined, TrophyFilled, ThunderboltFilled,
@@ -13,6 +13,7 @@ import {
 } from '../../mocks/mockData';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { toEmbedSrc } from '../../utils/stream';
+import { maskName } from '../../utils/mask';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, tokenStore, SERVER_URL } from '../../auth/api';
 import { useAuth } from '../../auth/AuthContext';
@@ -67,6 +68,8 @@ export default function LiveDrawRoom() {
     loserAudioRef.current = new Audio('/sounds/al_agua.mp3');
   }, []);
   const [activeTab, setActiveTab] = useState('sorteo');
+  const [showMyTickets, setShowMyTickets] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
   const { id } = useParams();
   const socketRef = useRef(null);
@@ -316,11 +319,14 @@ export default function LiveDrawRoom() {
       viewers,
       completed: raffle.status === 'completed',
       timeline,
-      participants: participants.map((p) => ({
-        name: p.name,
-        ticketNumber: p.ticketNumber,
-        extra: p.status === 'burned_al_agua' ? '💧 al agua' : p.status === 'winner' ? '🏆' : '',
-      })),
+      participants: participants
+        .filter(p => !showMyTickets || p.isMine)
+        .filter(p => !searchQuery || String(p.ticketNumber).padStart(4, '0').includes(searchQuery))
+        .map((p) => ({
+          name: p.name,
+          ticketNumber: p.ticketNumber,
+          extra: p.status === 'burned_al_agua' ? '💧 al agua' : p.status === 'winner' ? '🏆' : '',
+        })),
       activeCount: participants.filter(p => p.status === 'active').length,
       burnedCount: participants.filter(p => p.status === 'burned_al_agua').length,
       winnerCount: participants.filter(p => p.status === 'winner').length,
@@ -343,10 +349,10 @@ export default function LiveDrawRoom() {
       ) : (
         <>
           <Text code>#{String(draw.ticketNumber).padStart(4, '0')}</Text>{' '}
-          <Text style={{ color: MISIO_COLORS.textMuted }}>{draw.holderName}</Text>
-        </>
-      ),
-      status: !draw.result ? 'process' : 'finish',
+      <Text style={{ color: MISIO_COLORS.textMuted }}>{maskName(draw.holderName)}</Text>
+    </>
+  ),
+  status: !draw.result ? 'process' : 'finish',
       icon: isWinnerDraw ? <TrophyFilled style={{ color: MISIO_COLORS.prizeGold }} /> : undefined,
     };
   });
@@ -399,7 +405,7 @@ export default function LiveDrawRoom() {
               <ul style={{ paddingLeft: 20, margin: 0 }}>
                 {completedPrizes.map((p, i) => (
                   <li key={i} style={{ marginBottom: 4 }}>
-                    <Text strong>{p.title}:</Text> {p.winner.name.substring(0, 5)}... (Boleto #{String(p.winner.ticketNumber).padStart(4, '0')})
+                    <Text strong>{p.title}:</Text> {maskName(p.winner.name)} (Boleto #{String(p.winner.ticketNumber).padStart(4, '0')})
                   </li>
                 ))}
               </ul>
@@ -569,7 +575,7 @@ export default function LiveDrawRoom() {
                                   <Text strong={isCurrent} style={{ color: p.winner ? MISIO_COLORS.prizeGold : isCurrent ? MISIO_COLORS.electricBlue : undefined }}>
                                     {p.winner ? '🏆 ' : isCurrent ? '▶ ' : '🎁 '} {p.title}
                                   </Text>
-                                  {p.winner && <div style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>Ganador: {p.winner.name.substring(0, 5)}... <Text code style={{ fontSize: 11 }}>#{String(p.winner.ticketNumber).padStart(4, '0')}</Text></div>}
+                                  {p.winner && <div style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>Ganador: {maskName(p.winner.name)} <Text code style={{ fontSize: 11 }}>#{String(p.winner.ticketNumber).padStart(4, '0')}</Text></div>}
                                 </div>
                               </List.Item>
                             );
@@ -606,6 +612,22 @@ export default function LiveDrawRoom() {
 
             {activeTab === 'participantes' && (
               <Card styles={{ body: { padding: 16 } }} style={{ margin: 0, borderRadius: 16, border: 'none', background: '#ffffff', boxShadow: `0 0 40px rgba(124, 77, 255, 0.05)` }}>
+                <div style={{ marginBottom: 16 }}>
+                  <Input.Search 
+                    placeholder="Buscar boleto (ej. 005)" 
+                    allowClear 
+                    onChange={e => setSearchQuery(e.target.value)} 
+                    style={{ width: '100%' }}
+                    size="large"
+                  />
+                </div>
+                {user && (
+                  <div style={{ marginBottom: 12 }}>
+                    <Checkbox checked={showMyTickets} onChange={(e) => setShowMyTickets(e.target.checked)}>
+                      <Text strong>Ver mis tickets</Text>
+                    </Checkbox>
+                  </div>
+                )}
                 <List
                   grid={{ gutter: [12, 12], column: 2 }}
                   split={false}
@@ -623,9 +645,9 @@ export default function LiveDrawRoom() {
                           {/* Info del Participante */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                             <Avatar size={20} style={{ backgroundColor: '#ffffff', color: '#008b8b', border: '1px solid #e8e8e8', fontSize: 11, flexShrink: 0 }}>
-                              {p.name.charAt(0)}
+                              {maskName(p.name).charAt(0)}
                             </Avatar>
-                            <Text strong style={{ fontSize: 12, color: '#1a1a1a' }} ellipsis>{p.name}</Text>
+                            <Text strong style={{ fontSize: 12, color: '#1a1a1a' }} ellipsis>{maskName(p.name)}</Text>
                           </div>
 
                           {/* Línea punteada divisoria */}

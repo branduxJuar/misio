@@ -9,17 +9,14 @@
  * `common`.
  */
 export function maskName(fullName: string): string {
-  // Formato acordado con el negocio: "Brand.... Juar...."
-  // (primeras letras legibles + puntos — suficiente para que el ganador
-  // se reconozca, insuficiente para identificarlo desde fuera).
-  return (fullName ?? '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => {
-      const head = part.slice(0, 5);
-      return `${head.charAt(0).toUpperCase()}${head.slice(1).toLowerCase()}....`;
-    })
-    .join(' ');
+  if (!fullName || fullName === '—') return '—';
+  const firstName = fullName.trim().split(/\s+/)[0].replace(/[\.\*]+/g, '');
+  if (!firstName) return '—';
+  
+  const capitalized = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+  
+  if (capitalized.length <= 4) {
+    return capitalized.slice(0, 2) + '.....';
+  }
+  return capitalized.slice(0, 4) + '.......';
 }

@@ -7,6 +7,7 @@ dayjs.locale('es');
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useApiOrMock } from '../../hooks/useApiOrMock';
 import { SERVER_URL } from '../../auth/api';
+import { maskName } from '../../utils/mask';
 
 const { Title, Text } = Typography;
 
@@ -46,19 +47,6 @@ export default function Winners() {
     });
     return Object.entries(groups);
   }, [winners]);
-
-  const maskName = (rawName) => {
-    if (!rawName || rawName === '—') return '—';
-    const cleanName = rawName.replace(/[\.\*]+/g, '').trim();
-    const words = cleanName.split(/\s+/).slice(0, 2);
-    
-    return words.map(word => {
-      if (word.length <= 3) {
-        return word.slice(0, 2) + '***';
-      }
-      return word.slice(0, 3) + '***';
-    }).join(' ');
-  };
 
   return (
     <div>
