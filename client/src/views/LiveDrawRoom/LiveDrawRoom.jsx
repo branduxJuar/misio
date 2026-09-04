@@ -592,7 +592,7 @@ export default function LiveDrawRoom() {
             )}
 
             {activeTab === 'participantes' && (
-              <Card styles={{ body: { padding: 16 } }} style={{ margin: 0, borderRadius: 16, border: 'none', background: '#ffffff', boxShadow: `0 0 40px rgba(124, 77, 255, 0.05)` }}>
+              <Card styles={{ body: { padding: 16, flex: 1, display: 'flex', flexDirection: 'column' } }} style={{ display: 'flex', flexDirection: 'column', flex: 1, margin: 0, borderRadius: 16, border: 'none', background: '#ffffff', boxShadow: `0 0 40px rgba(124, 77, 255, 0.05)` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
                   <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                     <Input.Search 
