@@ -8,9 +8,6 @@ import {
   SoundOutlined,
 } from '@ant-design/icons';
 import { io } from 'socket.io-client';
-import {
-  MOCK_LIVE_RAFFLE, MOCK_PARTICIPANTS, MOCK_DRAW_TIMELINE,
-} from '../../mocks/mockData';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { toEmbedSrc } from '../../utils/stream';
 import { maskName } from '../../utils/mask';
@@ -39,7 +36,6 @@ export default function LiveDrawRoom() {
   const screens = Grid.useBreakpoint();
   const { user } = useAuth();
 
-  const [demo, setDemo] = useState(true);
   const [raffle, setRaffle] = useState(null); // Rifa en vivo real
   const [draws, setDraws] = useState([]); // [{attempt, result, ticketNumber, holderName}]
   const [participants, setParticipants] = useState([]);
@@ -81,7 +77,9 @@ export default function LiveDrawRoom() {
       setRaffle(state.raffle);
       setDraws(state.draws);
       setParticipants(state.participants);
-    } catch {}
+    } catch (err) {
+      msgApi.error(err.message ?? 'Error al cargar la sala');
+    }
   };
 
   const isAnimatingRef = useRef(false);
@@ -99,12 +97,14 @@ export default function LiveDrawRoom() {
     let cancelled = false;
 
     const connect = async () => {
-      if (!id) return; // Si no hay ID en la URL, se queda en modo demo
+      if (!id) {
+        msgApi.error('ID de rifa no proporcionado');
+        return;
+      }
 
       try {
         await loadRoom();
         if (cancelled) return;
-        setDemo(false);
 
         const socket = io(`${WS_URL}/live`, {
           auth: { token: tokenStore.get() }, // El backend lo exige solo para tirar
@@ -222,8 +222,8 @@ export default function LiveDrawRoom() {
 
         // Reacciones del público (Sprint 2): contadores en vivo
         socket.on('reaction_update', (counts) => setReactions(counts));
-      } catch {
-        // Backend apagado → modo demo silencioso
+      } catch (err) {
+        msgApi.error('No se pudo conectar a la sala en vivo');
       }
     };
 
@@ -247,7 +247,7 @@ export default function LiveDrawRoom() {
 
   /** Reaccionar 👍/😢 (con cooldown de 1.5s anti-spam). */
   const sendReaction = (reaction) => {
-    if (!socketRef.current || demo || reactCooldown) return;
+    if (!socketRef.current || reactCooldown) return;
     socketRef.current.emit('react', { raffleId: raffle._id, reaction });
     setReactCooldown(true);
     setTimeout(() => setReactCooldown(false), 1500);
@@ -265,26 +265,7 @@ export default function LiveDrawRoom() {
 
   // ── Datos a renderizar (reales o mock) ─────────────────────────────
   const view = useMemo(() => {
-    if (demo) {
-      return {
-        title: MOCK_LIVE_RAFFLE.title,
-        winningAttempt: MOCK_LIVE_RAFFLE.winningAttempt,
-        currentAttempt: MOCK_LIVE_RAFFLE.currentAttempt,
-        viewers: MOCK_LIVE_RAFFLE.viewers,
-        completed: false,
-        timeline: MOCK_DRAW_TIMELINE.map((d) => ({
-          attempt: d.attempt,
-          result: d.result === 'pending' ? null : d.result,
-          ticketNumber: d.ticketNumber,
-          holderName: d.holder,
-        })),
-        participants: MOCK_PARTICIPANTS.map((p) => ({
-          name: p.name,
-          ticketNumber: p.ticketNumber,
-          extra: p.city,
-        })),
-      };
-    }
+    if (!raffle) return null;
 
     const isPaquete = raffle.type === 'paquete';
     let targetPrize = raffle;
@@ -334,7 +315,16 @@ export default function LiveDrawRoom() {
       prizes: isPaquete ? raffle.prizes : [],
       activePrizeTitle: targetPrize?.title,
     };
-  }, [demo, raffle, draws, participants, viewers, selectedPrizeTitle]);
+  }, [raffle, draws, participants, viewers, selectedPrizeTitle, showMyTickets, searchQuery]);
+
+  if (!view) {
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', height: '60vh' }}>
+        {contextHolder}
+        <Title level={4} style={{ color: MISIO_COLORS.textMuted }}>Cargando sala de sorteo...</Title>
+      </div>
+    );
+  }
 
   const stepsItems = view.timeline.map((draw) => {
     const isWinnerDraw = draw.attempt === view.winningAttempt;
@@ -360,15 +350,6 @@ export default function LiveDrawRoom() {
   return (
     <div>
       {contextHolder}
-
-      {demo && (
-        <Alert
-          type="info"
-          showIcon
-          message="Modo demo: no hay rifa en vivo (o el backend está apagado). Cambia una rifa a status 'live' para activar la sala real."
-          style={{ marginBottom: 16 }}
-        />
-      )}
 
       {/* ── Anuncio de cierre para Sorteo de Premio Único ────── */}
       {closing && !view.isPaquete && user && closing.winner?.userId === user._id && (
@@ -452,7 +433,7 @@ export default function LiveDrawRoom() {
                 background: `radial-gradient(circle at 50% 40%, var(--z-bg-elevated), var(--z-bg-base))`,
               }}
             >
-              {!demo && raffle?.streamUrl ? (
+              {raffle?.streamUrl ? (
                 <iframe
                   src={toEmbedSrc(raffle.streamUrl)}
                   title="Transmisión del sorteo"
@@ -478,14 +459,14 @@ export default function LiveDrawRoom() {
               background: MISIO_COLORS.bgSurface }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                 <Button
-                  size="large" disabled={demo || reactCooldown}
+                  size="large" disabled={reactCooldown}
                   onClick={() => sendReaction('like')}
                   style={{ borderColor: MISIO_COLORS.saldoGreen }}
                 >
                   👍 {reactions.like > 0 ? reactions.like.toLocaleString('es-PE') : ''}
                 </Button>
                 <Button
-                  size="large" disabled={demo || reactCooldown}
+                  size="large" disabled={reactCooldown}
                   onClick={() => sendReaction('sad')}
                   style={{ borderColor: MISIO_COLORS.electricBlue }}
                 >
@@ -612,22 +593,24 @@ export default function LiveDrawRoom() {
 
             {activeTab === 'participantes' && (
               <Card styles={{ body: { padding: 16 } }} style={{ margin: 0, borderRadius: 16, border: 'none', background: '#ffffff', boxShadow: `0 0 40px rgba(124, 77, 255, 0.05)` }}>
-                <div style={{ marginBottom: 16 }}>
-                  <Input.Search 
-                    placeholder="Buscar boleto (ej. 005)" 
-                    allowClear 
-                    onChange={e => setSearchQuery(e.target.value)} 
-                    style={{ width: '100%' }}
-                    size="large"
-                  />
-                </div>
-                {user && (
-                  <div style={{ marginBottom: 12 }}>
-                    <Checkbox checked={showMyTickets} onChange={(e) => setShowMyTickets(e.target.checked)}>
-                      <Text strong>Ver mis tickets</Text>
-                    </Checkbox>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                    <Input.Search 
+                      placeholder="Buscar boleto (ej. 005)" 
+                      allowClear 
+                      onChange={e => setSearchQuery(e.target.value)} 
+                      style={{ width: '100%' }}
+                      size="large"
+                    />
                   </div>
-                )}
+                  {user && (
+                    <div style={{ flexShrink: 0 }}>
+                      <Checkbox checked={showMyTickets} onChange={(e) => setShowMyTickets(e.target.checked)}>
+                        <Text strong>Ver mis tickets</Text>
+                      </Checkbox>
+                    </div>
+                  )}
+                </div>
                 <List
                   grid={{ gutter: [12, 12], column: 2 }}
                   split={false}
