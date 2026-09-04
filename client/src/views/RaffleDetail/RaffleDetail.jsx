@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import {
   Card, Col, Row, Typography, Tag, Button, Alert, Space, Image, Carousel,
-  Input, message, Statistic, Divider, Progress, Affix, Badge, Modal, Form, Select,
+  Input, message, Statistic, Divider, Progress, Affix, Badge, Modal, Form, Select, Checkbox
 } from 'antd';
 import ReactMarkdown from 'react-markdown';
 import {
@@ -61,6 +61,32 @@ export default function RaffleDetail() {
   const [legalPages, setLegalPages] = useState(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [showBalance, setShowBalance] = useState(false);
+  const [checkoutRulesOpen, setCheckoutRulesOpen] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [pendingPaymentMethod, setPendingPaymentMethod] = useState(null);
+
+  const handlePreCheckout = (method) => {
+    if (!user && method !== 'pos') {
+      sessionStorage.setItem(`misio_cart_${id}`, JSON.stringify(cart));
+      msgApi.info('Crea tu cuenta o inicia sesión para pagar — tus números te esperan.');
+      return navigate('/login', { state: { from: `/rifa/${id}` } });
+    }
+    setPendingPaymentMethod(method);
+    setTermsAccepted(false);
+    setCheckoutRulesOpen(true);
+  };
+
+  const handleConfirmCheckout = () => {
+    setCheckoutRulesOpen(false);
+    if (pendingPaymentMethod === 'misio') {
+      buy();
+    } else if (pendingPaymentMethod === 'yape') {
+      setYapeOpen(true);
+    } else if (pendingPaymentMethod === 'pos') {
+      handleOpenPos();
+    }
+    setPendingPaymentMethod(null);
+  };
 
   // ── Carga: rifa + vendidos + (si hay sesión) mis boletos ─────────
   const [promoCode, setPromoCode] = useState('');
@@ -423,7 +449,7 @@ export default function RaffleDetail() {
 
       <Row gutter={[20, 20]}>
         {/* ── Producto: fotos + info (Fijo/Sticky a la izquierda) ── */}
-        <Col xs={24} lg={7} xl={6} className="z-sticky-col">
+        <Col xs={24} lg={5} xl={5} className="z-sticky-col">
           <Card styles={{ body: { padding: 0, overflow: 'hidden', borderRadius: 16 } }} style={{ borderRadius: 16, border: '1px solid #cbd5e1', background: '#ffffff', boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.08)', height: 'auto' }}>
             <div style={{ position: 'relative' }}>
               <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }}>
@@ -620,7 +646,7 @@ export default function RaffleDetail() {
         </Col>
 
         {/* ── Grilla de tickets ──────────────────────────────────── */}
-        <Col xs={24} lg={11} xl={12}>
+        <Col xs={24} lg={14} xl={14}>
           <Card
             style={{ borderRadius: 16, border: '1px solid #cbd5e1', background: '#ffffff', boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.08)', display: 'flex', flexDirection: 'column' }}
             className="z-grid-card-desktop"
@@ -721,7 +747,7 @@ export default function RaffleDetail() {
               </div>
             )}
             <div className="z-raffle-grid" style={{
-              display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(68px, 1fr))',
+              display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
               gap: 8, paddingRight: 4,
               paddingBottom: 30,
             }}>
@@ -781,7 +807,7 @@ export default function RaffleDetail() {
         </Col>
 
         {/* ── Columna 3: Carrito de Boletos Fixed/Sticky ───────── */}
-        <Col xs={24} lg={6} xl={6} id="seccion-carrito" className="z-sticky-col">
+        <Col xs={24} lg={5} xl={5} id="seccion-carrito" className="z-sticky-col">
           <Card
             className="z-stretch-card"
             style={{ 
@@ -988,7 +1014,7 @@ export default function RaffleDetail() {
                   <Button
                     type="primary"
                     icon={<ThunderboltFilled style={{ color: '#fef08a' }} />}
-                    loading={paying} onClick={buy}
+                    loading={paying} onClick={() => handlePreCheckout('misio')}
                     style={{ 
                       width: '100%', 
                       background: '#047857', 
@@ -1005,14 +1031,7 @@ export default function RaffleDetail() {
                     {total === 0 && cart.length > 0 ? 'Llevar Gratis' : 'Pagar con MISIO'}
                   </Button>
                   <Button
-                    onClick={() => {
-                      if (!user) {
-                        sessionStorage.setItem(`misio_cart_${id}`, JSON.stringify(cart));
-                        msgApi.info('Crea tu cuenta o inicia sesión para pagar — tus números te esperan.');
-                        return navigate('/login', { state: { from: `/rifa/${id}` } });
-                      }
-                      setYapeOpen(true);
-                    }}
+                    onClick={() => handlePreCheckout('yape')}
                     style={{ 
                       width: '100%', 
                       background: '#742284', 
@@ -1030,7 +1049,7 @@ export default function RaffleDetail() {
                   </Button>
                   {(user?.role === 'ADMIN' || user?.role === 'SELLER' || user?.role === 'admin' || user?.role === 'seller') && (
                     <Button
-                      onClick={handleOpenPos}
+                      onClick={() => handlePreCheckout('pos')}
                       style={{ 
                         width: '100%', 
                         background: '#1e293b', 
@@ -1131,6 +1150,36 @@ export default function RaffleDetail() {
           load();
         }}
       />
+
+      {/* Modal de checkout con bases y reglas */}
+      <Modal
+        title="Bases y Reglas del Sorteo"
+        open={checkoutRulesOpen}
+        onCancel={() => {
+          setCheckoutRulesOpen(false);
+          setPendingPaymentMethod(null);
+        }}
+        footer={[
+          <Button key="cancel" onClick={() => {
+            setCheckoutRulesOpen(false);
+            setPendingPaymentMethod(null);
+          }}>Cancelar</Button>,
+          <Button key="confirm" type="primary" disabled={!termsAccepted} onClick={handleConfirmCheckout} loading={paying}>
+            Aceptar y Continuar
+          </Button>
+        ]}
+      >
+        <div style={{ maxHeight: '400px', overflowY: 'auto', marginBottom: 16 }}>
+          {legalPages?.rules ? (
+            <ReactMarkdown>{legalPages.rules}</ReactMarkdown>
+          ) : (
+            <p>Las bases de este sorteo se basan en los términos y condiciones generales de Misio.</p>
+          )}
+        </div>
+        <Checkbox checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)}>
+          <Text strong>He leído y acepto los términos y condiciones del sorteo.</Text>
+        </Checkbox>
+      </Modal>
 
       {/* #3: Animación de victoria — se muestra a todos los conectados */}
       <Modal
