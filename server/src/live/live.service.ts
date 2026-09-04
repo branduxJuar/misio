@@ -98,7 +98,7 @@ export class LiveService {
       }),
       participants: participants.map((t) => {
         const unmaskedName = (t as any).isOffline ? ((t as any).buyerName || 'Cliente Físico') : ((t.userId as any)?.name || 'Usuario');
-        const isMine = reqUser && !((t as any).isOffline) && (t.userId as any)?._id?.toString() === reqUser._id?.toString();
+        const isMine = reqUser && !((t as any).isOffline) && (t.userId as any)?._id?.toString() === (reqUser.userId || reqUser._id)?.toString();
         const res: any = {
           name: maskName(unmaskedName),
           ticketNumber: t.ticketNumber,
