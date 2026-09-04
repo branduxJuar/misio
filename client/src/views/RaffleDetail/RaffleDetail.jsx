@@ -1155,6 +1155,7 @@ export default function RaffleDetail() {
       <Modal
         title="Bases y Reglas del Sorteo"
         open={checkoutRulesOpen}
+        width={700}
         onCancel={() => {
           setCheckoutRulesOpen(false);
           setPendingPaymentMethod(null);
@@ -1169,11 +1170,11 @@ export default function RaffleDetail() {
           </Button>
         ]}
       >
-        <div style={{ maxHeight: '400px', overflowY: 'auto', marginBottom: 16 }}>
-          {legalPages?.rules ? (
-            <ReactMarkdown>{legalPages.rules}</ReactMarkdown>
+        <div className="z-markdown-content" style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: 12, marginBottom: 16 }}>
+          {legalPages?.raffleRules ? (
+            <ReactMarkdown>{legalPages.raffleRules}</ReactMarkdown>
           ) : (
-            <p>Las bases de este sorteo se basan en los términos y condiciones generales de Misio.</p>
+            <p>Cargando bases del sorteo...</p>
           )}
         </div>
         <Checkbox checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)}>
