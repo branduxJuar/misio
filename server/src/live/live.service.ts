@@ -72,7 +72,6 @@ export class LiveService {
         .find({ raffleId: rid })
         .populate('userId', 'name')
         .sort({ status: 1, ticketNumber: 1 })
-        .limit(200)
         .lean(),
     ]);
 
