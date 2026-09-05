@@ -15,26 +15,31 @@ async function resetVentas() {
   try {
     const db = mongoose.connection.db;
 
-    // 1. Limpiar colecciones transaccionales y del sistema
-    const collectionsToClear = [
-      'raffles',
-      'tickets', 
-      'transactions', 
-      'cashshifts', 
-      'cashregisters', 
-      'cashmovements',
-      'logisticserps', // Compras de premios
-      'complaints',
-      'inboxmessages'
+    // 1. Limpiar TODAS las colecciones del sistema dinámicamente, EXCEPTO la lista blanca
+    const collectionsToKeep = [
+      'users',             // Cuentas de usuario
+      'payment_methods',   // Métodos de pago (Yape, Plin, etc.)
+      'settings',          // Configuraciones del sistema (términos, logos, etc.)
+      'store_items'        // Catálogo de la tienda (para no tener que volver a crear los premios)
     ];
 
-    console.log('🗑️  Borrando colecciones de ventas, contabilidad, cajas y rifas...');
-    for (const collectionName of collectionsToClear) {
-      try {
-        await db.collection(collectionName).deleteMany({});
-        console.log(`  - Colección ${collectionName} vaciada.`);
-      } catch (err) {
-        console.log(`  - Colección ${collectionName} no existe o no se pudo vaciar.`);
+    console.log('🗑️  Borrando TODAS las colecciones del sistema excepto usuarios y configuraciones...');
+    
+    // Obtener todas las colecciones de la BD
+    const allCollections = await db.listCollections().toArray();
+
+    for (const coll of allCollections) {
+      const collectionName = coll.name;
+      // Si la colección NO está en la lista de las que hay que guardar, se vacía.
+      if (!collectionsToKeep.includes(collectionName) && !collectionName.startsWith('system.')) {
+        try {
+          await db.collection(collectionName).deleteMany({});
+          console.log(`  - Colección ${collectionName} vaciada.`);
+        } catch (err) {
+          console.log(`  - Colección ${collectionName} no se pudo vaciar.`);
+        }
+      } else {
+        console.log(`  🛡️  Colección ${collectionName} preservada.`);
       }
     }
 
