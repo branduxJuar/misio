@@ -827,6 +827,7 @@ export default function AdminDrawPanel() {
                     {/* RULETA VISIBLE: gira y se detiene en el boleto sorteado */}
                     <Roulette
                       participants={activeParticipants}
+                      activeCount={activeCount}
                       spinning={spinning}
                       result={lastResult}
                       size={Math.min(300, window.innerWidth - 90)}

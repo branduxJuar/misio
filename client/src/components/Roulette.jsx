@@ -9,7 +9,7 @@ const { Text, Title } = Typography;
  * Simula una tómbola esférica 3D con corriente de aire: en reposo las bolillas flotan
  * suavemente al fondo, y al girar salen disparadas chocando de forma caótica en todas direcciones.
  */
-export default function Roulette({ participants = [], spinning = false, result = null, size = 340 }) {
+export default function Roulette({ participants = [], activeCount = null, spinning = false, result = null, size = 340 }) {
   const numBalls = 45;
 
   const balls = useMemo(() => {
@@ -306,7 +306,7 @@ export default function Roulette({ participants = [], spinning = false, result =
           border: '1px solid rgba(255,255,255,0.15)',
           boxShadow: '0 8px 25px rgba(0,0,0,0.5)',
         }}>
-          <Title level={2} style={{ margin: 0, color: 'white', fontWeight: 900 }}>{participants.length}</Title>
+          <Title level={2} style={{ margin: 0, color: 'white', fontWeight: 900 }}>{activeCount !== null ? activeCount : participants.length}</Title>
           <Text style={{ color: MISIO_COLORS.textMuted, fontSize: 13, fontWeight: 600 }}>
             Boletos en la<br/>Tómbola
           </Text>
