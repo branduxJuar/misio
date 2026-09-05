@@ -15,19 +15,20 @@ async function resetVentas() {
   try {
     const db = mongoose.connection.db;
 
-    // 1. Limpiar colecciones transaccionales y de caja
+    // 1. Limpiar colecciones transaccionales y del sistema
     const collectionsToClear = [
+      'raffles',
       'tickets', 
       'transactions', 
       'cashshifts', 
       'cashregisters', 
       'cashmovements',
-      'logisticserps', // Compras de premios (si deseas mantenerlos, comenta esta línea)
+      'logisticserps', // Compras de premios
       'complaints',
       'inboxmessages'
     ];
 
-    console.log('🗑️  Borrando colecciones de ventas, contabilidad y cajas...');
+    console.log('🗑️  Borrando colecciones de ventas, contabilidad, cajas y rifas...');
     for (const collectionName of collectionsToClear) {
       try {
         await db.collection(collectionName).deleteMany({});
@@ -51,18 +52,6 @@ async function resetVentas() {
       }
     );
     console.log(`  - ${resultUsers.modifiedCount} usuarios actualizados con saldo 0.`);
-
-    // 3. Resetear contadores de rifas
-    console.log('🔄 Reseteando contador de boletos vendidos en las rifas...');
-    const resultRaffles = await db.collection('raffles').updateMany(
-      {},
-      {
-        $set: {
-          soldCount: 0
-        }
-      }
-    );
-    console.log(`  - ${resultRaffles.modifiedCount} rifas actualizadas con soldCount = 0.`);
 
     console.log('🎉 ¡Limpieza de sistema completada exitosamente!');
   } catch (error) {
