@@ -276,4 +276,22 @@ export class MailService {
         <p style="color:#666">Si tienes alguna duda, por favor contáctanos.</p>
       `));
   }
+
+  /** 🔔 Alerta al administrador de que hay un nuevo pago pendiente de validación */
+  async sendAdminDepositAlert(adminEmail: string, userName: string, amount: number, opNumber: string) {
+    return this.send(adminEmail, `🔔 Nuevo pago por validar: S/ ${amount.toFixed(2)} de ${userName}`,
+      this.wrap(`
+        <h2 style="color:#047857;text-align:center">¡Nuevo Depósito Yape/Plin! 💰</h2>
+        <p style="text-align:center;font-size:15px;color:#334155;">
+          El usuario <b>${userName}</b> acaba de registrar un pago de <b>S/ ${amount.toFixed(2)}</b>.
+        </p>
+        <div style="background:#ecfdf5; border:1px solid #10b981; border-radius:12px; padding:16px; margin:24px 0; text-align:center;">
+          <div style="font-size:12px;font-weight:600;color:#047857;">Nº DE OPERACIÓN</div>
+          <div style="font-size:20px;font-weight:900;margin-top:4px;">${opNumber}</div>
+        </div>
+        <p style="text-align:center;font-size:15px;color:#334155;">
+          Por favor, revisa el panel de administración para validar y confirmar este pago.
+        </p>
+      `));
+  }
 }

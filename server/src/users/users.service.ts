@@ -70,6 +70,10 @@ export class UsersService {
     return this.userModel.create(data);
   }
 
+  findById(id: string) {
+    return this.userModel.findById(id).lean();
+  }
+
   /**
    * LISTADO PAGINADO Y BUSCABLE.
 
@@ -116,7 +120,7 @@ export class UsersService {
    */
   async createWithRole(data: {
     name: string; dni: string; phone: string; password: string; role: UserRole;
-    permissions?: string[];
+    permissions?: string[]; customRoleName?: string;
   }) {
     const bcrypt = await import('bcrypt');
     const exists = await this.userModel.findOne({ dni: data.dni });
@@ -132,6 +136,7 @@ export class UsersService {
       dni: data.dni,
       phone: data.phone,
       role: data.role,
+      customRoleName: data.customRoleName,
       permissions,
       passwordHash: await bcrypt.hash(data.password, 10),
       acceptedTermsAt: new Date(), // Cuenta interna creada por el dueño
@@ -213,6 +218,35 @@ export class UsersService {
     const user = await this.userModel
       .findByIdAndUpdate(userId, patch, { new: true })
       .select('-passwordHash -verifyCode -verifyCodeExpires');
+    if (!user) throw new NotFoundException('Usuario no existe');
+    return user;
+  }
+
+  /** (Admin) Edición manual de datos de un usuario (nombre, dni, etc.) */
+  async updateUserAdmin(
+    id: string,
+    data: { name?: string; email?: string; phone?: string; dni?: string; role?: string; customRoleName?: string; permissions?: string[] }
+  ) {
+    const patch: any = {};
+    if (data.name !== undefined) patch.name = data.name.trim();
+    if (data.email !== undefined) patch.email = data.email.toLowerCase().trim();
+    if (data.phone !== undefined) patch.phone = data.phone.trim();
+    if (data.dni !== undefined) patch.dni = data.dni.trim();
+    if (data.role !== undefined) patch.role = data.role;
+    if (data.customRoleName !== undefined) patch.customRoleName = data.customRoleName;
+    if (data.permissions !== undefined) patch.permissions = data.permissions;
+
+    if (patch.dni) {
+      const exists = await this.userModel.findOne({ dni: patch.dni, _id: { $ne: id } });
+      if (exists) throw new ConflictException('Ya existe otro usuario con ese DNI');
+    }
+    
+    if (patch.email) {
+      const exists = await this.userModel.findOne({ email: patch.email, _id: { $ne: id } });
+      if (exists) throw new ConflictException('Ya existe otro usuario con ese email');
+    }
+
+    const user = await this.userModel.findByIdAndUpdate(id, patch, { new: true }).select('-passwordHash');
     if (!user) throw new NotFoundException('Usuario no existe');
     return user;
   }

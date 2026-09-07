@@ -51,6 +51,7 @@ export interface IUser {
   dni: string;
   phone: string;
   role: UserRole;
+  customRoleName?: string;
   posPin?: string;
   walletBalance: number;
   walletCanje: number;
@@ -100,6 +101,10 @@ export class User implements IUser {
 
   @Prop({ type: String, enum: UserRole, default: UserRole.USER, index: true })
   role: UserRole;
+
+  /** Nombre del rol personalizado (para mostrar en la UI, ej: "Contador") */
+  @Prop({ type: String })
+  customRoleName?: string;
 
   /**
    * PERMISOS por módulo del panel. El admin los tiene todos siempre; al

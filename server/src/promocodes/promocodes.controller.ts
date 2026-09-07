@@ -1,7 +1,8 @@
 import { Body, Controller, Get, Post, UseGuards, Param, Query } from '@nestjs/common';
 import { PromoCodesService } from './promocodes.service';
-import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guards';
-import { AuthUser, CurrentUser, Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/guards/auth.guards';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { AuthUser, CurrentUser, RequirePerm } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/user.schema';
 import { CreatePromocodeDto, ValidateCodeDto } from './dto/promocodes.dto';
 
@@ -9,15 +10,15 @@ import { CreatePromocodeDto, ValidateCodeDto } from './dto/promocodes.dto';
 export class PromoCodesController {
   constructor(private readonly promoCodesService: PromoCodesService) {}
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('marketing')
   @Get()
   findAll() {
     return this.promoCodesService.findAll();
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('marketing')
   @Post()
   create(@Body() body: CreatePromocodeDto) {
     return this.promoCodesService.create(body);

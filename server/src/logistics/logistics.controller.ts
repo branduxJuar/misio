@@ -7,13 +7,14 @@ import { LogisticsService } from './logistics.service';
 import { CreateLogisticsDto, UpdateLogisticsDto } from './dto/logistics.dto';
 import { DeliveryStatus } from './logistics.schema';
 import { evidenceUploadOptions, receiptUploadOptions } from './upload.config';
-import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guards';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/guards/auth.guards';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePerm } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/user.schema';
 
 /** TODO el ERP es territorio exclusivo del Super Admin. */
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePerm('erp')
 @Controller('logistics')
 export class LogisticsController {
   constructor(private readonly logisticsService: LogisticsService) {}

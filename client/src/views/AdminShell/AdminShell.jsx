@@ -1,3 +1,4 @@
+// @refresh reset
 import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -54,6 +55,7 @@ export const ADMIN_MENU = [
       { key: '/admin/contenido', perm: 'contenido', icon: <LayoutOutlined />, label: 'Contenido y marca' },
       { key: '/admin/auditoria', perm: 'usuarios', icon: <SafetyCertificateOutlined />, label: 'Auditoría' },
       { key: '/admin/server-stats', perm: 'dashboard', icon: <DesktopOutlined />, label: 'Servidor' },
+      { key: '/admin/roles', perm: 'usuarios', icon: <TeamOutlined />, label: 'Roles y Permisos' },
     ],
   },
 ];
@@ -226,6 +228,7 @@ export default function AdminShell() {
             onClick={() => (isDesktop ? setCollapsed(!collapsed) : setDrawer(true))}
           />
           <Breadcrumb
+            separator={<span style={{ margin: '0 4px' }}></span>}
             items={[
               { title: <a onClick={() => navigate('/admin')}><HomeOutlined /></a> },
               { title: TITLES[selected] ?? 'Panel' },
@@ -261,7 +264,7 @@ export default function AdminShell() {
                   <div style={{ lineHeight: 1.1 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--z-text)' }}>{user?.name?.split(' ')[0]}</div>
                     <div style={{ fontSize: 10, color: user?.role === 'admin' ? MISIO_COLORS.prizeGold : MISIO_COLORS.electricBlue, fontWeight: 700 }}>
-                      {user?.role?.toUpperCase()}
+                      {user?.customRoleName ? user.customRoleName.toUpperCase() : user?.role?.toUpperCase()}
                     </div>
                   </div>
                 )}

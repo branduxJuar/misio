@@ -144,6 +144,10 @@ export class Raffle {
   @Prop({ default: false })
   dayBeforeNotified: boolean;
 
+  /** Determina si la rifa tiene el sistema de Cero Pérdida (cashback) activado. */
+  @Prop({ default: true })
+  isZeroLoss: boolean;
+
   /** Historial de aplazamientos (motivo + fechas). */
   @Prop({ type: [PostponementSchema], default: [] })
   postponements: Postponement[];

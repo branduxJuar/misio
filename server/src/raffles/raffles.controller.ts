@@ -20,7 +20,8 @@ import {
 import { evidenceUploadOptions } from '../logistics/upload.config';
 import { Raffle, RaffleDocument } from './raffle.schema';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guards';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Roles, RequirePerm } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/user.schema';
 
 @Controller('raffles')
@@ -224,16 +225,16 @@ export class RafflesController {
    * PATCH /api/v1/raffles/:id/stream — fijar/cambiar el link de la
    * transmisión (permitido también EN VIVO, a diferencia de la edición).
    */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PRESENTER)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('sorteos')
   @Patch(':id/stream')
   setStream(@Param('id') id: string, @Body('streamUrl') streamUrl: string) {
     return this.rafflesService.setStreamUrl(id, streamUrl ?? '');
   }
 
   // ── ADMIN: gestión completa (Sprint 1) ───────────────────────────
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PRESENTER)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('sorteos')
   @Get('admin/all')
   findAllAdmin(): Promise<RaffleListItem[]> {
     return this.rafflesService.findAllAdmin();
@@ -247,50 +248,54 @@ export class RafflesController {
    * Body opcional: { raffleId } para recontar solo una.
    */
   /** GET /api/v1/raffles/:id/diagnostics — ¿por qué la tómbola está en 0? */
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('sorteos')
   @Get(':id/diagnostics')
   diagnostics(@Param('id') id: string) {
     return this.rafflesService.diagnostics(id);
   }
 
   /** POST /api/v1/raffles/:id/reset-draws — rescata una rifa atascada. */
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('sorteos')
   @Post(':id/reset-draws')
   resetDraws(@Param('id') id: string, @Body('prizeIndex') prizeIndex?: number) {
     return this.rafflesService.resetDraws(id, prizeIndex);
   }
 
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('sorteos')
   @Post('recount')
   recount(@Body('raffleId') raffleId?: string) {
     return this.rafflesService.recountSold(raffleId);
   }
 
-  @Roles(UserRole.ADMIN, UserRole.PRESENTER)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('sorteos')
   @Post()
   create(@Body() dto: CreateRaffleDto) {
     return this.rafflesService.create(dto);
   }
 
   /** PATCH /api/v1/raffles/:id — editar TODOS los campos (rifa en venta). */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PRESENTER)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('sorteos')
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateRaffleDto) {
     return this.rafflesService.update(id, dto);
   }
 
   /** POST /api/v1/raffles/:id/postpone — aplazar con motivo (avisa a compradores). */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PRESENTER)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('sorteos')
   @Post(':id/postpone')
   postpone(@Param('id') id: string, @Body() dto: PostponeRaffleDto) {
     return this.rafflesService.postpone(id, dto.reason, dto.newDate);
   }
 
   /** POST /api/v1/raffles/:id/cancel — rifa estropeada: devolver TODO. */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PRESENTER)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('sorteos')
   @Post(':id/cancel')
   cancel(@Param('id') id: string, @Body('reason') reason: string) {
     if (!reason || reason.trim().length < 5) {
@@ -300,8 +305,8 @@ export class RafflesController {
   }
 
   /** POST /api/v1/raffles/:id/images — hasta 5 fotos del producto. */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PRESENTER)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('sorteos')
   @Post(':id/images')
   @UseInterceptors(FilesInterceptor('files', 5, evidenceUploadOptions))
   uploadImages(@Param('id') id: string, @UploadedFiles() files: Express.Multer.File[]) {
@@ -310,15 +315,15 @@ export class RafflesController {
   }
 
   /** DELETE /api/v1/raffles/:id/images?url=... — quitar una foto. */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PRESENTER)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('sorteos')
   @Delete(':id/images')
   removeImage(@Param('id') id: string, @Query('url') url: string) {
     return this.rafflesService.removeImage(id, url);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PRESENTER)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('sorteos')
   @Patch(':id/status')
   async setStatus(@Param('id') id: string, @Body() dto: UpdateRaffleStatusDto) {
     const raffle = await this.rafflesService.setStatus(id, dto.status);
@@ -328,8 +333,8 @@ export class RafflesController {
   }
 
   /** POST /api/v1/raffles/:id/close — reintento del cierre (idempotente). */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PRESENTER)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('sorteos')
   @Post(':id/close')
   close(@Param('id') id: string) {
     return this.closingService.closeRaffle(id);

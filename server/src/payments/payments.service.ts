@@ -25,14 +25,38 @@ export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
 
   /** Historial de depósitos resueltos (delegado en el módulo contable). */
-  depositHistory(opts: {
+  async depositHistory(opts: {
     status?: TransactionStatus;
     from?: string;
     to?: string;
     page?: number;
     limit?: number;
   }) {
-    return this.txService.depositHistory(opts);
+    const result = await this.txService.depositHistory(opts);
+
+    // Enriquecer con los números de tickets formateados (e.g. MOTO-001)
+    const raffleIds = new Set<string>();
+    for (const tx of result.items as any[]) {
+      if (tx.meta?.raffleId) {
+        raffleIds.add(String(tx.meta.raffleId));
+      }
+    }
+
+    if (raffleIds.size > 0) {
+      const raffles = await this.raffleModel.find({ _id: { $in: Array.from(raffleIds) } }).lean();
+      const raffleMap = new Map(raffles.map((r) => [r._id.toString(), r]));
+
+      for (const tx of result.items as any[]) {
+        if (tx.meta?.raffleId && Array.isArray(tx.meta?.ticketNumbers)) {
+          const r = raffleMap.get(String(tx.meta.raffleId));
+          tx.meta.formattedTickets = tx.meta.ticketNumbers.map((n: number) =>
+            r ? formatTicketCode(r.ticketPrefix, n, r.totalTickets) : `#${n}`,
+          );
+        }
+      }
+    }
+
+    return result;
   }
 
   constructor(

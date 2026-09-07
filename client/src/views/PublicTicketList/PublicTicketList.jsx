@@ -140,7 +140,7 @@ export default function PublicTicketList() {
           ))}
         </div>
         <Text style={{ fontSize: 11, color: MISIO_COLORS.textMuted, display: 'block', marginTop: 16, textAlign: 'center' }}>
-          Nombres parcialmente ocultos por privacidad · Página de solo lectura, no imprimible · Misio ⚡ Cero Pérdida
+          Nombres parcialmente ocultos por privacidad · Página de solo lectura, no imprimible {raffle.isZeroLoss !== false && '· Misio ⚡ Cero Pérdida'}
         </Text>
       </Card>
     </div>

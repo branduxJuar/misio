@@ -7,7 +7,7 @@ import {
 } from 'antd';
 import {
   StopOutlined, CheckCircleOutlined, SearchOutlined, GiftOutlined, SaveOutlined, KeyOutlined,
-  UserAddOutlined, MailOutlined, WalletOutlined,
+  UserAddOutlined, MailOutlined, WalletOutlined, EditOutlined
 } from '@ant-design/icons';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useApiOrMock } from '../../hooks/useApiOrMock';
@@ -82,6 +82,7 @@ export default function AdminUsers() {
   });
   const { data: raffles } = useApiOrMock('/raffles', []);
   const { data: emailCfg, refresh: refreshEmailCfg } = useApiOrMock('/settings/email-verification', { enabled: false });
+  const { data: customRoles } = useApiOrMock('/settings/custom-roles', []);
 
   const [banning, setBanning] = useState(null); // Usuario en el modal de baneo
   const [creatingStaff, setCreatingStaff] = useState(false);
@@ -98,7 +99,30 @@ export default function AdminUsers() {
   const [balancesForm] = Form.useForm();
   const [editingBalances, setEditingBalances] = useState(null);
 
-  const bonusType = Form.useWatch('type', bonusForm);
+  // Edición de datos del usuario
+  const [editForm] = Form.useForm();
+  const [editingUser, setEditingUser] = useState(null);
+  const handleEditUser = async (values) => {
+    if (guardDemo()) return;
+    setSaving(true);
+    try {
+      const payload = { ...values };
+      const isCustomRole = (customRoles || []).find(r => r.id === values.role);
+      if (isCustomRole) {
+        payload.role = 'operator';
+        payload.customRoleName = isCustomRole.name;
+        payload.permissions = isCustomRole.permissions || [];
+      } else if (values.role) {
+        payload.permissions = ROLE_PRESET[values.role] || [];
+        payload.customRoleName = '';
+      }
+      await api(`/users/${editingUser._id}`, { method: 'PATCH', body: payload });
+      msgApi.success('Datos del usuario actualizados correctamente.');
+      setEditingUser(null);
+      refresh();
+      if (viewMode === 'active') refreshActive();
+    } catch (err) { msgApi.error(err.message); } finally { setSaving(false); }
+  };  const bonusType = Form.useWatch('type', bonusForm);
 
   // Sincronizar el form del bono cuando llega la config real
   React.useEffect(() => { bonusForm.setFieldsValue(bonusCfg); }, [bonusCfg]); // eslint-disable-line
@@ -127,8 +151,17 @@ export default function AdminUsers() {
     if (guardDemo()) return;
     setSaving(true);
     try {
-      await api('/users', { method: 'POST', body: { ...values, permissions: values.permissions ?? [] } });
-      msgApi.success(`${values.name} creado con rol ${values.role} ✓`);
+      const isCustomRole = (customRoles || []).find(r => r.id === values.role);
+      const payload = { ...values };
+      if (isCustomRole) {
+        payload.role = 'operator';
+        payload.customRoleName = isCustomRole.name;
+        payload.permissions = isCustomRole.permissions || [];
+      } else {
+        payload.permissions = values.permissions ?? [];
+      }
+      await api('/users', { method: 'POST', body: payload });
+      msgApi.success(`${values.name} creado exitosamente ✓`);
       setCreating(false);
       createForm.resetFields();
       refresh();
@@ -155,8 +188,17 @@ export default function AdminUsers() {
     if (guardDemo()) return;
     setSaving(true);
     try {
-      await api('/users', { method: 'POST', body: { ...values, permissions: values.permissions ?? [] } });
-      msgApi.success(`${values.name} creado con rol ${values.role} — ya puede iniciar sesión con su DNI ✓`, 6);
+      const isCustomRole = (customRoles || []).find(r => r.id === values.role);
+      const payload = { ...values };
+      if (isCustomRole) {
+        payload.role = 'operator';
+        payload.customRoleName = isCustomRole.name;
+        payload.permissions = isCustomRole.permissions || [];
+      } else {
+        payload.permissions = values.permissions ?? [];
+      }
+      await api('/users', { method: 'POST', body: payload });
+      msgApi.success(`${values.name} creado exitosamente — ya puede iniciar sesión con su DNI ✓`, 6);
       setCreatingStaff(false);
       staffForm.resetFields();
       refresh();
@@ -245,11 +287,12 @@ export default function AdminUsers() {
       render: (_, u) => (
         <>
           <Text strong style={{ fontSize: 13 }}>{u.name}</Text>
-          {u.role === 'admin' && <Tag color={MISIO_COLORS.prizeGold} style={{ marginLeft: 6 }}>ADMIN</Tag>}
-          {u.role === 'operator' && <Tag color={MISIO_COLORS.electricBlue} style={{ marginLeft: 6 }}>OPERADOR</Tag>}
-          {u.role === 'presenter' && <Tag color={MISIO_COLORS.primary} style={{ marginLeft: 6 }}>PRESENTADOR</Tag>}
-          {u.role === 'seller' && <Tag color={MISIO_COLORS.green} style={{ marginLeft: 6 }}>VENDEDOR</Tag>}
-          {u.role === 'systems' && <Tag color="purple" style={{ marginLeft: 6 }}>SISTEMAS</Tag>}
+          {u.customRoleName && <Tag color="blue" style={{ marginLeft: 6 }}>{u.customRoleName.toUpperCase()}</Tag>}
+          {!u.customRoleName && u.role === 'admin' && <Tag color={MISIO_COLORS.prizeGold} style={{ marginLeft: 6 }}>ADMIN</Tag>}
+          {!u.customRoleName && u.role === 'operator' && <Tag color={MISIO_COLORS.electricBlue} style={{ marginLeft: 6 }}>OPERADOR</Tag>}
+          {!u.customRoleName && u.role === 'presenter' && <Tag color={MISIO_COLORS.primary} style={{ marginLeft: 6 }}>PRESENTADOR</Tag>}
+          {!u.customRoleName && u.role === 'seller' && <Tag color={MISIO_COLORS.green} style={{ marginLeft: 6 }}>VENDEDOR</Tag>}
+          {!u.customRoleName && u.role === 'systems' && <Tag color="purple" style={{ marginLeft: 6 }}>SISTEMAS</Tag>}
           {u.role !== 'user' && u.role !== 'admin' && (u.permissions ?? []).length > 0 && (
             <div style={{ marginTop: 4 }}>
               {u.permissions.map((p) => (
@@ -327,6 +370,13 @@ export default function AdminUsers() {
               Saldos
             </Button>
           )}
+          <Button size="small" icon={<EditOutlined />} onClick={() => {
+            setEditingUser(u);
+            const userRole = u.customRoleName 
+              ? ((customRoles || []).find(r => r.name === u.customRoleName)?.id || u.role) 
+              : u.role;
+            editForm.setFieldsValue({ name: u.name, email: u.email, phone: u.phone, dni: u.dni, role: userRole });
+          }}>Editar</Button>
           <Popconfirm
             title={`Resetear contraseña de ${u.name}`}
             description="Se generará una clave temporal. El usuario deberá cambiarla al entrar."
@@ -553,7 +603,8 @@ export default function AdminUsers() {
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
                           <Text strong style={{ fontSize: 14, marginRight: 4 }}>{u.name}</Text>
                           {u.role === 'admin' && <Tag color={MISIO_COLORS.prizeGold} style={{ margin: 0 }}>ADMIN</Tag>}
-                          {u.role === 'operator' && <Tag color={MISIO_COLORS.electricBlue} style={{ margin: 0 }}>OPER</Tag>}
+                          {u.role === 'operator' && u.customRoleName && <Tag color={MISIO_COLORS.electricBlue} style={{ margin: 0 }}>{u.customRoleName.toUpperCase()}</Tag>}
+                          {u.role === 'operator' && !u.customRoleName && <Tag color={MISIO_COLORS.electricBlue} style={{ margin: 0 }}>OPER</Tag>}
                           {u.role === 'presenter' && <Tag color={MISIO_COLORS.primary} style={{ margin: 0 }}>PRESEN</Tag>}
                           {u.role === 'seller' && <Tag color={MISIO_COLORS.green} style={{ margin: 0 }}>VEND</Tag>}
                           {u.role === 'systems' && <Tag color="purple" style={{ margin: 0 }}>SISTEMAS</Tag>}
@@ -598,6 +649,13 @@ export default function AdminUsers() {
                                 balancesForm.setFieldsValue({ walletBalance: u.walletBalance ?? 0, walletCanje: u.walletCanje ?? 0, walletHeld: u.walletHeld ?? 0 });
                               }}>Saldos</Button>
                             )}
+                            <Button size="small" icon={<EditOutlined />} onClick={() => {
+                              setEditingUser(u);
+                              const userRole = u.customRoleName 
+                                ? ((customRoles || []).find(r => r.name === u.customRoleName)?.id || u.role) 
+                                : u.role;
+                              editForm.setFieldsValue({ name: u.name, email: u.email, phone: u.phone, dni: u.dni, role: userRole });
+                            }}>Editar</Button>
                             <Button size="small" icon={<MailOutlined />} onClick={() => { messageForm.resetFields(); setMessaging(u); }}>Mensaje</Button>
                             <Popconfirm title="¿Resetear clave?" okText="Resetear" cancelText="Cancelar" onConfirm={() => resetPassword(u)}>
                                <Button size="small" icon={<KeyOutlined />}>Clave</Button>
@@ -643,13 +701,17 @@ export default function AdminUsers() {
         <Alert type="info" showIcon style={{ marginBottom: 16 }}
           message="Para delegar: el OPERADOR verifica pagos y atiende canjes de la tienda. El ADMIN tiene acceso total. Entrégale las credenciales en persona." />
         <Form form={createForm} layout="vertical" onFinish={createUser} requiredMark={false}
-          initialValues={{ role: 'operator', permissions: ROLE_PRESET.operator }}
+          initialValues={{ role: 'user', permissions: [] }}
           onValuesChange={(chg) => {
             if (chg.role) staffForm.setFieldValue('permissions', ROLE_PRESET[chg.role] ?? []);
           }}>
           <Form.Item name="name" label="Nombre completo"
             rules={[{ required: true, min: 3, message: 'Mínimo 3 caracteres' }]}>
             <Input placeholder="María Torres" />
+          </Form.Item>
+          <Form.Item name="email" label="Correo electrónico"
+            rules={[{ type: 'email', message: 'Correo inválido' }]}>
+            <Input placeholder="maria@ejemplo.com" />
           </Form.Item>
           <Space.Compact block>
             <Form.Item name="dni" label="DNI" style={{ flex: 1 }}
@@ -667,10 +729,11 @@ export default function AdminUsers() {
           </Form.Item>
           <Form.Item name="role" label="Rol">
             <Radio.Group>
-              <Radio.Button value="operator">🎧 Operador</Radio.Button>
-              <Radio.Button value="systems">💻 Sistemas</Radio.Button>
-              <Radio.Button value="admin">👑 Admin</Radio.Button>
               <Radio.Button value="user">Usuario</Radio.Button>
+              <Radio.Button value="admin" disabled title="Solo puede existir un administrador raíz (por base de datos)">👑 Admin</Radio.Button>
+              {(customRoles || []).map(r => (
+                <Radio.Button key={r.id} value={r.id}>🔑 {r.name}</Radio.Button>
+              ))}
             </Radio.Group>
           </Form.Item>
           <Button type="primary" htmlType="submit" block loading={saving}>
@@ -734,18 +797,14 @@ export default function AdminUsers() {
           </Form.Item>
           <Form.Item name="role" label="Rol y responsabilidad">
             <Radio.Group style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <Radio value="operator">
-                💳 <b>Operador</b> — verifica pagos y atiende la tienda de canjes
-              </Radio>
-              <Radio value="presenter">
-                🎪 <b>Presentador</b> — gestiona sorteos y ejecuta la ruleta en vivo
-              </Radio>
-              <Radio value="systems">
-                💻 <b>Sistemas</b> — soporte técnico, trazabilidad de errores y asistencia
-              </Radio>
-              <Radio value="admin">
+              <Radio value="admin" disabled title="El administrador raíz solo se crea por base de datos">
                 👑 <b>Administrador</b> — acceso total (incluye crear personal)
               </Radio>
+              {(customRoles || []).map(r => (
+                <Radio key={r.id} value={r.id}>
+                  🔑 <b>{r.name}</b> — Rol personalizado
+                </Radio>
+              ))}
             </Radio.Group>
           </Form.Item>
           {/* PERMISOS POR MÓDULO: el rol es solo un atajo — lo que manda
@@ -760,12 +819,14 @@ export default function AdminUsers() {
                     description="Incluye contabilidad, contenido y crear más personal. Dale este rol solo a quien realmente sea dueño de la operación." />
                 );
               }
+              const customRole = (customRoles || []).find(r => r.id === role);
+              const defaultPerms = customRole ? customRole.permissions : (ROLE_PRESET[role] ?? []);
               return (
                 <Form.Item name="permissions" label="¿A qué módulos entra?">
                   <Checkbox.Group style={{ width: '100%' }}>
                     <Space direction="vertical" size={2} style={{ width: '100%' }}>
                       <Button size="small" type="link" style={{ padding: 0 }}
-                        onClick={() => setFieldValue('permissions', ROLE_PRESET[role] ?? [])}>
+                        onClick={() => setFieldValue('permissions', defaultPerms)}>
                         Usar los de su rol
                       </Button>
                       {MODULES.map((m) => (
@@ -874,6 +935,42 @@ export default function AdminUsers() {
           </Row>
           <Button type="primary" htmlType="submit" loading={saving} block>
             Guardar y Sobrescribir Saldos
+          </Button>
+        </Form>
+      </Modal>
+
+      {/* ── Modal Editar Usuario ── */}
+      <Modal
+        title={`Editar Usuario — ${editingUser?.name}`}
+        open={!!editingUser}
+        onCancel={() => setEditingUser(null)}
+        footer={null}
+        destroyOnHidden
+      >
+        <Form form={editForm} layout="vertical" onFinish={handleEditUser}>
+          <Form.Item name="name" label="Nombre Completo" rules={[{ required: true, message: 'Requerido' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="dni" label="DNI / Documento" rules={[{ required: true, message: 'Requerido' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="email" label="Correo Electrónico" rules={[{ type: 'email', message: 'Correo inválido' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="phone" label="Teléfono (WhatsApp)">
+            <Input />
+          </Form.Item>
+          <Form.Item name="role" label="Rol">
+            <Radio.Group>
+              <Radio.Button value="user">Usuario</Radio.Button>
+              <Radio.Button value="admin" disabled title="El administrador raíz no se puede reasignar">👑 Admin</Radio.Button>
+              {(customRoles || []).map(r => (
+                <Radio.Button key={r.id} value={r.id}>🔑 {r.name}</Radio.Button>
+              ))}
+            </Radio.Group>
+          </Form.Item>
+          <Button type="primary" htmlType="submit" loading={saving} block>
+            Guardar Cambios
           </Button>
         </Form>
       </Modal>

@@ -1,3 +1,4 @@
+// @refresh reset
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { api, tokenStore } from './api';
 import { message } from 'antd';
@@ -63,7 +64,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!user) return; // Solo si hay sesión iniciada
 
-    const IDLE_TIMEOUT = 3600000; // 1 hora
+    const IDLE_TIMEOUT = 10800000; // 3 horas
     
     const updateActivity = () => {
       const now = Date.now();

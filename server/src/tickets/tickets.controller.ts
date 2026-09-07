@@ -2,11 +2,12 @@ import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@ne
 import { TicketsService } from './tickets.service';
 import { AdminAddTicketsDto, PurchaseOfflineDto, PurchaseTicketsDto } from './dto/purchase.dto';
 import { CancelPosSaleDto } from './dto/cancel-pos-sale.dto';
-import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guards';
-import { AuthUser, CurrentUser, Public, Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/guards/auth.guards';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { AuthUser, CurrentUser, Public, RequirePerm } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/user.schema';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('tickets')
 export class TicketsController {
   constructor(private readonly ticketsService: TicketsService) {}
@@ -29,14 +30,14 @@ export class TicketsController {
    * 🔧 POST /api/v1/tickets/admin-add — inyecta boletos a mano (admin).
    * Body: { raffleId, userId, ticketNumbers: number[] }
    */
-  @Roles(UserRole.ADMIN)
+  @RequirePerm('sorteos')
   @Post('admin-add')
   adminAdd(@Body() body: AdminAddTicketsDto) {
     return this.ticketsService.adminAddTickets(body.raffleId, body.userId, body.ticketNumbers);
   }
 
   /** 🔧 POST /api/v1/tickets/admin-recount — recalcula soldCount (admin). */
-  @Roles(UserRole.ADMIN)
+  @RequirePerm('sorteos')
   @Post('admin-recount')
   adminRecount(@Body('raffleId') raffleId: string) {
     return this.ticketsService.adminRecountRaffle(raffleId);
@@ -46,7 +47,7 @@ export class TicketsController {
    * POST /api/v1/tickets/offline — Venta física (calle/POS).
    * Solo para Administradores y Vendedores.
    */
-  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @RequirePerm('tienda')
   @Post('offline')
   purchaseOffline(@CurrentUser() user: AuthUser, @Body() dto: PurchaseOfflineDto) {
     return this.ticketsService.purchaseOffline(user.userId, dto.raffleId, {
@@ -61,7 +62,7 @@ export class TicketsController {
   }
 
   /** POST /api/v1/tickets/pos/cancel-sale — Anulación de venta POS por Admin. */
-  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @RequirePerm('tienda')
   @Post('pos/cancel-sale')
   cancelPosSale(@CurrentUser() user: AuthUser, @Body() dto: CancelPosSaleDto) {
     return this.ticketsService.cancelPosSale(dto.transactionId, dto.adminPin, user.userId);
@@ -79,7 +80,7 @@ export class TicketsController {
   /**
    * GET /api/v1/tickets/offline-sales — Reporte de caja por día/vendedor.
    */
-  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @RequirePerm('tienda')
   @Get('offline-sales')
   getOfflineSales(@CurrentUser() user: AuthUser, @Query() query: any) {
     // Si es vendedor, forzamos que solo vea sus propias ventas
@@ -94,21 +95,21 @@ export class TicketsController {
   }
 
   /** GET /api/v1/tickets?raffleId=... — participantes de una rifa (admin). */
-  @Roles(UserRole.ADMIN, UserRole.PRESENTER)
+  @RequirePerm('sorteos')
   @Get()
   findByRaffle(@Query('raffleId') raffleId: string) {
     return raffleId ? this.ticketsService.findByRaffle(raffleId) : [];
   }
 
   /** PATCH /api/v1/tickets/:id/burn — tirada al agua, SOLO presentador/admin. */
-  @Roles(UserRole.ADMIN, UserRole.PRESENTER)
+  @RequirePerm('sorteos')
   @Patch(':id/burn')
   burn(@Param('id') id: string) {
     return this.ticketsService.burnAlAgua(id);
   }
 
   /** PATCH /api/v1/tickets/:id/winner — tirada definitiva, SOLO admin. */
-  @Roles(UserRole.ADMIN, UserRole.PRESENTER)
+  @RequirePerm('sorteos')
   @Patch(':id/winner')
   winner(@Param('id') id: string) {
     return this.ticketsService.markWinner(id);

@@ -11,6 +11,7 @@ import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useApiOrMock } from '../../hooks/useApiOrMock';
 import { api, apiUpload, SERVER_URL } from '../../auth/api';
 import { useSite } from '../../theme/SiteProvider';
+import { ADMIN_MENU } from '../AdminShell/AdminShell';
 
 const { Title, Text } = Typography;
 
@@ -170,6 +171,7 @@ export default function AdminContent() {
         : '✅ Modo mantenimiento DESACTIVADO — la plataforma está abierta');
     } catch (err) { msgApi.error(err.message); }
   };
+
   const [form] = Form.useForm();
 
   useEffect(() => {

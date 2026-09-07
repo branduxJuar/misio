@@ -517,7 +517,7 @@ export default function RaffleDetail() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                   <Text style={{ color: '#334155', fontWeight: 600, fontSize: 13 }}><FireFilled style={{ color: '#f59e0b', marginRight: 4 }} /> {sold.size} de {raffle.totalTickets} boletos vendidos</Text>
                 </div>
-                <Progress percent={soldPct} strokeWidth={8} showInfo={false}
+                <Progress percent={soldPct} size={['100%', 8]} showInfo={false}
                   strokeColor={{ from: '#10b981', to: '#047857' }} 
                   trailColor="#e2e8f0" />
               </div>
@@ -570,9 +570,6 @@ export default function RaffleDetail() {
                    <Typography.Text strong style={{ display: 'block', color: '#0f172a', fontSize: 13, fontFamily: 'Outfit, sans-serif' }}>
                      Compartir por WhatsApp
                    </Typography.Text>
-                   <Typography.Text style={{ fontSize: 11, color: '#64748b' }}>
-                     Invita a tus amigos a participar
-                   </Typography.Text>
                  </div>
                </div>
                <div style={{ 
@@ -623,9 +620,6 @@ export default function RaffleDetail() {
                    <Typography.Text strong style={{ display: 'block', color: '#0f172a', fontSize: 13, fontFamily: 'Outfit, sans-serif' }}>
                      Bases y reglas del sorteo
                    </Typography.Text>
-                   <Typography.Text style={{ fontSize: 11, color: '#64748b' }}>
-                     Lee los términos para participar
-                   </Typography.Text>
                  </div>
                </div>
                <div style={{ 
@@ -640,6 +634,53 @@ export default function RaffleDetail() {
                  fontSize: 10
                }}>
                  ➔
+               </div>
+            </div>
+            
+            {/* Indicador de Tipo de Sorteo */}
+            <div 
+              style={{ 
+                padding: '10px 14px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                background: raffle.isZeroLoss !== false ? '#f0fdf4' : '#f8fafc',
+                borderTop: '1px solid #f1f5f9'
+              }}
+            >
+               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                 <div style={{ 
+                   width: 36, 
+                   height: 36, 
+                   borderRadius: 10, 
+                   background: raffle.isZeroLoss !== false ? '#dcfce7' : '#e2e8f0', 
+                   display: 'flex', 
+                   alignItems: 'center', 
+                   justifyContent: 'center', 
+                   color: raffle.isZeroLoss !== false ? '#16a34a' : '#64748b', 
+                   fontSize: 18,
+                   boxShadow: `inset 0 2px 4px rgba(255,255,255,0.5), 0 2px 4px ${raffle.isZeroLoss !== false ? 'rgba(22, 163, 74, 0.15)' : 'rgba(100, 116, 139, 0.15)'}`
+                 }}>
+                   {raffle.isZeroLoss !== false ? <ThunderboltFilled /> : <div style={{ fontSize: 16 }}>⚪</div>}
+                 </div>
+                 <div>
+                   <Typography.Text strong style={{ display: 'block', color: '#0f172a', fontSize: 13, fontFamily: 'Outfit, sans-serif' }}>
+                     {raffle.isZeroLoss !== false ? 'Cero Pérdida Activo' : 'Sorteo Normal'}
+                   </Typography.Text>
+                 </div>
+               </div>
+               <div style={{ 
+                 color: raffle.isZeroLoss !== false ? '#16a34a' : '#64748b', 
+                 background: raffle.isZeroLoss !== false ? '#dcfce7' : '#e2e8f0', 
+                 borderRadius: '50%', 
+                 width: 24, 
+                 height: 24, 
+                 display: 'flex', 
+                 alignItems: 'center', 
+                 justifyContent: 'center',
+                 fontSize: 12
+               }}>
+                 {raffle.isZeroLoss !== false ? '✓' : 'ℹ'}
                </div>
             </div>
           </Card>

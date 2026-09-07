@@ -24,6 +24,10 @@ export class CreateUserDto {
   @IsArray()
   @IsString({ each: true })
   permissions?: string[];
+
+  @IsOptional()
+  @IsString()
+  customRoleName?: string;
 }
 
 export class UpdateProfileDto {

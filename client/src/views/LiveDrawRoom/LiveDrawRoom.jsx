@@ -365,11 +365,15 @@ export default function LiveDrawRoom() {
             </span>
           }
           description={
-            <Text>
-              Cero Pérdida cumplido: <b className="saldo-glow">S/ {Number(closing.refundedTotal).toFixed(2)}</b>{' '}
-              devueltos automáticamente a {closing.refundedUsers} participante(s) por{' '}
-              {closing.refundedTickets} boleto(s). Revisa tu billetera en "Mi Misio".
-            </Text>
+            <>
+              {closing.refundedTotal > 0 && (
+                <Text>
+                  Cero Pérdida cumplido: <b className="saldo-glow">S/ {Number(closing.refundedTotal).toFixed(2)}</b>{' '}
+                  devueltos automáticamente a {closing.refundedUsers} participante(s) por{' '}
+                  {closing.refundedTickets} boleto(s). Revisa tu billetera en "Mi Misio".
+                </Text>
+              )}
+            </>
           }
         />
       )}
@@ -390,7 +394,7 @@ export default function LiveDrawRoom() {
                   </li>
                 ))}
               </ul>
-              {closing && view.isPaquete && (
+              {closing && view.isPaquete && closing.refundedTotal > 0 && (
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed #cfdfde' }}>
                   <Text>
                     Cero Pérdida cumplido: <b className="saldo-glow">S/ {Number(closing.refundedTotal).toFixed(2)}</b>{' '}
@@ -584,8 +588,8 @@ export default function LiveDrawRoom() {
                   <Divider />
                   <Text style={{ color: MISIO_COLORS.textMuted, fontSize: 12 }}>
                     💧 Regla "al agua": las primeras {view.winningAttempt - 1} tiradas NO ganan.
-                    El boleto de la tirada {view.winningAttempt} se lleva el premio. Los boletos
-                    quemados reciben su reembolso Cero Pérdida automáticamente.
+                    El boleto de la tirada {view.winningAttempt} se lleva el premio.
+                    {view.raffle?.isZeroLoss !== false && ' Los boletos quemados reciben su reembolso Cero Pérdida automáticamente.'}
                   </Text>
                 </Card>
               </>

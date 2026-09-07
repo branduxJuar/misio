@@ -7,13 +7,14 @@ import { receiptUploadOptions } from '../logistics/upload.config';
 import { TransactionsService } from './transactions.service';
 import { CreateDepositDto } from './dto/transaction.dto';
 import { TransactionStatus } from './transaction.schema';
-import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guards';
-import { AuthUser, CurrentUser, Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/guards/auth.guards';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { AuthUser, CurrentUser, RequirePerm } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/user.schema';
 import { PromoCodesService } from '../promocodes/promocodes.service';
 import { PromoCodeType } from '../promocodes/promocode.schema';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('transactions')
 export class TransactionsController {
   constructor(
@@ -34,7 +35,7 @@ export class TransactionsController {
    * adjuntar cualquier archivo a su propio movimiento y hacerlo pasar por
    * comprobante emitido por nosotros.)
    */
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @RequirePerm('pagos')
   @Post(':id/receipt')
   @UseInterceptors(FileInterceptor('file', receiptUploadOptions))
   async uploadReceipt(
@@ -96,21 +97,21 @@ export class TransactionsController {
   }
 
   /** GET /api/v1/transactions/pending — cola de depósitos por confirmar (admin). */
-  @Roles(UserRole.ADMIN)
+  @RequirePerm('pagos')
   @Get('pending')
   findPending() {
     return this.txService.findPendingDeposits();
   }
 
   /** PATCH /api/v1/transactions/:id/confirm — Yape verificado → acredita saldo. */
-  @Roles(UserRole.ADMIN)
+  @RequirePerm('pagos')
   @Patch(':id/confirm')
   confirm(@Param('id') id: string) {
     return this.txService.confirmDeposit(id);
   }
 
   /** PATCH /api/v1/transactions/:id/reject — Yape no llegó → rechazado. */
-  @Roles(UserRole.ADMIN)
+  @RequirePerm('pagos')
   @Patch(':id/reject')
   reject(@Param('id') id: string) {
     return this.txService.rejectDeposit(id);

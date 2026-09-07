@@ -9,8 +9,9 @@ import {
 } from './complaint.schema';
 import { CreateComplaintDto, RespondComplaintDto } from './dto/complaint.dto';
 import { Counter } from '../common/counter.schema';
-import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guards';
-import { AuthUser, CurrentUser, Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/guards/auth.guards';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { CurrentUser, AuthUser, RequirePerm } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/user.schema';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/notification.schema';
@@ -67,16 +68,16 @@ export class ComplaintsController {
   }
 
   // ── ADMIN ─────────────────────────────────────────────────────
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('reclamos')
   @Get()
   findAll() {
     return this.complaintModel.find().sort({ status: 1, createdAt: -1 }).lean();
   }
 
   /** PATCH /api/v1/complaints/:id/respond — { response } */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('reclamos')
   @Patch(':id/respond')
   async respond(@Param('id') id: string, @Body() dto: RespondComplaintDto) {
     const response = dto.response;
