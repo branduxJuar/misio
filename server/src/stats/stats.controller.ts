@@ -3,8 +3,9 @@ import * as os from 'os';
 import type { Response } from 'express';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guards';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/guards/auth.guards';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePerm } from '../auth/decorators/roles.decorator';
 import { User, UserDocument, UserRole } from '../users/user.schema';
 import { Raffle, RaffleDocument, RaffleStatus } from '../raffles/raffle.schema';
 import { Ticket, TicketDocument } from '../tickets/ticket.schema';
@@ -17,8 +18,8 @@ import { Redemption, RedemptionDocument, RedemptionStatus } from '../store/store
  * GET /api/v1/stats/admin — estadísticas del dashboard de administración.
  * Todo se calcula del ledger y las colecciones reales, nada cacheado.
  */
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN, UserRole.OPERATOR)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePerm('dashboard')
 @Controller('stats')
 export class StatsController {
   constructor(

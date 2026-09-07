@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { UsersModule } from '../users/users.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Complaint, ComplaintSchema } from './complaint.schema';
 import { Counter, CounterSchema } from '../common/counter.schema';
@@ -8,6 +9,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 /** Libro de Reclamaciones virtual (Ley N° 29571). */
 @Module({
   imports: [
+    UsersModule,
     MongooseModule.forFeature([
       { name: Complaint.name, schema: ComplaintSchema },
       { name: Counter.name, schema: CounterSchema },

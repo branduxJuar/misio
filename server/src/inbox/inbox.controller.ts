@@ -1,7 +1,8 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { InboxService } from './inbox.service';
-import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guards';
-import { AuthUser, CurrentUser, Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/guards/auth.guards';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { AuthUser, CurrentUser, RequirePerm } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/user.schema';
 import { SendAdminMessageDto } from './dto/inbox.dto';
 
@@ -15,8 +16,8 @@ export class InboxController {
     return { ok: true, message: 'Server is running the latest code!' };
   }
 
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('reclamos')
   @Post('admin-send')
   async sendAdminMessage(@Body() body: SendAdminMessageDto) {
     await this.inbox.send({

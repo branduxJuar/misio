@@ -9,6 +9,6 @@ import { UsersService } from './users.service';
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }])],
   controllers: [UsersController],
   providers: [UsersService],
-  exports: [UsersService], // TransactionsModule lo necesita para ajustar walletBalance
+  exports: [UsersService, MongooseModule], // TransactionsModule lo necesita para ajustar walletBalance, y PermissionsGuard necesita UserModel
 })
 export class UsersModule {}

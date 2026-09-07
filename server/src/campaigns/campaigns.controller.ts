@@ -1,12 +1,12 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { CampaignsService } from './campaigns.service';
-import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guards';
-import { AuthUser, CurrentUser, Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '../users/user.schema';
+import { JwtAuthGuard } from '../auth/guards/auth.guards';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { AuthUser, CurrentUser, RequirePerm } from '../auth/decorators/roles.decorator';
 import { CampaignTargetDto, CreateCampaignDto } from './dto/campaigns.dto';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePerm('marketing')
 @Controller('campaigns')
 export class CampaignsController {
   constructor(private readonly campaigns: CampaignsService) {}

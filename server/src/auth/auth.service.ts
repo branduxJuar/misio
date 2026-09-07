@@ -97,10 +97,10 @@ export class AuthService {
       .select('+passwordHash');
 
     if (user) {
-      if (isEmail && user.role !== UserRole.USER) {
-        throw new UnauthorizedException('El personal administrativo debe ingresar con su DNI');
+      if (isEmail && user.role === UserRole.ADMIN) {
+        throw new UnauthorizedException('El administrador principal debe ingresar con su DNI');
       }
-      if (!isEmail && user.role === UserRole.USER) {
+      if (!isEmail && user.role !== UserRole.ADMIN) {
         throw new UnauthorizedException('Debes ingresar con tu correo electrónico registrado');
       }
     }
@@ -263,6 +263,8 @@ export class AuthService {
         walletCanje: user.walletCanje ?? 0,
         walletHeld: user.walletHeld ?? 0,
         mustChangePassword: user.mustChangePassword ?? false,
+        permissions: user.permissions ?? [],
+        customRoleName: user.customRoleName,
       },
     };
   }

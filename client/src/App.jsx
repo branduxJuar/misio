@@ -57,6 +57,7 @@ const AdminDashboard = lazy(() => import('./views/AdminDashboard/AdminDashboard'
 const AdminSystemStats = lazy(() => import('./views/AdminSystemStats/AdminSystemStats'));
 const AdminCampaigns = lazy(() => import('./views/AdminCampaigns/AdminCampaigns'));
 const TicketValidation = lazy(() => import('./views/TicketValidation/TicketValidation'));
+const AdminRoles = lazy(() => import('./views/AdminRoles/AdminRoles'));
 
 const { Header, Content, Footer } = Layout;
 const { useBreakpoint } = Grid;
@@ -157,8 +158,7 @@ function SessionCorner({ compact }) {
     );
   }
 
-  const isStaff = ['admin', 'operator', 'presenter'].includes(user.role)
-    && (user.role === 'admin' || (user.permissions ?? []).length > 0);
+  const isStaff = user.role === 'admin' || (user.permissions && user.permissions.length > 0);
   // A dónde entra cada quien: su primer módulo permitido
   const staffHome = user.role === 'admin'
     ? '/admin'
@@ -202,9 +202,7 @@ function SessionCorner({ compact }) {
                {
                  key: 'admin',
                  icon: <DashIcon style={{ fontSize: 16, color: '#d97706' }} />,
-                 label: <span style={{ fontWeight: 600, color: '#334155' }}>{user.role === 'admin' ? 'Panel de Administración'
-                   : user.role === 'operator' ? 'Panel de Pagos'
-                   : 'Panel de Sorteos'}</span>,
+                 label: <span style={{ fontWeight: 600, color: '#334155' }}>Administración</span>,
                  onClick: () => navigate(staffHome),
                  style: { padding: '10px 14px', borderRadius: 8 }
                }]
@@ -498,9 +496,10 @@ function AdminRoutes() {
       <Route path="contenido" element={<ProtectedRoute perm="contenido"><AdminContent /></ProtectedRoute>} />
       <Route path="campanas" element={<ProtectedRoute perm="marketing"><AdminCampaigns /></ProtectedRoute>} />
       <Route path="tienda" element={<ProtectedRoute perm="tienda"><AdminStore /></ProtectedRoute>} />
-      <Route path="caja" element={<ProtectedRoute roles={['admin', 'seller']}><AdminCashRegister /></ProtectedRoute>} />
+      <Route path="caja" element={<ProtectedRoute perm="tienda"><AdminCashRegister /></ProtectedRoute>} />
       <Route path="erp" element={<ProtectedRoute perm="erp"><AdminLogisticsDashboard /></ProtectedRoute>} />
-      <Route path="auditoria" element={<ProtectedRoute roles={['admin']}><AdminAudit /></ProtectedRoute>} />
+      <Route path="auditoria" element={<ProtectedRoute perm="usuarios"><AdminAudit /></ProtectedRoute>} />
+      <Route path="roles" element={<ProtectedRoute perm="usuarios"><AdminRoles /></ProtectedRoute>} />
       <Route path="server-stats" element={<ProtectedRoute perm="dashboard"><AdminSystemStats /></ProtectedRoute>} />
     </Route>
   );

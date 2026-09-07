@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import {
   Card, Table, Tag, Button, Space, Typography, message, Alert, Drawer, Form,
   Input, InputNumber, Radio, DatePicker, Checkbox, Modal, Upload, Image,
-  Popconfirm, Tooltip, Divider, Grid, List,
+  Popconfirm, Tooltip, Divider, Grid, List, Switch,
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, PictureOutlined, CalendarOutlined,
@@ -118,7 +118,7 @@ export default function AdminRaffles() {
     form.resetFields();
     form.setFieldsValue({
       type: 'normal', drawMode: 'al_agua', winningAttempt: 3, maxTicketsPerUser: 10,
-      notifyDayBefore: true, ticketPrice: 5, totalTickets: 100,
+      notifyDayBefore: true, ticketPrice: 5, totalTickets: 100, isZeroLoss: true,
       prizes: [{ title: '', drawMode: 'al_agua', winningAttempt: 3 }],
     });
     setDrawerOpen(true);
@@ -465,6 +465,7 @@ export default function AdminRaffles() {
                   >
                     Panel
                   </Button>
+                  <Button icon={<TeamOutlined />} onClick={() => openParticipants(r)} />
                   <Button icon={<EditOutlined />} disabled={r.status !== 'active'} onClick={() => openEdit(r)}>Editar</Button>
                   <Button icon={<PictureOutlined />} onClick={() => setPhotosOf(r)} />
                   <Button icon={<CalendarOutlined />} disabled={r.status !== 'active'} onClick={() => { postponeForm.resetFields(); setPostponing(r); }} />
@@ -542,6 +543,16 @@ export default function AdminRaffles() {
               <Radio.Button value="normal" style={{ flex: '1 1 auto', textAlign: 'center', borderRadius: 6 }}>Normal (1 premio)</Radio.Button>
               <Radio.Button value="paquete" style={{ flex: '1 1 auto', textAlign: 'center', borderRadius: 6 }}>Paquete (Múltiples premios)</Radio.Button>
             </Radio.Group>
+          </Form.Item>
+
+          <Form.Item name="isZeroLoss" valuePropName="checked" tooltip="Si se desactiva, los usuarios que no ganen NO recibirán el reembolso de su dinero al saldo de canje.">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+              <Switch />
+              <div>
+                <Text strong style={{ display: 'block', fontSize: 14 }}>🎁 Cero Pérdida (Cashback)</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>Devuelve el costo del boleto a los perdedores.</Text>
+              </div>
+            </div>
           </Form.Item>
 
           {watchType !== 'paquete' ? (

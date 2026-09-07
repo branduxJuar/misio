@@ -2,17 +2,15 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { AuditLog } from './audit.schema';
-import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guards';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '../users/user.schema';
+import { JwtAuthGuard } from '../auth/guards/auth.guards';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePerm } from '../auth/decorators/roles.decorator';
 
 /**
- * Consulta de la bitácora — SOLO el administrador. Ni siquiera con el
- * permiso 'usuarios' basta: quien vigila no debería ser vigilable por
- * sus vigilados.
+ * Consulta de la bitácora — protegido con el permiso de 'usuarios'.
  */
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePerm('usuarios')
 @Controller('audit')
 export class AuditController {
   constructor(@InjectModel(AuditLog.name) private readonly auditModel: Model<AuditLog>) {}

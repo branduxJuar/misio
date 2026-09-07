@@ -628,12 +628,30 @@ export default function AdminPayments() {
               ),
             },
             {
-              title: 'Operación', key: 'op', responsive: ['md'],
-              render: (_, r) => (
-                <Text style={{ fontSize: 11 }}>
-                  {r.meta?.methodName} · N° {r.meta?.operationNumber ?? '—'}
-                </Text>
-              ),
+              title: 'Operación / Detalle', key: 'op', responsive: ['md'],
+              render: (_, r) => {
+                const nums = r.meta?.ticketNumbers;
+                const formatted = r.meta?.formattedTickets;
+                const isRaffle = nums && nums.length > 0;
+                
+                return (
+                  <div>
+                    <Text style={{ fontSize: 11 }}>
+                      {r.meta?.methodName} · N° {r.meta?.operationNumber ?? '—'}
+                    </Text>
+                    <br />
+                    {isRaffle ? (
+                      <Tooltip title={`Tickets: ${(formatted || nums).join(', ')}`}>
+                        <Tag color="cyan" style={{ marginTop: 4, fontSize: 10, cursor: 'help' }}>
+                          🎲 {nums.length} tickets
+                        </Tag>
+                      </Tooltip>
+                    ) : (
+                      <Tag color="default" style={{ marginTop: 4, fontSize: 10 }}>💰 Recarga (Billetera)</Tag>
+                    )}
+                  </div>
+                );
+              },
             },
             {
               title: 'Estado', key: 'status', width: 110,
@@ -773,7 +791,7 @@ export default function AdminPayments() {
           setTxToCancel(null);
         }}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
       >
         <div style={{ marginBottom: 16 }}>
           <Alert

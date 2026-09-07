@@ -1,4 +1,5 @@
 import { AuthModule } from '../auth/auth.module';
+import { UsersModule } from '../users/users.module';
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { LogisticsERP, LogisticsERPSchema } from './logistics.schema';
@@ -11,6 +12,7 @@ import { InboxModule } from '../inbox/inbox.module';
 
 @Module({
   imports: [
+    UsersModule,
     InboxModule,
     AuthModule,
     MongooseModule.forFeature([

@@ -1,11 +1,13 @@
 import { Controller, Get, Post, Body, UseGuards, Request, Param } from '@nestjs/common';
 import { CashService } from './cash.service';
-import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guards';
-import { CurrentUser, AuthUser } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/guards/auth.guards';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { CurrentUser, AuthUser, RequirePerm } from '../auth/decorators/roles.decorator';
 import { CashMovementType } from './cash.schema';
 import { CashMovementDto, CloseShiftDto, CreateRegisterDto, OpenShiftDto } from './dto/cash.dto';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePerm('tienda')
 @Controller('cash')
 export class CashController {
   constructor(private cashService: CashService) {}

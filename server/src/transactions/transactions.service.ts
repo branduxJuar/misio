@@ -9,6 +9,7 @@ import {
 } from './transaction.schema';
 import { UsersService } from '../users/users.service';
 import { PromoCodesService } from '../promocodes/promocodes.service';
+import { MailService } from '../auth/mail.service';
 
 @Injectable()
 export class TransactionsService {
@@ -16,6 +17,7 @@ export class TransactionsService {
     @InjectModel(Transaction.name) private txModel: Model<TransactionDocument>,
     private readonly usersService: UsersService,
     private readonly promoCodesService: PromoCodesService,
+    private readonly mailService: MailService,
   ) {}
 
   /**
@@ -133,6 +135,18 @@ export class TransactionsService {
     if (tx.status === TransactionStatus.COMPLETED && tx.type !== TransactionType.OFFLINE_SALE) {
       await this.usersService.adjustWallet(data.userId, data.amount, session, data.wallet ?? 'contable');
     }
+    
+    // Alerta al administrador si es un nuevo depósito pendiente
+    if (tx.type === TransactionType.DEPOSIT_YAPE && tx.status === TransactionStatus.PENDING) {
+      this.usersService.findById(data.userId).then((user) => {
+        const userName = user?.name || 'Usuario';
+        const opNumber = data.meta?.operationNumber || 'No especificado';
+        // Podríamos iterar sobre los admins, pero por ahora se manda al SMTP_USER (que es el admin general)
+        // o a una lista de admins activos.
+        this.mailService.sendAdminDepositAlert(process.env.SMTP_USER || 'adminmisio@gmail.com', userName, data.amount, opNumber).catch(() => {});
+      }).catch(() => {});
+    }
+    
     return tx;
   }
 

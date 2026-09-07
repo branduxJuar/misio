@@ -152,7 +152,7 @@ export class RaffleClosingService {
       let refundedTickets = 0;
       let refundedTotal = 0;
 
-      if (groups.length > 0) {
+      if (groups.length > 0 && raffle.isZeroLoss !== false) {
         const refundPct = await this.settingsService.getRefundPercentage();
         const refundMultiplier = refundPct / 100;
 

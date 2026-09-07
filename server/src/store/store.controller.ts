@@ -6,8 +6,9 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { evidenceUploadOptions, receiptUploadOptions } from '../logistics/upload.config';
 import { StoreService } from './store.service';
 import { CheckoutDto, CreateStoreItemDto, DeliverRedemptionDto, RedeemDto, UpdateStoreItemDto } from './dto/store.dto';
-import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guards';
-import { AuthUser, CurrentUser, Roles } from '../auth/decorators/roles.decorator';
+import { OptionalJwtGuard, JwtAuthGuard } from '../auth/guards/auth.guards';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { CurrentUser, AuthUser, RequirePerm } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/user.schema';
 
 @Controller('store')
@@ -44,37 +45,37 @@ export class StoreController {
   }
 
   // ── ADMIN ─────────────────────────────────────────────────────
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('tienda')
   @Get('items/all')
   findAll() {
     return this.storeService.findAllItems();
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('tienda')
   @Post('items')
   create(@Body() dto: CreateStoreItemDto) {
     return this.storeService.createItem(dto);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('tienda')
   @Patch('items/:id')
   update(@Param('id') id: string, @Body() dto: UpdateStoreItemDto) {
     return this.storeService.updateItem(id, dto);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('tienda')
   @Delete('items/:id')
   remove(@Param('id') id: string) {
     return this.storeService.removeItem(id);
   }
 
   /** POST /api/v1/store/items/:id/images — hasta 4 fotos del producto. */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('tienda')
   @Post('items/:id/images')
   @UseInterceptors(FilesInterceptor('files', 4, evidenceUploadOptions))
   uploadImages(@Param('id') id: string, @UploadedFiles() files: Express.Multer.File[]) {
@@ -82,39 +83,39 @@ export class StoreController {
     return this.storeService.addImages(id, files.map((f) => `/uploads/${f.filename}`));
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('tienda')
   @Delete('items/:id/images')
   removeImage(@Param('id') id: string, @Query('url') url: string) {
     return this.storeService.removeImage(id, url);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('tienda')
   @Get('redemptions')
   redemptions() {
     return this.storeService.findAllRedemptions();
   }
 
   /** GET /store/redemptions/delivered — historial de entregados. */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('tienda')
   @Get('redemptions/delivered')
   delivered() {
     return this.storeService.findDeliveredRedemptions();
   }
 
   /** GET /store/redemptions/:id — detalle completo (modal de gestión). */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('tienda')
   @Get('redemptions/:id')
   redemptionDetail(@Param('id') id: string) {
     return this.storeService.findRedemptionDetail(id);
   }
 
   /** PATCH /store/redemptions/:id/deliver — marca entregado (+ código/nota). */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('tienda')
   @Patch('redemptions/:id/deliver')
   deliver(
     @Param('id') id: string,
@@ -124,8 +125,8 @@ export class StoreController {
   }
 
   /** POST /store/redemptions/:id/evidence — subir capturas de entrega. */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('tienda')
   @Post('redemptions/:id/evidence')
   @UseInterceptors(FilesInterceptor('files', 5, evidenceUploadOptions))
   async uploadEvidence(@Param('id') id: string, @UploadedFiles() files: Express.Multer.File[]) {
@@ -133,8 +134,8 @@ export class StoreController {
     const urls = list.map((f) => `/uploads/${f.filename}`);
     return this.storeService.addEvidence(id, urls);
   }
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('tienda')
   @Patch('redemptions/:id/status')
   updateStatus(
     @Param('id') id: string,
@@ -144,15 +145,15 @@ export class StoreController {
     return this.storeService.updateStatus(id, body.status as any);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('tienda')
   @Delete('redemptions/:id/evidence')
   removeEvidence(@Param('id') id: string, @Query('url') url: string) {
     return this.storeService.removeEvidence(id, url);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('tienda')
   @Post('redemptions/:id/receipts')
   @UseInterceptors(FilesInterceptor('files', 5, receiptUploadOptions))
   async uploadReceipts(@Param('id') id: string, @UploadedFiles() files: Express.Multer.File[]) {
@@ -161,8 +162,8 @@ export class StoreController {
     return this.storeService.addReceipts(id, urls);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('tienda')
   @Delete('redemptions/:id/receipts')
   removeReceipt(@Param('id') id: string, @Query('url') url: string) {
     return this.storeService.removeReceipt(id, url);

@@ -248,7 +248,8 @@ export default function MarketplaceLanding() {
                           }
                         `}</style>
                         <span style={{ fontSize: 9 }}>⏳</span>
-                        <Statistic.Countdown
+                        <Statistic.Timer
+                          type="countdown"
                           value={new Date(raffle.drawDate).getTime()}
                           format="D[d] HH:mm:ss"
                         />
@@ -263,8 +264,11 @@ export default function MarketplaceLanding() {
                     <Title level={4} style={{ margin: 0, color: '#0f172a', fontWeight: 900, lineHeight: 1.2 }}>{raffle.title}</Title>
                     {raffle.drawDate && (
                       <div style={{ marginTop: 8 }}>
-                        <Text style={{ fontSize: 14, color: '#64748b', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ fontSize: 14, color: '#64748b', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                           📅 Sorteo: {new Date(raffle.drawDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+                        </Text>
+                        <Text style={{ fontSize: 14, color: '#64748b', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {raffle.isZeroLoss !== false ? '🎁 Cero Pérdida' : '⚪ Sorteo Normal'}
                         </Text>
                       </div>
                     )}

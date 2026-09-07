@@ -6,8 +6,9 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { AuctionsService, AUCTIONS_FLAG_KEY } from './auctions.service';
 import { SettingsService } from '../settings/settings.service';
 import { evidenceUploadOptions } from '../logistics/upload.config';
-import { JwtAuthGuard, OptionalJwtGuard, RolesGuard } from '../auth/guards/auth.guards';
-import { AuthUser, CurrentUser, Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard, OptionalJwtGuard } from '../auth/guards/auth.guards';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { AuthUser, CurrentUser, RequirePerm } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/user.schema';
 import { CancelAuctionDto, CreateAuctionDto, SetAuctionFlagDto, SetStreamDto } from './dto/auctions.dto';
 
@@ -25,23 +26,23 @@ export class AuctionsController {
   }
 
   /** PUT /api/v1/auctions/flag — el INTERRUPTOR del módulo (solo admin). */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('subastas')
   @Put('flag')
   setFlag(@Body() body: SetAuctionFlagDto) {
     return this.settingsService.set(AUCTIONS_FLAG_KEY, { enabled: body.enabled });
   }
 
   // ── ADMIN (declarados ANTES de :id) ─────────────────────────────
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('subastas')
   @Get('admin/all')
   findAllAdmin(@Query('page') page?: string, @Query('limit') limit?: string) {
     return this.auctionsService.findAllAdmin({ page: Number(page) || 1, limit: Number(limit) || 20 });
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('subastas')
   @Post()
   create(@Body() body: CreateAuctionDto) {
     const { title, description, emoji, basePrice, minIncrement, buyNowPrice, startAt, durationMin, mode, streamUrl } = body;
@@ -61,46 +62,46 @@ export class AuctionsController {
   }
 
   /** PATCH /api/v1/auctions/:id/publish — publicar subasta (de DRAFT a SCHEDULED). */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('subastas')
   @Patch(':id/publish')
   publish(@Param('id') id: string) {
     return this.auctionsService.publish(id);
   }
 
   /** PATCH /api/v1/auctions/:id/stream — enlace de transmisión (moderada). */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('subastas')
   @Patch(':id/stream')
   setStream(@Param('id') id: string, @Body() body: SetStreamDto) {
     return this.auctionsService.setStream(id, body.streamUrl);
   }
 
   /** POST /api/v1/auctions/:id/start — INICIAR AHORA (sin esperar la hora). */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('subastas')
   @Post(':id/start')
   startNow(@Param('id') id: string) {
     return this.auctionsService.startNow(id);
   }
 
   /** POST /api/v1/auctions/:id/finish — TERMINAR AHORA (como admin). */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('subastas')
   @Post(':id/finish')
   finishNow(@Param('id') id: string) {
     return this.auctionsService.finishNow(id);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('subastas')
   @Post(':id/cancel')
   cancel(@Param('id') id: string, @Body() body: CancelAuctionDto) {
     return this.auctionsService.cancel(id, body.reason.trim());
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('subastas')
   @Post(':id/images')
   @UseInterceptors(FilesInterceptor('files', 4, evidenceUploadOptions))
   uploadImages(@Param('id') id: string, @UploadedFiles() files: Express.Multer.File[]) {

@@ -134,6 +134,15 @@ export class SettingsService {
     return next;
   }
 
+  // ═══ ROLES PERSONALIZADOS ═══
+  async getCustomRoles() {
+    return this.get<any[]>('custom_roles', []);
+  }
+
+  async setCustomRoles(roles: any[]) {
+    return this.set('custom_roles', roles);
+  }
+
   /** ¿Se exige verificar el correo con código al registrarse? (toggle admin). */
   // ═══ MODO MANTENIMIENTO ═══
   // Un flag que el admin activa desde el panel: el middleware intercepta
@@ -155,6 +164,9 @@ export class SettingsService {
       raffleRules: DEFAULT_RAFFLE_RULES,
       updatedAt: null,
     });
+    if (!pages.terms) pages.terms = DEFAULT_TERMS;
+    if (!pages.privacy) pages.privacy = DEFAULT_PRIVACY;
+    if (!pages.howItWorks) pages.howItWorks = DEFAULT_HOW_IT_WORKS;
     if (!pages.autocontrol) pages.autocontrol = DEFAULT_AUTOCONTROL;
     if (!pages.raffleRules) pages.raffleRules = DEFAULT_RAFFLE_RULES;
     return pages;

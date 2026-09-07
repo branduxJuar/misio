@@ -117,7 +117,7 @@ export class AccountingController {
       cash: (deposits.total + offlineSales.total + posCancelled.total) - prizeCost, // Caja del periodo (aprox.)
       // ── Actividad (mueve saldo, no es ingreso nuevo) ──
       activity: {
-        ticketSales: ticketSales.total + offlineSales.total + posCancelled.total,
+        ticketSales: (ticketSales.total + offlineSales.total + posCancelled.total) - cancelRefunds.total,
         ticketsCount: ticketSales.n + offlineSales.n,
         storeVenta: storeVenta.total,
         storeCanje: storeCanje.total,
