@@ -1,8 +1,8 @@
-import { Controller, Get, Param, Query, Res, UseGuards, Post } from '@nestjs/common';
+import { Controller, Get, Param, Query, Res, UseGuards, Post, Req } from '@nestjs/common';
 import * as os from 'os';
 import type { Response } from 'express';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import mongoose, { Model } from 'mongoose';
 import { JwtAuthGuard } from '../auth/guards/auth.guards';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePerm } from '../auth/decorators/roles.decorator';
@@ -31,30 +31,47 @@ export class StatsController {
   ) {}
 
   @Get('admin')
-  async adminStats() {
+  async adminStats(@Req() req) {
+    const isPartner = req.user.role === UserRole.PARTNER_ADMIN;
+    const partnerIdStr = isPartner ? req.user.partnerId : undefined;
+    const partnerIdObj = partnerIdStr ? new mongoose.Types.ObjectId(partnerIdStr) : undefined;
+
+    const raffleMatch = isPartner ? { partnerId: partnerIdObj } : {};
+    
+    // Si es partner, filtramos por sus propios sorteos.
+    // Además, EXCLUIMOS los sorteos CANCELADOS de los cálculos de ingresos y boletos vendidos.
+    const validRaffles = await this.raffleModel.find({ ...raffleMatch, status: { $ne: RaffleStatus.CANCELLED } }).select('_id');
+    const validRaffleIdsObj = validRaffles.map(r => r._id);
+    const validRaffleIdsStr = validRaffles.map(r => r._id.toString());
+    
+    const ticketMatch = { raffleId: { $in: validRaffleIdsObj } };
+
     const [
       totalUsers, bannedUsers, activeRaffles, liveRaffles, ticketsSold,
       revenueAgg, walletAgg, pendingDeposits, pendingRedemptions,
     ] = await Promise.all([
-      this.userModel.countDocuments({ role: UserRole.USER }),
-      this.userModel.countDocuments({ banned: true }),
-      this.raffleModel.countDocuments({ status: RaffleStatus.ACTIVE }),
-      this.raffleModel.countDocuments({ status: RaffleStatus.LIVE }),
-      this.ticketModel.countDocuments({}),
+      // Para partners, totalUsers y bannedUsers no tienen tanto sentido aislar, 
+      // mostramos 0 o el total. Mostraremos 0 por privacidad.
+      isPartner ? 0 : this.userModel.countDocuments({ role: UserRole.USER }),
+      isPartner ? 0 : this.userModel.countDocuments({ banned: true }),
+      this.raffleModel.countDocuments({ ...raffleMatch, status: RaffleStatus.ACTIVE }),
+      this.raffleModel.countDocuments({ ...raffleMatch, status: RaffleStatus.LIVE }),
+      this.ticketModel.countDocuments(ticketMatch),
       // Ingresos por boletos: compras del ledger (montos negativos → se invierte)
+      // Solo tomamos compras de sorteos NO cancelados. meta.raffleId se guarda como String.
       this.txModel.aggregate([
-        { $match: { type: TransactionType.TICKET_PURCHASE, status: TransactionStatus.COMPLETED } },
+        { $match: { type: TransactionType.TICKET_PURCHASE, status: TransactionStatus.COMPLETED, 'meta.raffleId': { $in: validRaffleIdsStr } } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]),
       // Pasivo: saldo total vivo en billeteras de usuarios
-      this.userModel.aggregate([
+      isPartner ? [] : this.userModel.aggregate([
         { $match: { role: UserRole.USER } },
         { $group: { _id: null, contable: { $sum: '$walletBalance' }, canje: { $sum: '$walletCanje' } } },
       ]),
-      this.txModel.countDocuments({
+      isPartner ? 0 : this.txModel.countDocuments({
         type: TransactionType.DEPOSIT_YAPE, status: TransactionStatus.PENDING,
       }),
-      this.redemptionModel.countDocuments({ status: RedemptionStatus.PENDING }),
+      isPartner ? 0 : this.redemptionModel.countDocuments({ status: RedemptionStatus.PENDING }),
     ]);
 
     return {
@@ -69,6 +86,81 @@ export class StatsController {
       walletCanje: walletAgg[0]?.canje ?? 0,
       pendingDeposits,
       pendingRedemptions,
+    };
+  }
+
+  /** GET /api/v1/stats/advanced — Métricas avanzadas (Top Buyers, ROI, Partners) */
+  @Get('advanced')
+  async advancedStats(@Req() req) {
+    const isPartner = req.user.role === UserRole.PARTNER_ADMIN;
+    const partnerIdStr = isPartner ? req.user.partnerId : undefined;
+    const partnerIdObj = partnerIdStr ? new mongoose.Types.ObjectId(partnerIdStr) : undefined;
+
+    let partnerRaffleIds: mongoose.Types.ObjectId[] = [];
+    if (isPartner) {
+      const raffles = await this.raffleModel.find({ partnerId: partnerIdObj }).select('_id');
+      partnerRaffleIds = raffles.map(r => r._id);
+    }
+
+    // 1. Tasa de Conversión
+    const totalUsers = isPartner ? 0 : await this.userModel.countDocuments({ role: UserRole.USER });
+    const buyersRaw = isPartner ? [] : await this.txModel.distinct('userId', { type: TransactionType.TICKET_PURCHASE, status: TransactionStatus.COMPLETED });
+    const conversionRate = totalUsers > 0 ? (buyersRaw.length / totalUsers) * 100 : 0;
+
+    // 2. Top Compradores (Ballenas)
+    const topBuyers = isPartner ? [] : await this.txModel.aggregate([
+      { $match: { type: TransactionType.TICKET_PURCHASE, status: TransactionStatus.COMPLETED } },
+      { $group: { _id: '$userId', totalSpent: { $sum: { $abs: '$amount' } }, purchaseCount: { $sum: 1 } } },
+      { $sort: { totalSpent: -1 } },
+      { $limit: 10 },
+      { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'user' } },
+      { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+      { $project: { _id: 1, name: '$user.name', phone: '$user.phone', email: '$user.email', totalSpent: 1, purchaseCount: 1 } }
+    ]);
+
+    // 3. Rentabilidad por Sorteo
+    // Ignoramos sorteos cancelados
+    const validRaffles = await this.raffleModel.find({ ...(isPartner ? { partnerId: partnerIdObj } : {}), status: { $ne: RaffleStatus.CANCELLED } }).select('_id');
+    const validRaffleIdsStr = validRaffles.map(r => r._id.toString());
+    
+    const rafflePerformance = await this.txModel.aggregate([
+      { $match: { type: TransactionType.TICKET_PURCHASE, status: TransactionStatus.COMPLETED, 'meta.raffleId': { $in: validRaffleIdsStr } } },
+      { $group: { _id: '$meta.raffleId', totalRevenue: { $sum: { $abs: '$amount' } } } },
+      { $lookup: { from: 'raffles', localField: '_id', foreignField: '_id', as: 'raffle' } },
+      { $unwind: { path: '$raffle', preserveNullAndEmptyArrays: true } },
+      { $project: { _id: 1, title: '$raffle.title', status: '$raffle.status', ticketPrice: '$raffle.ticketPrice', totalRevenue: 1, partnerId: '$raffle.partnerId' } },
+      { $sort: { totalRevenue: -1 } },
+      { $limit: 15 }
+    ]);
+
+    // 4. Rendimiento de Partners (Empresas Externas)
+    const partnerPerformance = isPartner ? [] : await this.raffleModel.aggregate([
+      { $match: { partnerId: { $exists: true, $ne: null } } },
+      { $lookup: { from: 'partners', localField: 'partnerId', foreignField: '_id', as: 'partner' } },
+      { $unwind: { path: '$partner', preserveNullAndEmptyArrays: true } },
+      { $group: {
+          _id: '$partnerId',
+          companyName: { $first: '$partner.name' },
+          feePercentage: { $first: '$partner.feePercentage' },
+          totalSoldTickets: { $sum: '$soldCount' },
+          // Estimación de ingreso bruto (boletos * precio)
+          grossRevenue: { $sum: { $multiply: ['$soldCount', '$ticketPrice'] } }
+      }},
+      { $project: {
+          _id: 1,
+          companyName: 1,
+          totalSoldTickets: 1,
+          grossRevenue: 1,
+          misioCommission: { $multiply: ['$grossRevenue', { $divide: ['$feePercentage', 100] }] }
+      }},
+      { $sort: { grossRevenue: -1 } }
+    ]);
+
+    return {
+      conversionRate,
+      topBuyers,
+      rafflePerformance,
+      partnerPerformance,
     };
   }
 

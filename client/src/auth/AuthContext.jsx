@@ -107,6 +107,8 @@ export function AuthProvider({ children }) {
         return handleAuth(await api('/auth/login', { method: 'POST', body: { identifier, password: encoded } }));
       },
 
+      setExternalSession: handleAuth,
+
       refreshUser,
       verifyEmail: async (dni, code) =>
         handleAuth(await api('/auth/verify-email', { method: 'POST', body: { dni, code } })),

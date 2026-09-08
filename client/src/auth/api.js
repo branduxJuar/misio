@@ -6,7 +6,7 @@ import { Modal } from 'antd';
  * - Lanza un Error con el mensaje del backend (los DTOs de NestJS
  *   devuelven mensajes en español listos para mostrar en la UI).
  */
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1';
+export const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1';
 
 const TOKEN_KEY = 'misio_token';
 const REFRESH_KEY = 'misio_refresh';

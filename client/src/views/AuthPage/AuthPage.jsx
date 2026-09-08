@@ -13,7 +13,8 @@ import { useAuth } from '../../auth/AuthContext';
 import { useSite } from '../../theme/SiteProvider';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { TERMS_PE } from '../../utils/terms';
-import { SERVER_URL } from '../../auth/api';
+import { SERVER_URL, api } from '../../auth/api';
+// Google OAuth sin librería — más robusto y siempre funciona
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -57,7 +58,7 @@ const BrandDecorations = () => (
  * de verificación por código de 6 dígitos cuando está activado.
  */
 export default function AuthPage() {
-  const { login, register, verifyEmail } = useAuth();
+  const { login, register, verifyEmail, setExternalSession } = useAuth();
   const site = useSite();
   const navigate = useNavigate();
   const location = useLocation();
@@ -69,6 +70,11 @@ export default function AuthPage() {
   const [code, setCode] = useState('');
   const loginRef = React.useRef('');
   const [msgApi, contextHolder] = message.useMessage();
+  const [completeProfileOpen, setCompleteProfileOpen] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [completeForm] = Form.useForm();
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
 
   const redirectTo = location.state?.from ?? '/';
 
@@ -148,6 +154,103 @@ export default function AuthPage() {
     }
   };
 
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setGoogleLoading(true);
+    try {
+      const res = await api('/auth/google', { method: 'POST', body: { credential: credentialResponse.credential } });
+      localStorage.setItem('token', res.accessToken);
+      localStorage.setItem('refreshToken', res.refreshToken);
+      localStorage.setItem('user', JSON.stringify(res.user));
+
+      if (!res.user?.isProfileComplete) {
+        setCompleteProfileOpen(true);
+      } else {
+        msgApi.success(`¡Bienvenido, ${res.user.name}! ⚡`);
+        setTimeout(() => navigate('/mi-cuenta', { replace: true }), 50);
+      }
+    } catch (err) {
+      msgApi.error(err.message || 'Error al iniciar sesión con Google');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  const openGoogleLogin = () => {
+    setGoogleLoading(true);
+    const redirectUri = `${window.location.origin}/auth/google/callback`;
+    const params = new URLSearchParams({
+      client_id: GOOGLE_CLIENT_ID,
+      redirect_uri: redirectUri,
+      response_type: 'token',
+      scope: 'openid email profile',
+      prompt: 'select_account',
+    });
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+
+    const width = 500, height = 620;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    const popup = window.open(authUrl, 'google-login', `width=${width},height=${height},left=${left},top=${top}`);
+
+    if (!popup) {
+      msgApi.error('El navegador bloqueó el popup. Permítelo en la barra de URL e intenta de nuevo.');
+      setGoogleLoading(false);
+      return;
+    }
+
+    // Escuchar el token que nos manda la página callback via postMessage
+    const onMessage = (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === 'GOOGLE_TOKEN' && event.data?.access_token) {
+        window.removeEventListener('message', onMessage);
+        handleGoogleToken(event.data.access_token);
+      }
+    };
+    window.addEventListener('message', onMessage);
+
+    // Detectar cierre manual del popup sin completar
+    const checkClosed = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(checkClosed);
+        window.removeEventListener('message', onMessage);
+        setGoogleLoading(false);
+      }
+    }, 500);
+  };
+
+  const handleGoogleToken = async (access_token) => {
+    try {
+      const userInfo = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${access_token}` },
+      }).then(r => r.json());
+
+      const res = await api('/auth/google-userinfo', {
+        method: 'POST',
+        body: {
+          email: userInfo.email,
+          name: userInfo.name,
+          googleId: userInfo.sub,
+          picture: userInfo.picture,
+        },
+      });
+
+      const updatedRes = setExternalSession(res);
+
+      if (!updatedRes.user?.isProfileComplete) {
+        setCompleteProfileOpen(true);
+      } else {
+        msgApi.success(`¡Bienvenido, ${updatedRes.user.name}! ⚡`);
+        setTimeout(() => navigate('/mi-cuenta', { replace: true }), 50);
+      }
+    } catch (err) {
+      msgApi.error(err.message || 'Error al iniciar sesión con Google');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   const passwordProps = {
     prefix: <LockOutlined />,
     placeholder: '••••••',
@@ -183,12 +286,57 @@ export default function AuthPage() {
     </Form>
   );
 
+  const googleBtn = (
+    <div style={{ display: 'flex', justifyContent: 'center' }}>
+      <Button
+        id="btn-google-login"
+        loading={googleLoading}
+        onClick={openGoogleLogin}
+        size="large"
+        style={{
+          width: '100%',
+          height: 46,
+          border: '2px solid #dadce0',
+          borderRadius: 40,
+          background: '#fff',
+          color: '#3c4043',
+          fontFamily: 'Google Sans, Roboto, sans-serif',
+          fontWeight: 600,
+          fontSize: 15,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 10,
+          boxShadow: 'none',
+        }}
+        icon={
+          <svg width="18" height="18" viewBox="0 0 48 48">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          </svg>
+        }
+      >
+        Google
+      </Button>
+    </div>
+  );
+
   const loginForm = (
     <Form
       layout="vertical"
       onFinish={(v) => { loginRef.current = v.identifier; return run(() => login(v.identifier, v.password)); }}
       requiredMark={false}
     >
+      {/* En móvil: Google primero */}
+      {isMobile && (
+        <>
+          {googleBtn}
+          <Divider style={{ margin: '16px 0' }}><Text style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>o continúa con tu correo</Text></Divider>
+        </>
+      )}
+
       <Form.Item
         name="identifier"
         label="Correo electrónico"
@@ -208,16 +356,99 @@ export default function AuthPage() {
         style={{ height: 46, fontSize: 16 }}>
         Ingresar
       </Button>
-      <div style={{ textAlign: 'center', marginTop: 12 }}>
-        <a onClick={() => setTab('forgot')} style={{ fontSize: 12 }}>¿Olvidaste tu contraseña?</a>
+
+      {/* Crear cuenta — botón outline visible */}
+      <Button
+        block
+        size="large"
+        onClick={() => setTab('register')}
+        style={{
+          marginTop: 10,
+          height: 46,
+          borderRadius: 40,
+          fontSize: 15,
+          fontWeight: 600,
+          border: `2px solid ${MISIO_COLORS.primary}`,
+          color: MISIO_COLORS.primary,
+          background: 'transparent',
+        }}
+      >
+        Crear cuenta
+      </Button>
+
+      <div style={{ textAlign: 'center', marginTop: 10, marginBottom: 10 }}>
+        <a onClick={() => setTab('forgot')} style={{ fontSize: 13, color: MISIO_COLORS.textMuted }}>
+          ¿Olvidaste tu contraseña?
+        </a>
       </div>
-      <div style={{ textAlign: 'center', marginTop: 8 }}>
-        <Text style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>
-          ¿Aún no tienes cuenta?{' '}
-          <a onClick={() => setTab('register')}>Registrarme</a>
-        </Text>
-      </div>
+
+      {/* En desktop: Google al final */}
+      {!isMobile && (
+        <>
+          <Divider style={{ margin: '12px 0' }}><Text style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>o continúa con</Text></Divider>
+          {googleBtn}
+        </>
+      )}
     </Form>
+  );
+
+  const completeProfileModal = (
+    <Modal
+      title="📝 Completa tu perfil para continuar"
+      open={completeProfileOpen}
+      footer={null}
+      closable={false}
+      centered
+      forceRender
+    >
+      <Alert
+        type="info"
+        showIcon
+        message="Para comprar boletos y recargar saldo necesitamos tu DNI y celular."
+        style={{ marginBottom: 20 }}
+      />
+      <Form
+        form={completeForm}
+        layout="vertical"
+        requiredMark={false}
+        onFinish={async (values) => {
+          try {
+            const token = localStorage.getItem('token');
+            const res = await api('/auth/complete-profile', {
+              method: 'POST',
+              body: { dni: values.dni, phone: values.phone },
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            localStorage.setItem('token', res.accessToken);
+            localStorage.setItem('refreshToken', res.refreshToken);
+            localStorage.setItem('user', JSON.stringify(res.user));
+            setCompleteProfileOpen(false);
+            msgApi.success('¡Perfil completado! Ya puedes comprar y recargar. 🎉');
+            setTimeout(() => navigate('/mi-cuenta', { replace: true }), 100);
+          } catch (err) {
+            msgApi.error(err.message);
+          }
+        }}
+      >
+        <Form.Item
+          name="dni"
+          label="DNI"
+          rules={[{ required: true, pattern: /^\d{8}$/, message: 'DNI de 8 dígitos' }]}
+        >
+          <Input prefix={<IdcardOutlined />} placeholder="Ej. 12345678" maxLength={8} size="large" inputMode="numeric" />
+        </Form.Item>
+        <Form.Item
+          name="phone"
+          label="Celular"
+          rules={[{ required: true, pattern: /^9\d{8}$/, message: 'Celular peruano: 9 dígitos empezando en 9' }]}
+        >
+          <Input prefix={<PhoneOutlined />} placeholder="Ej. 987654321" maxLength={9} size="large" inputMode="numeric" />
+        </Form.Item>
+        <Button type="primary" htmlType="submit" block size="large" style={{ marginTop: 8 }}>
+          Guardar y continuar
+        </Button>
+      </Form>
+    </Modal>
   );
 
   const registerForm = (
@@ -530,6 +761,7 @@ const AuthBackground = () => (
           ))}
         </div>
       </Modal>
+      {completeProfileModal}
     </div>
   );
 }

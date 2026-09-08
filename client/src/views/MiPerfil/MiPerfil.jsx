@@ -5,8 +5,40 @@ import {
 } from 'antd';
 import {
   UserOutlined, CameraOutlined, SaveOutlined, EnvironmentOutlined,
-  FileTextOutlined, EyeOutlined, SafetyCertificateOutlined,
+  FileTextOutlined, EyeOutlined, SafetyCertificateOutlined, LockOutlined,
 } from '@ant-design/icons';
+
+const ACHIEVEMENTS_LIST = [
+  {
+    id: 'FOUNDER',
+    name: 'Primeros usuarios',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 11.5L4 21L8 19L12 22L16 19L20 21L18 11.5C16.4326 12.4433 14.3015 13 12 13C9.6985 13 7.56743 12.4433 6 11.5Z" fill="#ef4444"/>
+        <circle cx="12" cy="7" r="6" fill="#f59e0b"/>
+        <circle cx="12" cy="7" r="4.5" fill="#fbbf24"/>
+        <path d="M12 7.5L10 6L14 6L12 7.5Z" fill="#fef3c7" opacity="0.5"/>
+        <text x="12" y="9.5" fontSize="6" fontWeight="bold" fill="#fff" textAnchor="middle" fontFamily="sans-serif">1</text>
+        <path d="M12 2L13.5 4.5L16.5 4.5L15 7L16.5 9.5L13.5 9.5L12 12L10.5 9.5L7.5 9.5L9 7L7.5 4.5L10.5 4.5L12 2Z" fill="#fbbf24" stroke="#f59e0b" strokeWidth="1"/>
+      </svg>
+    )
+  },
+  {
+    id: 'PERFECT_PROFILE',
+    name: 'Perfil Perfecto',
+    icon: '👤'
+  },
+  {
+    id: 'FIRST_TICKET',
+    name: 'El Bautizo',
+    icon: '🎟️'
+  },
+  {
+    id: 'LUCKY_WINNER',
+    name: 'Tocado por la Suerte',
+    icon: '🍀'
+  }
+];
 import dayjs from 'dayjs';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useAuth } from '../../auth/AuthContext';
@@ -46,11 +78,12 @@ export default function MiPerfil() {
   const deposits = txs.filter((t) => t.type === 'deposit_yape');
 
   useEffect(() => {
-    form.setFieldsValue({
+    if (profile) form.setFieldsValue({
       email: profile.email,
+      dni: profile.dni,
       phone: profile.phone,
       altContact: profile.altContact,
-      line1: profile.address?.line1,
+      addressLine1: profile.address?.line1,
       city: profile.address?.city,
       region: profile.address?.region,
       reference: profile.address?.reference,
@@ -65,9 +98,10 @@ export default function MiPerfil() {
         method: 'PATCH',
         body: {
           email: v.email,
+          dni: v.dni,
           phone: v.phone,
           altContact: v.altContact,
-          address: { line1: v.line1, city: v.city, region: v.region, reference: v.reference },
+          address: { line1: v.addressLine1, city: v.city, region: v.state, reference: v.reference },
         },
       });
       msgApi.success('Perfil actualizado ✓ — con tu dirección ya podemos enviarte lo que ganes.');
@@ -280,34 +314,233 @@ export default function MiPerfil() {
       {/* ── CONTENIDO DE LA PESTAÑA ACTIVA ───────────────────────────── */}
       <div className="tab-content-fade" key={activeTab}>
         {activeTab === 'datos' && (
-          <Row gutter={[20, 20]}>
+          <Row gutter={[20, 20]} align="stretch">
             {/* ── Foto + identidad ── */}
             <Col xs={24} md={8}>
-              <Card style={{ textAlign: 'center', borderRadius: 16, border: '1px solid #e2e8f0', boxShadow: '0 4px 15px rgba(0, 0, 0, 0.02)', background: '#ffffff' }}>
-                <Avatar
-                  size={115}
-                  src={profile.avatarUrl ? `${SERVER_URL}${profile.avatarUrl}` : undefined}
-                  icon={<UserOutlined />}
-                  style={{ background: MISIO_COLORS.primary, marginBottom: 16, boxShadow: '0 4px 14px rgba(13, 148, 136, 0.25)' }}
-                />
-                <br />
-                <Upload {...avatarUploader}>
-                  <Button icon={<CameraOutlined />} size="medium" style={{ borderRadius: 8, fontWeight: 500 }}>
-                    Cambiar foto
-                  </Button>
-                </Upload>
-                <Title level={4} style={{ marginTop: 16, marginBottom: 4, fontWeight: 700, color: '#0f172a' }}>
-                  {profile.name || 'Usuario'}
-                </Title>
-                <Text style={{ color: MISIO_COLORS.textMuted, fontSize: 13, fontWeight: 500 }}>
-                  DNI {profile.dni || '—'}
-                </Text>
-                <br />
-                {profile.emailVerifiedAt
-                  ? <Tag color="success" style={{ marginTop: 14, padding: '4px 14px', borderRadius: 20, fontWeight: 600, fontSize: 12 }}>✉️ Correo verificado</Tag>
-                  : profile.email
-                    ? <Tag color="warning" style={{ marginTop: 14, padding: '4px 14px', borderRadius: 20, fontWeight: 600, fontSize: 12 }}>Correo sin verificar</Tag>
-                    : null}
+              <Card 
+                style={{ 
+                  height: '100%', 
+                  textAlign: 'center', 
+                  borderRadius: 16, 
+                  border: '1px solid #e2e8f0', 
+                  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.04)', 
+                  background: '#ffffff',
+                  overflow: 'hidden'
+                }}
+                styles={{
+                  body: {
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    padding: 0
+                  }
+                }}
+              >
+                {/* Banner superior con datos de usuario */}
+                <div style={{
+                  width: '100%',
+                  background: `linear-gradient(135deg, ${MISIO_COLORS.primary} 0%, #047857 100%)`,
+                  position: 'relative',
+                  padding: '24px',
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'flex-start',
+                  borderBottom: '1px solid rgba(0,0,0,0.05)',
+                  gap: 20
+                }}>
+                  {/* Patrón sutil en el banner */}
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.1, backgroundImage: 'radial-gradient(#ffffff 2px, transparent 2px)', backgroundSize: '16px 16px', zIndex: 0 }} />
+                  
+                  <div style={{ position: 'relative', zIndex: 1 }}>
+                    <Avatar
+                      size={90}
+                      src={profile.avatarUrl ? `${SERVER_URL}${profile.avatarUrl}` : undefined}
+                      icon={<UserOutlined />}
+                      style={{ 
+                        background: '#ffffff',
+                        color: MISIO_COLORS.primary,
+                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)',
+                        border: '3px solid #ffffff'
+                      }}
+                    />
+                    <div style={{ position: 'absolute', bottom: -2, right: -6 }}>
+                      <Upload {...avatarUploader} showUploadList={false}>
+                        <Button 
+                          type="primary" 
+                          shape="circle" 
+                          icon={<CameraOutlined />} 
+                          size="small" 
+                          style={{ 
+                            background: '#0f172a', 
+                            border: '2px solid #ffffff',
+                            boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
+                            width: 32,
+                            height: 32
+                          }} 
+                        />
+                      </Upload>
+                    </div>
+                  </div>
+                  
+                  <div style={{ zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <Title level={3} style={{ margin: '0 0 6px 0', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.5px', textShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                      {profile.name || 'Usuario'}
+                    </Title>
+                    
+                    <div>
+                      {profile.emailVerifiedAt
+                        ? <Tag color="success" style={{ padding: '4px 12px', borderRadius: 20, fontWeight: 700, fontSize: 12, border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255, 255, 255, 0.15)', color: '#ffffff', backdropFilter: 'blur(4px)' }}>✓ Correo verificado</Tag>
+                        : profile.email
+                          ? <Tag color="warning" style={{ padding: '4px 12px', borderRadius: 20, fontWeight: 700, fontSize: 12, border: 'none', background: '#fef3c7', color: '#92400e', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>⚠️ Correo sin verificar</Tag>
+                          : null}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ padding: '32px 24px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  
+                  {/* Ecosistema de Niveles y Premios */}
+                  <div style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    marginTop: 32,
+                    width: '100%',
+                    gap: 32
+                  }}>
+                    {/* STATS SECTION */}
+                    <div style={{ display: 'flex', gap: 16, width: '100%' }}>
+                      {/* STAT 1: Insignias */}
+                      <div
+                        style={{ 
+                          flex: 1, background: '#ffffff', border: '1px solid #e2e8f0', 
+                          borderRadius: 16, padding: '20px 10px', textAlign: 'center', 
+                          boxShadow: '0 4px 15px rgba(0,0,0,0.03)',
+                          cursor: 'default', transition: 'all 0.25s ease'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 28px rgba(59,130,246,0.12)'; e.currentTarget.style.borderColor = '#93c5fd'; }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.03)'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                      >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: 8 }}>
+                          <path d="M12 15C15.866 15 19 11.866 19 8C19 4.13401 15.866 1 12 1C8.13401 1 5 4.13401 5 8C5 11.866 8.13401 15 12 15Z" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M8.21 13.89L7 23L12 20L17 23L15.79 13.88" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{profile.stats?.insignias || 0}</div>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: '#94a3b8', marginTop: 8 }}>Insignias</div>
+                      </div>
+                      
+                      {/* STAT 2: Boletos */}
+                      <div
+                        style={{ 
+                          flex: 1, background: '#ffffff', border: '1px solid #e2e8f0', 
+                          borderRadius: 16, padding: '20px 10px', textAlign: 'center', 
+                          boxShadow: '0 4px 15px rgba(0,0,0,0.03)',
+                          cursor: 'default', transition: 'all 0.25s ease'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 28px rgba(59,130,246,0.12)'; e.currentTarget.style.borderColor = '#93c5fd'; }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.03)'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                      >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: 8 }}>
+                          <path d="M4 7V17C4 18.1046 4.89543 19 6 19H18C19.1046 19 20 18.1046 20 17V7C20 5.89543 19.1046 5 18 5H6C4.89543 5 4 5.89543 4 7Z" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M8 5V19" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="2 2"/>
+                          <path d="M16 5V19" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="2 2"/>
+                        </svg>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{profile.stats?.sorteos || 0}</div>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: '#94a3b8', marginTop: 8 }}>Boletos</div>
+                      </div>
+
+                      {/* STAT 3: Premios */}
+                      <div
+                        style={{ 
+                          flex: 1, background: '#ffffff', border: '1px solid #e2e8f0', 
+                          borderRadius: 16, padding: '20px 10px', textAlign: 'center', 
+                          boxShadow: '0 4px 15px rgba(0,0,0,0.03)',
+                          cursor: 'default', transition: 'all 0.25s ease'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 28px rgba(59,130,246,0.12)'; e.currentTarget.style.borderColor = '#93c5fd'; }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.03)'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                      >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: 8 }}>
+                          <path d="M8 21H16" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M12 17V21" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M7 4H17L19 9L12 17L5 9L7 4Z" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{profile.stats?.premios || 0}</div>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: '#94a3b8', marginTop: 8 }}>Premios</div>
+                      </div>
+                    </div>
+
+                    {/* INSIGNIAS SECTION */}
+                    <div>
+                      <Title level={4} style={{ margin: '0 0 16px 0', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.5px' }}>
+                        Insignias
+                      </Title>
+                      <div style={{
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: 16,
+                        padding: '24px',
+                        boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 16,
+                      }}>
+                        {ACHIEVEMENTS_LIST.map(ach => {
+                          const isUnlocked = profile.achievements?.includes(ach.id);
+                          // Define background and border colors for the circular token based on unlocked state
+                          const tokenBg = isUnlocked ? '#1e293b' : '#f1f5f9';
+                          const tokenBorder = isUnlocked ? (ach.id === 'FOUNDER' ? '#10b981' : ach.id === 'FIRST_TICKET' ? '#3b82f6' : ach.id === 'LUCKY_WINNER' ? '#f59e0b' : '#8b5cf6') : '#cbd5e1';
+                          
+                          return (
+                            <Tooltip title={ach.name} key={ach.id}>
+                              <div style={{
+                                width: 56,
+                                height: 56,
+                                borderRadius: '50%',
+                                background: tokenBg,
+                                border: `4px solid ${tokenBorder}`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 24,
+                                boxShadow: isUnlocked ? '0 4px 12px rgba(0,0,0,0.1)' : 'none',
+                                opacity: isUnlocked ? 1 : 0.4,
+                                filter: isUnlocked ? 'none' : 'grayscale(100%)',
+                                cursor: 'default',
+                                transition: 'all 0.3s ease',
+                              }}
+                              onMouseEnter={(e) => {
+                                if(isUnlocked) e.currentTarget.style.transform = 'scale(1.1) translateY(-2px)';
+                              }}
+                              onMouseLeave={(e) => {
+                                if(isUnlocked) e.currentTarget.style.transform = 'scale(1) translateY(0)';
+                              }}>
+                                {ach.id === 'FOUNDER' ? '👑' : ach.id === 'PERFECT_PROFILE' ? '👤' : ach.id === 'FIRST_TICKET' ? '🎟️' : ach.id === 'LUCKY_WINNER' ? '🍀' : '🎖️'}
+                                {!isUnlocked && (
+                                  <div style={{
+                                    position: 'absolute',
+                                    bottom: -4,
+                                    right: -4,
+                                    background: '#cbd5e1',
+                                    borderRadius: '50%',
+                                    width: 20,
+                                    height: 20,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                  }}>
+                                    <LockOutlined style={{ fontSize: 10, color: '#64748b' }} />
+                                  </div>
+                                )}
+                              </div>
+                            </Tooltip>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </Card>
             </Col>
 
@@ -322,18 +555,24 @@ export default function MiPerfil() {
                     <span>Mis datos y dirección de envío</span>
                   </div>
                 }
-                style={{ borderRadius: 16, border: '1px solid #e2e8f0', boxShadow: '0 4px 15px rgba(0, 0, 0, 0.02)', background: '#ffffff' }}
+                style={{ height: '100%', borderRadius: 16, border: '1px solid #e2e8f0', boxShadow: '0 4px 15px rgba(0, 0, 0, 0.02)', background: '#ffffff' }}
                 styles={{ header: { padding: '18px 24px', borderBottom: '1px solid #f1f5f9' }, body: { padding: '24px' } }}
               >
                 <Form form={form} layout="vertical" onFinish={save} requiredMark={false}>
                   <Row gutter={16}>
-                    <Col xs={24} sm={12}>
+                    <Col xs={24} md={8}>
                       <Form.Item name="email" label={<Text strong style={{ color: '#334155' }}>Correo</Text>}
                         rules={[{ type: 'email', message: 'Correo inválido' }]}>
                         <Input size="large" placeholder="tucorreo@gmail.com" style={{ borderRadius: 8 }} />
                       </Form.Item>
                     </Col>
-                    <Col xs={24} sm={6}>
+                    <Col xs={12} md={8}>
+                      <Form.Item name="dni" label={<Text strong style={{ color: '#334155' }}>DNI</Text>}
+                        rules={[{ required: true, pattern: /^\d{8}$/, message: '8 dígitos' }]}>
+                        <Input size="large" maxLength={8} placeholder="8 dígitos" style={{ borderRadius: 8 }} />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={12} md={8}>
                       <Form.Item name="phone" label={<Text strong style={{ color: '#334155' }}>Celular</Text>}
                         rules={[{ pattern: /^9\d{8}$/, message: '9 dígitos' }]}>
                         <Input size="large" maxLength={9} style={{ borderRadius: 8 }} />
@@ -349,12 +588,12 @@ export default function MiPerfil() {
                       <Input size="large" placeholder="Frente al parque" style={{ borderRadius: 8 }} />
                     </Form.Item>
                   </Col>
-                  <Col xs={12} md={8}>
+                  <Col xs={12} md={12}>
                     <Form.Item name="city" label="Ciudad / Distrito">
                       <Input size="large" placeholder="Lima" style={{ borderRadius: 8 }} />
                     </Form.Item>
                   </Col>
-                  <Col xs={12} md={8}>
+                  <Col xs={12} md={12}>
                     <Form.Item name="state" label="Departamento">
                       <Input size="large" placeholder="Lima" style={{ borderRadius: 8 }} />
                     </Form.Item>
@@ -372,7 +611,7 @@ export default function MiPerfil() {
                     block
                     style={{ background: '#047857', fontWeight: 600, borderRadius: 8, height: 46, marginTop: 8 }}
                   >
-                    Guardar mis datos
+                    Guardar
                   </Button>
                 </Form>
               </Card>

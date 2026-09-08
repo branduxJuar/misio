@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException, 
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcrypt';
-import { ClientSession, Model } from 'mongoose';
+import { ClientSession, Model, Types } from 'mongoose';
 import { ADMIN_MODULES, DEFAULT_PERMISSIONS, User, UserDocument, UserRole } from './user.schema';
 
 @Injectable()
@@ -49,6 +49,14 @@ export class UsersService {
     }));
   }
 
+  /** Encuentra administradores de una empresa específica */
+  async findAdminsByPartner(partnerId: string) {
+    return this.userModel.find({ 
+      partnerId: new Types.ObjectId(partnerId), 
+      role: UserRole.PARTNER_ADMIN 
+    }).lean();
+  }
+
   /** Verificación manual de correo por el administrador */
   async manualVerifyEmail(userId: string) {
     const user = await this.userModel.findByIdAndUpdate(
@@ -72,6 +80,71 @@ export class UsersService {
 
   findById(id: string) {
     return this.userModel.findById(id).lean();
+  }
+
+  /**
+   * Obtiene el perfil del usuario y calcula sus logros retroactivamente de manera dinámica
+   */
+  async getProfile(id: string) {
+    const user = await this.userModel.findById(id);
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    let achievementsUpdated = false;
+    const achievements = user.achievements || [];
+
+    // Fetch stats for the UI (Types already imported at top)
+    const ticketCount = await this.userModel.db.collection('tickets').countDocuments({ userId: new Types.ObjectId(user._id.toString()) });
+    const raffleWin = await this.userModel.db.collection('raffles').countDocuments({ 'winner.userId': user._id.toString() });
+    const bingoWin = await this.userModel.db.collection('bingorooms').countDocuments({ 'winners.userId': user._id.toString() });
+
+    // 1. FOUNDER (primeros 500 usuarios)
+    if (!achievements.includes('FOUNDER')) {
+      const position = await this.userModel.countDocuments({ _id: { $lt: user._id } });
+      if (position < 500) {
+        achievements.push('FOUNDER');
+        achievementsUpdated = true;
+      }
+    }
+
+    // 2. FIRST_TICKET (El Bautizo)
+    if (!achievements.includes('FIRST_TICKET')) {
+      if (ticketCount > 0) {
+        achievements.push('FIRST_TICKET');
+        achievementsUpdated = true;
+      }
+    }
+
+    // 3. LUCKY_WINNER (Tocado por la Suerte)
+    if (!achievements.includes('LUCKY_WINNER')) {
+      if (raffleWin > 0 || bingoWin > 0) {
+        achievements.push('LUCKY_WINNER');
+        achievementsUpdated = true;
+      }
+    }
+
+    if (achievementsUpdated) {
+      user.achievements = achievements;
+      await user.save();
+    }
+
+    const leanUser = user.toJSON({ virtuals: true });
+    leanUser.achievements = leanUser.achievements || [];
+
+    // 4. PERFECT_PROFILE (Perfil Perfecto - Dinámico en vivo)
+    const isPerfect = !!(leanUser.dni && leanUser.phone && leanUser.address?.line1 && leanUser.avatarUrl);
+    if (isPerfect && !leanUser.achievements.includes('PERFECT_PROFILE')) {
+      leanUser.achievements.push('PERFECT_PROFILE');
+    }
+
+    // Assign stats object to the response and spread to guarantee serialization
+    return {
+      ...leanUser,
+      stats: {
+        insignias: leanUser.achievements.length,
+        sorteos: ticketCount,
+        premios: raffleWin + bingoWin
+      }
+    };
   }
 
   /**
@@ -120,7 +193,7 @@ export class UsersService {
    */
   async createWithRole(data: {
     name: string; dni: string; phone: string; password: string; role: UserRole;
-    permissions?: string[]; customRoleName?: string;
+    permissions?: string[]; customRoleName?: string; partnerId?: string; email?: string;
   }) {
     const bcrypt = await import('bcrypt');
     const exists = await this.userModel.findOne({ dni: data.dni });
@@ -135,8 +208,10 @@ export class UsersService {
       name: data.name,
       dni: data.dni,
       phone: data.phone,
+      email: data.email,
       role: data.role,
       customRoleName: data.customRoleName,
+      partnerId: data.partnerId,
       permissions,
       passwordHash: await bcrypt.hash(data.password, 10),
       acceptedTermsAt: new Date(), // Cuenta interna creada por el dueño
@@ -200,11 +275,12 @@ export class UsersService {
   /** El usuario completa/actualiza SU perfil (correo, dirección, contacto). */
   async updateProfile(
     userId: string,
-    data: { email?: string; phone?: string; altContact?: string; address?: Record<string, string> },
+    data: { email?: string; phone?: string; altContact?: string; dni?: string; address?: Record<string, string> },
   ) {
     const patch: any = {};
     if (data.email !== undefined) patch.email = String(data.email).toLowerCase().trim();
     if (data.phone !== undefined) patch.phone = String(data.phone).trim();
+    if (data.dni !== undefined) patch.dni = String(data.dni).trim();
     if (data.altContact !== undefined) patch.altContact = String(data.altContact).trim();
     if (data.address !== undefined) {
       const a = data.address ?? {};
@@ -225,7 +301,7 @@ export class UsersService {
   /** (Admin) Edición manual de datos de un usuario (nombre, dni, etc.) */
   async updateUserAdmin(
     id: string,
-    data: { name?: string; email?: string; phone?: string; dni?: string; role?: string; customRoleName?: string; permissions?: string[] }
+    data: { name?: string; email?: string; phone?: string; dni?: string; role?: string; customRoleName?: string; permissions?: string[]; partnerId?: string }
   ) {
     const patch: any = {};
     if (data.name !== undefined) patch.name = data.name.trim();
@@ -235,6 +311,7 @@ export class UsersService {
     if (data.role !== undefined) patch.role = data.role;
     if (data.customRoleName !== undefined) patch.customRoleName = data.customRoleName;
     if (data.permissions !== undefined) patch.permissions = data.permissions;
+    if (data.partnerId !== undefined) patch.partnerId = data.partnerId;
 
     if (patch.dni) {
       const exists = await this.userModel.findOne({ dni: patch.dni, _id: { $ne: id } });

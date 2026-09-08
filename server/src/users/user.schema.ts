@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import mongoose, { HydratedDocument, Types } from 'mongoose';
 
 /** Roles disponibles en la plataforma. */
 /**
@@ -29,6 +29,7 @@ export const DEFAULT_PERMISSIONS: Record<string, AdminModule[]> = {
   presenter: ['sorteos'],
   seller: ['tienda'],
   systems: ['dashboard', 'usuarios', 'pagos', 'tienda', 'reclamos'],
+  partner_admin: ['dashboard', 'sorteos'],
   user: [],
 };
 
@@ -38,6 +39,7 @@ export enum UserRole {
   PRESENTER = 'presenter', // Personal delegado: gestiona y ejecuta sorteos
   SELLER = 'seller', // Personal delegado: gestiona ventas de tienda
   SYSTEMS = 'systems', // Personal de TI: soporte, auditoría, resolución de incidencias
+  PARTNER_ADMIN = 'partner_admin', // Administrador de una empresa asociada B2B
   USER = 'user',
 }
 
@@ -48,19 +50,23 @@ export enum UserRole {
  */
 export interface IUser {
   name: string;
-  dni: string;
-  phone: string;
+  email?: string;
+  googleId?: string;
+  dni?: string;
+  phone?: string;
   role: UserRole;
   customRoleName?: string;
   posPin?: string;
   walletBalance: number;
+  permissions: AdminModule[];
+  partnerId?: mongoose.Types.ObjectId; // Si es PARTNER_ADMIN, a qué empresa pertenece
   walletCanje: number;
   canjeTranches?: {
     amount: number;
     originalAmount: number;
     expiresAt: Date;
     source: string;
-    createdAt?: Date;
+    createdAt: Date;
   }[];
   autocontrol?: {
     option: 'none' | 'monthly_spend' | 'daily_time' | 'exclusion';
@@ -79,21 +85,23 @@ export class User implements IUser {
   @Prop({ required: true, trim: true })
   name: string;
 
-  /** DNI peruano: 8 dígitos, único (evita cuentas duplicadas para sorteos). */
-  @Prop({ required: true, unique: true, match: /^\d{8}$/ })
-  dni: string;
+  @Prop({ type: String, unique: true, sparse: true, index: true })
+  googleId?: string;
 
-  /** Celular usado para notificaciones de Yape/Plin y avisos de sorteo. */
-  @Prop({ required: true, trim: true })
-  phone: string;
+  /** DNI peruano: 8 dígitos, único (evita cuentas duplicadas para sorteos). Opcional si entra con Google. */
+  @Prop({ unique: true, sparse: true, match: /^\d{8}$/ })
+  dni?: string;
+
+  /** Celular usado para notificaciones de Yape/Plin y avisos de sorteo. Opcional si entra con Google. */
+  @Prop({ trim: true })
+  phone?: string;
 
   /**
    * Hash bcrypt de la contraseña. `select: false` evita que se filtre en
-   * queries normales: solo AuthService lo pide explícitamente con
-   * `.select('+passwordHash')`. (Futuro: reemplazable por OTP vía SMS.)
+   * queries normales. Opcional para usuarios de Google.
    */
-  @Prop({ required: true, select: false })
-  passwordHash: string;
+  @Prop({ select: false })
+  passwordHash?: string;
 
   /** PIN de 4 dígitos para autorizaciones rápidas en POS (solo Admins/Operadores). Guardado con bcrypt. */
   @Prop({ select: false, default: '' })
@@ -101,6 +109,9 @@ export class User implements IUser {
 
   @Prop({ type: String, enum: UserRole, default: UserRole.USER, index: true })
   role: UserRole;
+
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Partner', index: true })
+  partnerId?: mongoose.Types.ObjectId;
 
   /** Nombre del rol personalizado (para mostrar en la UI, ej: "Contador") */
   @Prop({ type: String })
@@ -111,7 +122,13 @@ export class User implements IUser {
    * resto del personal se los das a medida ("este solo ve Pagos").
    */
   @Prop({ type: [String], default: [] })
-  permissions: string[];
+  permissions: AdminModule[];
+
+  /**
+   * Logros / Insignias desbloqueadas por el usuario (ej: 'FOUNDER', 'FIRST_TICKET')
+   */
+  @Prop({ type: [String], default: [] })
+  achievements: string[];
 
   /**
    * Saldo Misio en soles (PEN). NUNCA modificar directamente desde un
@@ -151,7 +168,7 @@ export class User implements IUser {
     originalAmount: number;
     expiresAt: Date;
     source: string;
-    createdAt?: Date;
+    createdAt: Date;
   }[];
 
 
@@ -167,8 +184,8 @@ export class User implements IUser {
   @Prop({ type: Date, default: null })
   acceptedTermsAt: Date | null;
 
-  /** Correo del usuario (verificable con código si el admin lo activa). */
-  @Prop({ default: '', lowercase: true, trim: true })
+  /** Correo del usuario (verificable con código si el admin lo activa). Compartido con Google OAuth. */
+  @Prop({ type: String, unique: true, sparse: true, lowercase: true, trim: true })
   email: string;
 
   @Prop({ type: Date, default: null })
@@ -317,3 +334,10 @@ export class User implements IUser {
 
 export type UserDocument = HydratedDocument<User>;
 export const UserSchema = SchemaFactory.createForClass(User);
+
+UserSchema.virtual('isProfileComplete').get(function () {
+  return !!(this.dni && this.phone);
+});
+
+UserSchema.set('toJSON', { virtuals: true });
+UserSchema.set('toObject', { virtuals: true });

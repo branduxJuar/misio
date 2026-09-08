@@ -170,6 +170,20 @@ export default function UserDashboard() {
           style={{ marginBottom: 16 }}
         />
       )}
+      {!demo && profile._id && !profile.isProfileComplete && (
+        <Alert
+          type="warning"
+          showIcon
+          banner
+          message={
+            <span>
+              ⚠️ <strong>Tu perfil está incompleto.</strong> Para comprar boletos o recargar saldo, completa tu DNI y celular.{' '}
+              <a onClick={() => navigate('/perfil')}>Completar ahora →</a>
+            </span>
+          }
+          style={{ marginBottom: 16 }}
+        />
+      )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <Title level={3} style={{ margin: 0 }}>Hola, {profile.name?.split(' ')[0]} 👋</Title>
       </div>

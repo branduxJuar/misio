@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import {
   Card, Table, Tag, Button, Space, Typography, message, Alert, Drawer, Form,
   Input, InputNumber, Radio, DatePicker, Checkbox, Modal, Upload, Image,
-  Popconfirm, Tooltip, Divider, Grid, List, Switch,
+  Popconfirm, Tooltip, Divider, Grid, List, Switch, Select
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, PictureOutlined, CalendarOutlined,
@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../auth/AuthContext';
 import { useApiOrMock } from '../../hooks/useApiOrMock';
 import { api, apiUpload, SERVER_URL } from '../../auth/api';
 import { generateTicketsImage } from '../../utils/ticketPrinter';
@@ -22,6 +23,8 @@ const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
 const STATUS_TAG = {
+  draft: <Tag color="default">Borrador</Tag>,
+  pending_approval: <Tag color="orange">Pendiente de Aprobación</Tag>,
   active: <Tag color="success">En venta</Tag>,
   live: <Tag color="error">🔴 En vivo</Tag>,
   completed: <Tag color="gold">🏆 Finalizada</Tag>,
@@ -81,7 +84,15 @@ export default function AdminRaffles() {
   const screens = useBreakpoint();
   const isDesktop = screens.md;
 
+  const { user } = useAuth();
   const { data: raffles, demo, refresh } = useApiOrMock('/raffles/admin/all', MOCK_ADMIN_RAFFLES);
+  
+  const [partners, setPartners] = useState([]);
+  React.useEffect(() => {
+    if (user?.role === 'admin') {
+      api('/empresas').then(setPartners).catch(() => {});
+    }
+  }, [user]);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState(null); // null = creando
@@ -92,6 +103,8 @@ export default function AdminRaffles() {
   const [form] = Form.useForm();
   const [postponeForm] = Form.useForm();
   const [cancelForm] = Form.useForm();
+  const [rejectForm] = Form.useForm();
+  const [rejecting, setRejecting] = useState(null);
 
   // ── Participantes ───────────────────────────────────────────────
   const [participantsDrawer, setParticipantsDrawer] = useState(null);
@@ -248,6 +261,45 @@ export default function AdminRaffles() {
     }
   };
 
+  // ── Flujo de Aprobación B2B ─────────────────────────────────────
+  const requestApproval = async (raffleId) => {
+    if (guardDemo()) return;
+    try {
+      await api(`/raffles/${raffleId}/request-approval`, { method: 'POST' });
+      msgApi.success('Solicitud enviada al administrador 📋');
+      refresh();
+    } catch (err) {
+      msgApi.error(err.response?.data?.message || err.message || 'Error al solicitar revisión');
+    }
+  };
+
+  const approveRaffle = async (raffleId) => {
+    if (guardDemo()) return;
+    try {
+      await api(`/raffles/${raffleId}/approve`, { method: 'POST' });
+      msgApi.success('Sorteo aprobado ✅ — ya está en venta.');
+      refresh();
+    } catch (err) {
+      msgApi.error(err.response?.data?.message || err.message || 'Error al aprobar');
+    }
+  };
+
+  const rejectRaffle = async ({ reason }) => {
+    if (guardDemo()) return;
+    setSaving(true);
+    try {
+      await api(`/raffles/${rejecting._id}/reject`, { method: 'POST', body: { reason } });
+      msgApi.success('Sorteo rechazado — el partner fue notificado.');
+      setRejecting(null);
+      rejectForm.resetFields();
+      refresh();
+    } catch (err) {
+      msgApi.error(err.response?.data?.message || err.message || 'Error al rechazar');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // ── Participantes y Exportación ────────────────────────────────
   const openParticipants = async (r) => {
     if (guardDemo()) return;
@@ -313,9 +365,17 @@ export default function AdminRaffles() {
               display: 'grid', placeItems: 'center' }}>🎁</div>
           )}
           <div>
-            <Text strong style={{ fontSize: 13 }}>{r.title}</Text>
+            <Text strong style={{ fontSize: 13 }}>
+              {r.title}
+              {r.isZeroLoss && <Tooltip title="Cero Pérdida: devuelve saldo a perdedores"><Tag color="green" style={{ marginLeft: 6, fontSize: 10 }}>🎁 Cashback</Tag></Tooltip>}
+            </Text>
             <br />
             <Text code style={{ fontSize: 11 }}>{r.ticketPrefix}-0001…</Text>
+            {r.partnerId && (
+              <div style={{ marginTop: 4 }}>
+                <Tag color="purple" style={{ fontSize: 10, margin: 0, padding: '0 4px' }}>🏢 Empresa: {r.partnerId.name || 'Desconocida'}</Tag>
+              </div>
+            )}
           </div>
         </Space>
       ),
@@ -372,18 +432,34 @@ export default function AdminRaffles() {
           <Tooltip title={r.status === 'completed' ? 'Ver panel (Sorteo finalizado)' : r.status === 'live' ? 'Ir al panel del sorteo' : 'Iniciar / preparar el sorteo'}>
             <Button
               size="small" type="primary"
-              disabled={r.status === 'cancelled'}
+              disabled={r.status === 'cancelled' || r.status === 'draft' || r.status === 'pending_approval'}
               onClick={() => navigate(`/admin/sorteo/${r._id}`)}
             >
               ▶
             </Button>
           </Tooltip>
+          {r.status === 'draft' && user?.role === 'partner_admin' && (
+            <Tooltip title="Solicitar revisión">
+               <Button size="small" type="primary" ghost onClick={() => requestApproval(r._id)}>Solicitar Revisión</Button>
+            </Tooltip>
+          )}
+          {r.status === 'pending_approval' && user?.role === 'admin' && (
+            <>
+              <Tooltip title="Aprobar">
+                 <Button size="small" type="primary" style={{ background: '#52c41a' }} onClick={() => approveRaffle(r._id)}>Aprobar</Button>
+              </Tooltip>
+              <Tooltip title="Rechazar">
+                 <Button size="small" danger onClick={() => { setRejecting(r); rejectForm.resetFields(); }}>Rechazar</Button>
+              </Tooltip>
+            </>
+          )}
           <Tooltip title="Ver participantes">
             <Button size="small" icon={<TeamOutlined />} 
-              onClick={() => openParticipants(r)} />
+              onClick={() => openParticipants(r)} disabled={r.status === 'draft' || r.status === 'pending_approval'} />
           </Tooltip>
           <Tooltip title="Editar todos los campos">
-            <Button size="small" icon={<EditOutlined />} disabled={r.status !== 'active'}
+            <Button size="small" icon={<EditOutlined />} 
+              disabled={!(r.status === 'active' || r.status === 'draft' || (r.status === 'pending_approval' && user?.role === 'admin'))}
               onClick={() => openEdit(r)} />
           </Tooltip>
           <Tooltip title="Fotos del producto">
@@ -401,7 +477,7 @@ export default function AdminRaffles() {
         </Space>
       ),
     },
-  ], [demo]); // eslint-disable-line react-hooks/exhaustive-deps
+  ], [demo, user]);
 
   return (
     <div>
@@ -486,6 +562,26 @@ export default function AdminRaffles() {
         destroyOnHidden
       >
         <Form form={form} layout="vertical" onFinish={save} requiredMark={false}>
+          {editing?.rejectionReason && editing?.status === 'draft' && (
+            <Alert
+              type="error"
+              showIcon
+              message="Sorteo rechazado por el administrador"
+              description={editing.rejectionReason}
+              style={{ marginBottom: 16 }}
+            />
+          )}
+
+          {user?.role === 'admin' && (
+            <Form.Item name="partnerId" label="Empresa B2B (Opcional)" tooltip="Si seleccionas una empresa, este sorteo se asignará a ellos.">
+              <Select placeholder="Seleccionar empresa" allowClear>
+                {partners.map(p => (
+                  <Select.Option key={p._id} value={p._id}>{p.name}</Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+          )}
+
           <Form.Item name="title" label="Producto / Título"
             rules={[{ required: true, min: 5, message: 'Mínimo 5 caracteres' }]}>
             <Input placeholder="PlayStation 5 Slim + 2 mandos" />
@@ -545,15 +641,17 @@ export default function AdminRaffles() {
             </Radio.Group>
           </Form.Item>
 
-          <Form.Item name="isZeroLoss" valuePropName="checked" tooltip="Si se desactiva, los usuarios que no ganen NO recibirán el reembolso de su dinero al saldo de canje.">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-              <Switch />
-              <div>
-                <Text strong style={{ display: 'block', fontSize: 14 }}>🎁 Cero Pérdida (Cashback)</Text>
-                <Text type="secondary" style={{ fontSize: 12 }}>Devuelve el costo del boleto a los perdedores.</Text>
+          {user?.role !== 'partner_admin' && (
+            <Form.Item name="isZeroLoss" valuePropName="checked" tooltip="Si se desactiva, los usuarios que no ganen NO recibirán el reembolso de su dinero al saldo de canje.">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                <Switch />
+                <div>
+                  <Text strong style={{ display: 'block', fontSize: 14 }}>🎁 Cero Pérdida (Cashback)</Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>Devuelve el costo del boleto a los perdedores.</Text>
+                </div>
               </div>
-            </div>
-          </Form.Item>
+            </Form.Item>
+          )}
 
           {watchType !== 'paquete' ? (
             <>
@@ -966,6 +1064,28 @@ export default function AdminRaffles() {
             </Card>
           </div>
         )}
+      </Modal>
+
+      {/* ── Modal de Rechazo (Aprobación B2B) ────────────────────────── */}
+      <Modal
+        open={!!rejecting}
+        onCancel={() => setRejecting(null)}
+        title="Rechazar Sorteo"
+        onOk={() => rejectForm.submit()}
+        confirmLoading={saving}
+        okButtonProps={{ danger: true }}
+        okText="Rechazar"
+      >
+        <Alert type="warning" message="El sorteo volverá a estado de borrador y el partner deberá corregirlo y volver a solicitar revisión." style={{ marginBottom: 16 }} />
+        <Form form={rejectForm} layout="vertical" onFinish={rejectRaffle}>
+          <Form.Item
+            name="reason"
+            label="Motivo del rechazo"
+            rules={[{ required: true, min: 5, message: 'Ingrese un motivo detallado (mín. 5 caracteres)' }]}
+          >
+            <Input.TextArea rows={4} placeholder="Ej. Faltan imágenes del producto, o la descripción no es clara..." />
+          </Form.Item>
+        </Form>
       </Modal>
 
     </div>

@@ -109,7 +109,7 @@ export default function AdminRoles() {
         open={!!editingRole}
         onCancel={() => setEditingRole(null)}
         footer={null}
-        destroyOnHidden
+        forceRender
       >
         <Form 
           form={roleForm} 
@@ -163,6 +163,7 @@ export default function AdminRoles() {
               <Space direction="vertical" size={4} style={{ width: '100%' }}>
                 {Object.values(
                   ADMIN_MENU.flatMap(g => g.items).reduce((acc, m) => {
+                    if (!m.perm) return acc;
                     if (!acc[m.perm]) acc[m.perm] = { ...m };
                     else acc[m.perm].label += ` / ${m.label}`;
                     return acc;

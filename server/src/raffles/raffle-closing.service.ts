@@ -17,6 +17,7 @@ import { MailService } from '../auth/mail.service';
 import { NotificationType } from '../notifications/notification.schema';
 import { SettingsService } from '../settings/settings.service';
 import { InboxService } from '../inbox/inbox.service';
+import { Partner, PartnerDocument } from '../partners/partner.schema';
 
 /** Resumen del cierre, emitido por socket y devuelto por el endpoint. */
 export interface ClosingSummary {
@@ -55,6 +56,7 @@ export class RaffleClosingService {
     private readonly pushService: PushService,
     private readonly settingsService: SettingsService,
     private readonly inboxService: InboxService,
+    @InjectModel(Partner.name) private partnerModel: Model<PartnerDocument>,
   ) {}
 
   async closeRaffle(raffleId: string): Promise<ClosingSummary> {
@@ -255,7 +257,34 @@ export class RaffleClosingService {
         } catch { /* el aviso nunca rompe el cierre */ }
       }
 
-      // 4. Resumen
+      // 4. Liquidación B2B: si la rifa tiene partner, acreditamos su billetera empresarial
+      //    con el ingreso neto (ingresos brutos menos comisión de Misio).
+      if (raffle.partnerId) {
+        try {
+          const partner = await this.partnerModel.findById(raffle.partnerId).lean();
+          if (partner) {
+            const soldCount = await this.ticketModel.countDocuments({ raffleId: raffleOid });
+            const grossRevenue = soldCount * raffle.ticketPrice;
+            const fee = (partner.feePercentage ?? 10) / 100;
+            const netRevenue = parseFloat((grossRevenue * (1 - fee)).toFixed(2));
+
+            if (netRevenue > 0) {
+              await this.partnerModel.findByIdAndUpdate(
+                raffle.partnerId,
+                { $inc: { walletBalance: netRevenue, successfulRaffles: 1 } },
+              );
+              this.logger.log(
+                `[B2B] Rifa "${raffle.title}" → Partner ${String(raffle.partnerId)} acreditado S/ ${netRevenue} (bruto: ${grossRevenue}, fee: ${partner.feePercentage}%)`,
+              );
+            }
+          }
+        } catch (partnerErr) {
+          // No bloqueamos el cierre si falla la liquidación; se puede re-conciliar manualmente
+          this.logger.error(`[B2B] Error al liquidar al partner ${raffle.partnerId}`, partnerErr);
+        }
+      }
+
+      // 5. Resumen
       // Solo devolvemos info del PRIMER ganador por simplicidad en el WebSocket de cierre,
       // la UI principal mostrará todo el paquete.
       const firstWinner = winnersToProcess[0];

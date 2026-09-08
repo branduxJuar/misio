@@ -81,6 +81,7 @@ export default function AdminUsers() {
     enabled: false, type: 'credit', creditAmount: 5, raffleId: null,
   });
   const { data: raffles } = useApiOrMock('/raffles', []);
+  const { data: partners } = useApiOrMock('/empresas', []);
   const { data: emailCfg, refresh: refreshEmailCfg } = useApiOrMock('/settings/email-verification', { enabled: false });
   const { data: customRoles } = useApiOrMock('/settings/custom-roles', []);
 
@@ -459,7 +460,7 @@ export default function AdminUsers() {
 
       <Row gutter={[20, 20]}>
         {/* ── Bono de bienvenida + verificación de correo ─────────── */}
-        <Col xs={24} xl={8}>
+        <Col xs={24} xl={6} xxl={5}>
           <Card size="small" style={{ marginBottom: 20 }}
             title="📧 Verificación de correo al registrarse">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -524,7 +525,7 @@ export default function AdminUsers() {
         </Col>
 
         {/* ── Tabla de usuarios ───────────────────────────────────── */}
-        <Col xs={24} xl={16}>
+        <Col xs={24} xl={18} xxl={19}>
           <Card
             style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.05)', border: 'none', borderRadius: 16 }}
             title={
@@ -698,12 +699,11 @@ export default function AdminUsers() {
         title="👤 Crear usuario con rol"
         destroyOnHidden
       >
-        <Alert type="info" showIcon style={{ marginBottom: 16 }}
-          message="Para delegar: el OPERADOR verifica pagos y atiende canjes de la tienda. El ADMIN tiene acceso total. Entrégale las credenciales en persona." />
+
         <Form form={createForm} layout="vertical" onFinish={createUser} requiredMark={false}
           initialValues={{ role: 'user', permissions: [] }}
           onValuesChange={(chg) => {
-            if (chg.role) staffForm.setFieldValue('permissions', ROLE_PRESET[chg.role] ?? []);
+            if (chg.role) createForm.setFieldValue('permissions', ROLE_PRESET[chg.role] ?? []);
           }}>
           <Form.Item name="name" label="Nombre completo"
             rules={[{ required: true, min: 3, message: 'Mínimo 3 caracteres' }]}>
@@ -728,13 +728,30 @@ export default function AdminUsers() {
             <Input.Password placeholder="••••••" />
           </Form.Item>
           <Form.Item name="role" label="Rol">
-            <Radio.Group>
-              <Radio.Button value="user">Usuario</Radio.Button>
-              <Radio.Button value="admin" disabled title="Solo puede existir un administrador raíz (por base de datos)">👑 Admin</Radio.Button>
+            <Select placeholder="Selecciona el rol" style={{ width: '100%' }}>
+              <Select.Option value="user">👤 Usuario</Select.Option>
+              <Select.Option value="admin" disabled title="Solo puede existir un administrador raíz">👑 Admin</Select.Option>
+              <Select.Option value="partner_admin">🏢 Empresa B2B</Select.Option>
               {(customRoles || []).map(r => (
-                <Radio.Button key={r.id} value={r.id}>🔑 {r.name}</Radio.Button>
+                <Select.Option key={r.id} value={r.id}>🔑 {r.name}</Select.Option>
               ))}
-            </Radio.Group>
+            </Select>
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, curr) => prev.role !== curr.role}>
+            {({ getFieldValue }) => {
+              if (getFieldValue('role') === 'partner_admin') {
+                return (
+                  <Form.Item name="partnerId" label="Seleccione la Empresa (Partner)" rules={[{ required: true, message: 'Debe elegir una empresa' }]}>
+                    <Select placeholder="-- Seleccionar --" showSearch optionFilterProp="children">
+                      {(partners || []).map(p => (
+                        <Select.Option key={p._id} value={p._id}>{p.name}</Select.Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                );
+              }
+              return null;
+            }}
           </Form.Item>
           <Button type="primary" htmlType="submit" block loading={saving}>
             Crear cuenta
@@ -800,6 +817,9 @@ export default function AdminUsers() {
               <Radio value="admin" disabled title="El administrador raíz solo se crea por base de datos">
                 👑 <b>Administrador</b> — acceso total (incluye crear personal)
               </Radio>
+              <Radio value="partner_admin">
+                🏢 <b>Administrador de Empresa (B2B)</b> — gestiona sorteos y saldos de su empresa
+              </Radio>
               {(customRoles || []).map(r => (
                 <Radio key={r.id} value={r.id}>
                   🔑 <b>{r.name}</b> — Rol personalizado
@@ -817,6 +837,17 @@ export default function AdminUsers() {
                   <Alert type="warning" showIcon style={{ marginBottom: 12 }}
                     message="Un administrador ve y hace TODO"
                     description="Incluye contabilidad, contenido y crear más personal. Dale este rol solo a quien realmente sea dueño de la operación." />
+                );
+              }
+              if (role === 'partner_admin') {
+                return (
+                  <Form.Item name="partnerId" label="Seleccione la Empresa (Partner)" rules={[{ required: true, message: 'Debe elegir una empresa' }]}>
+                    <Select placeholder="-- Seleccionar --" showSearch optionFilterProp="children">
+                      {(partners || []).map(p => (
+                        <Select.Option key={p._id} value={p._id}>{p.name}</Select.Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
                 );
               }
               const customRole = (customRoles || []).find(r => r.id === role);

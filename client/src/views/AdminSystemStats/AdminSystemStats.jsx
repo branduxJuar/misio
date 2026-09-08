@@ -125,7 +125,7 @@ export default function AdminSystemStats() {
           <Card
             title={<Space><TeamOutlined /> Usuarios Activos Recientemente</Space>}
             style={{ borderColor: MISIO_COLORS.border }}
-            bodyStyle={isDesktop ? { padding: 0 } : { padding: 12 }}
+            styles={{ body: isDesktop ? { padding: 0 } : { padding: 12 } }}
           >
             {isDesktop ? (
               <Table

@@ -45,7 +45,7 @@ export class UsersController {
   /** GET /api/v1/users/me — perfil + saldo del usuario autenticado. */
   @Get('me')
   findMe(@CurrentUser() user: AuthUser) {
-    return this.usersService.findOne(user.userId);
+    return this.usersService.getProfile(user.userId);
   }
 
   /** POST /api/v1/users/:id/verify-email — Verifica manualmente el correo (SOLO Admin) */

@@ -38,7 +38,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * venza su token de 7 días.
    */
   async validate(payload: JwtPayload) {
-    const user = await this.userModel.findById(payload.sub).select('banned banReason forceLogoutAt').lean();
+    const user = await this.userModel.findById(payload.sub).select('banned banReason forceLogoutAt partnerId').lean();
     if (!user) throw new UnauthorizedException('Cuenta no encontrada');
     if (user.banned) {
       throw new UnauthorizedException(
@@ -49,6 +49,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (user.forceLogoutAt && payload.iat && (payload.iat * 1000) < user.forceLogoutAt.getTime()) {
       throw new UnauthorizedException('Sesión expirada o cerrada por el administrador.');
     }
-    return { userId: payload.sub, name: payload.name, role: payload.role };
+    return { userId: payload.sub, name: payload.name, role: payload.role, partnerId: user.partnerId };
   }
 }
