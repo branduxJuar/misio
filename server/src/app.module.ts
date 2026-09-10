@@ -31,6 +31,7 @@ import { AuctionsModule } from './auctions/auctions.module';
 import { StatsModule } from './stats/stats.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
 import { PromoCodesModule } from './promocodes/promocodes.module';
+import { PartnersModule } from './partners/partners.module';
 
 /**
  * Módulo raíz de Misio.
@@ -88,6 +89,7 @@ import { PromoCodesModule } from './promocodes/promocodes.module';
     StatsModule,
     CampaignsModule,
     PromoCodesModule,
+    PartnersModule,
   ],
   // El rate limit se aplica a TODA la API (los endpoints sensibles suman
   // su propio @Throttle encima).

@@ -688,6 +688,9 @@ body.light .z-bingo-cell {
   .z-auth-page {
     padding: 0;
     background-color: var(--z-primary);
+    display: block;
+    min-height: 100vh;
+    overflow-y: auto;
   }
   .z-auth-split {
     flex-direction: column;
@@ -708,13 +711,16 @@ body.light .z-bingo-cell {
   }
   .z-auth-form {
     flex: 1;
-    padding: 32px 24px;
+    padding: 32px 24px 64px 24px; /* Aumentar padding abajo */
     background: #ffffff;
     border-radius: 32px 32px 0 0;
     justify-content: flex-start;
   }
   .z-auth-mobile-brand {
     display: none;
+  }
+  .z-auth-features {
+    display: none !important;
   }
   .z-auth-brand-logo {
     position: absolute !important;

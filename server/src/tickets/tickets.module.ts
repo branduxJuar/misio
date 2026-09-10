@@ -9,6 +9,7 @@ import { TransactionsModule } from '../transactions/transactions.module';
 import { PromoCodesModule } from '../promocodes/promocodes.module';
 import { CashModule } from '../cash/cash.module';
 import { AuthModule } from '../auth/auth.module';
+import { PartnersModule } from '../partners/partners.module';
 
 
 @Module({
@@ -21,6 +22,7 @@ import { AuthModule } from '../auth/auth.module';
     TransactionsModule, // Registro en el ledger
     PromoCodesModule,
     CashModule,
+    PartnersModule,
     forwardRef(() => AuthModule),
   ],
   controllers: [TicketsController],

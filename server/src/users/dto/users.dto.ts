@@ -28,12 +28,24 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   customRoleName?: string;
+
+  @IsOptional()
+  @IsString()
+  partnerId?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
 }
 
 export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   email?: string;
+
+  @IsOptional()
+  @IsString()
+  dni?: string;
 
   @IsOptional()
   @IsString()

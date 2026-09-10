@@ -95,6 +95,7 @@ export default function Announcements() {
       closable={false}
       centered
       width={Math.min(500, window.innerWidth - 32)}
+      styles={{ body: { padding: 24 } }}
     >
       <Space direction="vertical" size={12} style={{ width: '100%', textAlign: 'center', padding: '12px 0' }}>
         <div style={{ fontSize: 36 }}>{ICONS[current.type] ?? ICONS.info}</div>

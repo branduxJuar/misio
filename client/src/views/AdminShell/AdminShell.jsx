@@ -2,14 +2,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Layout, Menu, Avatar, Typography, Breadcrumb, Button, Drawer, Grid, Dropdown, Tag,
+  Layout, Menu, Avatar, Typography, Breadcrumb, Button, Drawer, Grid, Dropdown, Tag, Modal,
 } from 'antd';
 import {
   DashboardOutlined, GiftOutlined, CreditCardOutlined, TeamOutlined,
   ShopOutlined, DatabaseOutlined, BookOutlined, FireOutlined,
   CalculatorOutlined, LayoutOutlined, MenuUnfoldOutlined, MenuFoldOutlined, SafetyCertificateOutlined,
   LogoutOutlined, HomeOutlined, UserOutlined, BellOutlined,
-  DesktopOutlined, RocketOutlined, DollarOutlined,
+  DesktopOutlined, RocketOutlined, DollarOutlined, BankOutlined, WalletOutlined,
 } from '@ant-design/icons';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useAuth } from '../../auth/AuthContext';
@@ -32,6 +32,7 @@ export const ADMIN_MENU = [
     group: 'Operación',
     items: [
       { key: '/admin', perm: 'dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
+      { key: '/admin/analiticas', perm: 'dashboard', icon: <DashboardOutlined />, label: 'Analíticas BI' },
       { key: '/admin/rifas', perm: 'sorteos', icon: <GiftOutlined />, label: 'Sorteos' },
       { key: '/admin/subastas', perm: 'subastas', icon: <FireOutlined />, label: 'Subastas' },
       { key: '/admin/pagos', perm: 'pagos', icon: <CreditCardOutlined />, label: 'Pagos' },
@@ -42,6 +43,7 @@ export const ADMIN_MENU = [
   {
     group: 'Gestión',
     items: [
+      { key: '/admin/empresas', perm: 'dashboard', icon: <BankOutlined />, label: 'Empresas' },
       { key: '/admin/erp', perm: 'erp', icon: <DatabaseOutlined />, label: 'ERP Logístico' },
       { key: '/admin/contabilidad', perm: 'contabilidad', icon: <CalculatorOutlined />, label: 'Contabilidad' },
       { key: '/admin/campanas', perm: 'marketing', icon: <RocketOutlined />, label: 'Promos' },
@@ -56,6 +58,15 @@ export const ADMIN_MENU = [
       { key: '/admin/auditoria', perm: 'usuarios', icon: <SafetyCertificateOutlined />, label: 'Auditoría' },
       { key: '/admin/server-stats', perm: 'dashboard', icon: <DesktopOutlined />, label: 'Servidor' },
       { key: '/admin/roles', perm: 'usuarios', icon: <TeamOutlined />, label: 'Roles y Permisos' },
+    ],
+  },
+  {
+    group: 'Mi Empresa',
+    partnerOnly: true, // solo visible si rol === 'partner_admin'
+    items: [
+      { key: '/admin', perm: null, icon: <DashboardOutlined />, label: 'Dashboard' },
+      { key: '/admin/rifas', perm: 'sorteos', icon: <GiftOutlined />, label: 'Mis Sorteos' },
+      { key: '/admin/billetera', perm: null, icon: <WalletOutlined />, label: 'Mi Billetera' },
     ],
   },
 ];
@@ -99,7 +110,11 @@ export default function AdminShell() {
   const menuItems = useMemo(
     () =>
       ADMIN_MENU.map((g) => {
-        const items = g.items.filter((i) => canSee(user, i.perm));
+        const isPartner = user?.role === 'partner_admin';
+        // Groups marked partnerOnly are shown ONLY to partners; other groups are hidden FROM partners
+        if (g.partnerOnly && !isPartner) return null;
+        if (!g.partnerOnly && isPartner) return null;
+        const items = g.items.filter((i) => i.perm === null || canSee(user, i.perm));
         if (!items.length) return null;
         return {
           key: g.group,
@@ -114,6 +129,35 @@ export default function AdminShell() {
       }).filter(Boolean),
     [user],
   );
+
+  // Partner Terms Logic
+  const [partner, setPartner] = useState(null);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [acceptingTerms, setAcceptingTerms] = useState(false);
+
+  useEffect(() => {
+    if (user?.role === 'partner_admin' && user?.partnerId) {
+      api(`/empresas/${user.partnerId}`)
+        .then((data) => {
+          setPartner(data);
+          if (!data.termsAcceptedAt) setShowTermsModal(true);
+        })
+        .catch(() => {});
+    }
+  }, [user]);
+
+  const handleAcceptTerms = async () => {
+    setAcceptingTerms(true);
+    try {
+      await api(`/empresas/${user.partnerId}/accept-terms`, { method: 'PATCH' });
+      setShowTermsModal(false);
+      setPartner(p => ({ ...p, termsAcceptedAt: new Date().toISOString() }));
+    } catch (err) {
+      // ignore
+    } finally {
+      setAcceptingTerms(false);
+    }
+  };
 
   // La ruta más específica que coincide (para no resaltar "Dashboard" siempre)
   const selected = useMemo(() => {
@@ -264,7 +308,10 @@ export default function AdminShell() {
                   <div style={{ lineHeight: 1.1 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--z-text)' }}>{user?.name?.split(' ')[0]}</div>
                     <div style={{ fontSize: 10, color: user?.role === 'admin' ? MISIO_COLORS.prizeGold : MISIO_COLORS.electricBlue, fontWeight: 700 }}>
-                      {user?.customRoleName ? user.customRoleName.toUpperCase() : user?.role?.toUpperCase()}
+                      {user?.role === 'partner_admin'
+                        ? 'EMPRESARIAL'
+                        : (user?.customRoleName ? user.customRoleName.toUpperCase() : user?.role?.toUpperCase())
+                      }
                     </div>
                   </div>
                 )}
@@ -298,6 +345,51 @@ export default function AdminShell() {
           </div>
         </div>
       </Layout>
+
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <BankOutlined style={{ fontSize: 24, color: MISIO_COLORS.primary }} />
+            <div>
+              <div style={{ fontSize: 18 }}>Bienvenido a {site.brandName} Partners</div>
+              <div style={{ fontSize: 13, color: 'gray', fontWeight: 'normal' }}>
+                Acuerdo de uso de la plataforma
+              </div>
+            </div>
+          </div>
+        }
+        open={showTermsModal}
+        closable={false}
+        maskClosable={false}
+        keyboard={false}
+        footer={[
+          <Button
+            key="submit"
+            type="primary"
+            size="large"
+            loading={acceptingTerms}
+            onClick={handleAcceptTerms}
+            style={{ width: '100%', borderRadius: 8, height: 48, fontSize: 16 }}
+          >
+            Aceptar términos y entrar al panel
+          </Button>
+        ]}
+        width={500}
+      >
+        <div style={{ padding: '24px 0', fontSize: 15, color: '#334155', lineHeight: 1.6 }}>
+          <p>
+            Al continuar y utilizar este panel administrativo, confirmas en representación
+            de <b>{partner?.name}</b> que aceptas nuestros términos y condiciones como socio
+            estratégico de {site.brandName}.
+          </p>
+          <ul style={{ paddingLeft: 20, marginTop: 16 }}>
+            <li style={{ marginBottom: 8 }}>Uso exclusivo para la gestión de sorteos autorizados.</li>
+            <li style={{ marginBottom: 8 }}>Confidencialidad sobre los datos de los usuarios participantes.</li>
+            <li>Cumplimiento de las reglas de <b>Cero Pérdida</b> (Cashback) para sorteos B2B si aplica.</li>
+          </ul>
+        </div>
+      </Modal>
+
     </Layout>
   );
 }

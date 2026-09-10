@@ -13,6 +13,7 @@ import { PromoCodeType } from '../promocodes/promocode.schema';
 import { CashService } from '../cash/cash.service';
 import { CashMovementType } from '../cash/cash.schema';
 import { MailService } from '../auth/mail.service';
+import { PartnersService } from '../partners/partners.service';
 
 
 /** Reintentos ante colisión de números (dos compras simultáneas). */
@@ -39,6 +40,7 @@ export class TicketsService {
     private readonly promoCodesService: PromoCodesService,
     private readonly cashService: CashService,
     private readonly mailService: MailService,
+    private readonly partnersService: PartnersService,
   ) {}
 
   /**
@@ -263,6 +265,14 @@ export class TicketsService {
               },
               session ?? undefined,
             );
+
+            // B2B: Abonar ganancia al Partner (descontando comisión de Misio)
+            if (raffle.partnerId) {
+              const partner = await this.partnersService.findOne(raffle.partnerId.toString());
+              const commissionRate = partner?.feePercentage ?? 10;
+              const partnerShare = totalPaid * (1 - (commissionRate / 100));
+              await this.partnersService.addWalletBalance(partner._id.toString(), partnerShare, session ?? undefined);
+            }
           } else if (promoData) {
             // Si todo fue gratis, igual registramos una transacción de S/ 0 para tener el historial
             txRecord = await this.txService.create(

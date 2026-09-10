@@ -3,7 +3,7 @@ import {
   Patch, Post, UploadedFile, UseGuards, UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { receiptUploadOptions } from '../logistics/upload.config';
+import { privateFileUrl, receiptUploadOptions } from '../logistics/upload.config';
 import { TransactionsService } from './transactions.service';
 import { CreateDepositDto } from './dto/transaction.dto';
 import { TransactionStatus } from './transaction.schema';
@@ -44,7 +44,7 @@ export class TransactionsController {
   ) {
     if (!file) throw new BadRequestException('Falta el archivo (campo "file")');
     await this.txService.findById(id); // 404 si no existe
-    return this.txService.attachReceipt(id, `/uploads/${file.filename}`);
+    return this.txService.attachReceipt(id, privateFileUrl(file.filename));
   }
 
   /**

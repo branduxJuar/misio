@@ -1,7 +1,9 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import mongoose, { HydratedDocument, Types } from 'mongoose';
 
 export enum RaffleStatus {
+  DRAFT = 'draft', // Creado por un Partner, aún en edición
+  PENDING_APPROVAL = 'pending_approval', // Enviado por Partner para revisión del Super Admin
   ACTIVE = 'active', // Venta de boletos abierta
   LIVE = 'live', // Transmisión en vivo (Modo Presentador)
   COMPLETED = 'completed', // Ganador asignado, pasa a LogisticsERP
@@ -60,11 +62,17 @@ const PostponementSchema = SchemaFactory.createForClass(Postponement);
 
 @Schema({ timestamps: true, collection: 'raffles' })
 export class Raffle {
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Partner', index: true })
+  partnerId?: mongoose.Types.ObjectId; // Si está presente, es un sorteo B2B
+
   @Prop({ required: true, trim: true })
   title: string;
 
   @Prop({ default: '' })
   description: string;
+
+  @Prop({ default: '' })
+  rejectionReason?: string;
 
   @Prop({ type: String, enum: RaffleType, default: RaffleType.NORMAL })
   type: RaffleType;

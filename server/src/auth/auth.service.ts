@@ -6,6 +6,7 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes, createHash } from 'node:crypto';
 import { generateSecret as totpGenerateSecret, verifySync as totpVerify, generateURI as totpURI } from 'otplib';
 import * as QRCode from 'qrcode';
+import { OAuth2Client } from 'google-auth-library';
 import { User, UserDocument, UserRole } from '../users/user.schema';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { JwtPayload } from './jwt.strategy';
@@ -15,6 +16,7 @@ import { Ticket, TicketDocument } from '../tickets/ticket.schema';
 import { Transaction, TransactionDocument, TransactionType } from '../transactions/transaction.schema';
 
 const BCRYPT_ROUNDS = 10;
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 @Injectable()
 export class AuthService {
@@ -114,7 +116,7 @@ export class AuthService {
       );
     }
 
-    const valid = user && (await bcrypt.compare(dto.password, user.passwordHash));
+    const valid = user && user.passwordHash && (await bcrypt.compare(dto.password, user.passwordHash));
     if (!valid) {
       if (user) {
         const fails = (user.failedLogins ?? 0) + 1;
@@ -126,7 +128,7 @@ export class AuthService {
         await this.userModel.updateOne({ _id: user._id }, update);
       }
       // Mismo mensaje exista o no el DNI: no confirmamos qué cuentas hay
-      throw new UnauthorizedException('DNI o contraseña incorrectos');
+      throw new UnauthorizedException('Usuario o contraseña incorrectos');
     }
     if (user.failedLogins || user.lockedUntil || user.forgotPasswordAttempts) {
       await this.userModel.updateOne({ _id: user._id }, { failedLogins: 0, lockedUntil: null, forgotPasswordAttempts: 0 });
@@ -174,7 +176,7 @@ export class AuthService {
     user.verifyCode = code;
     user.verifyCodeExpires = new Date(Date.now() + 15 * 60 * 1000);
     await user.save();
-    await this.mailService.sendVerificationCode(user.email, user.name, code);
+    await this.mailService.sendVerificationCode(user.email ?? '', user.name, code);
     return attempts;
   }
 
@@ -256,6 +258,7 @@ export class AuthService {
       user: {
         _id: user._id,
         name: user.name,
+        email: user.email,
         dni: user.dni,
         phone: user.phone,
         role: user.role,
@@ -265,8 +268,141 @@ export class AuthService {
         mustChangePassword: user.mustChangePassword ?? false,
         permissions: user.permissions ?? [],
         customRoleName: user.customRoleName,
+        partnerId: user.partnerId,
+        isProfileComplete: !!(user.dni && user.phone),
+        googleId: user.googleId,
       },
     };
+  }
+
+  /**
+   * POST /auth/google-userinfo — valida el access token directamente con Google.
+   * Nunca se debe confiar en email/googleId enviados por el navegador.
+   */
+  async googleLoginUserInfo(accessToken: string) {
+    if (!accessToken?.trim()) {
+      throw new UnauthorizedException('Token de Google requerido');
+    }
+
+    let googleUser: { email?: string; email_verified?: boolean; name?: string; sub?: string };
+    try {
+      const tokenInfo = await googleClient.getTokenInfo(accessToken.trim());
+      if (tokenInfo.aud !== process.env.GOOGLE_CLIENT_ID) {
+        throw new Error('Audiencia de Google inválida');
+      }
+
+      const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${accessToken.trim()}` },
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (!response.ok) throw new Error('Respuesta inválida de Google');
+      googleUser = (await response.json()) as typeof googleUser;
+    } catch {
+      throw new UnauthorizedException('Token de Google inválido o expirado');
+    }
+
+    if (!googleUser.email || !googleUser.sub || googleUser.email_verified !== true) {
+      throw new UnauthorizedException('La cuenta de Google no está verificada');
+    }
+
+    const email = googleUser.email.toLowerCase();
+    const googleId = googleUser.sub;
+    let user = await this.userModel.findOne({ $or: [{ googleId }, { email }] });
+
+    if (!user) {
+      user = await this.userModel.create({
+        name: googleUser.name ?? email.split('@')[0],
+        email,
+        googleId,
+        role: UserRole.USER,
+        walletBalance: 0,
+        walletCanje: 0,
+        permissions: [],
+        emailVerifiedAt: new Date(),
+      });
+    } else {
+      let changed = false;
+      if (!user.googleId) {
+        user.googleId = googleId;
+        changed = true;
+      }
+      if (!user.emailVerifiedAt) {
+        user.emailVerifiedAt = new Date();
+        changed = true;
+      }
+      if (changed) {
+        await user.save();
+      }
+    }
+
+    if (user.banned) {
+      throw new UnauthorizedException(`Tu cuenta fue suspendida${user.banReason ? `: ${user.banReason}` : ''}`);
+    }
+
+    return await this.buildAuthResponse(user);
+  }
+
+
+    // 1. Verificar token con Google (id_token flow)
+  /** POST /auth/google — login via id_token (not used by current frontend but kept for future). */
+  async googleLogin(credential: string) {
+    let ticket;
+    try {
+      ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+    } catch {
+      throw new UnauthorizedException('Token de Google inválido o expirado');
+    }
+    const payload = ticket.getPayload();
+    if (!payload?.email) throw new UnauthorizedException('No se pudo obtener el correo de Google');
+
+    const { email, name, sub: googleId } = payload;
+
+    let user = await this.userModel.findOne({ $or: [{ googleId }, { email: email.toLowerCase() }] });
+
+    if (!user) {
+      user = await this.userModel.create({
+        name: name ?? email.split('@')[0],
+        email: email.toLowerCase(),
+        googleId,
+        role: UserRole.USER,
+        walletBalance: 0,
+        walletCanje: 0,
+        permissions: [],
+      });
+    } else if (!user.googleId) {
+      user.googleId = googleId;
+      await user.save();
+    }
+
+    if (user.banned) {
+      throw new UnauthorizedException(`Tu cuenta fue suspendida${user.banReason ? `: ${user.banReason}` : ''}`);
+    }
+
+    return await this.buildAuthResponse(user);
+  }
+
+
+  /** PUT /users/complete-profile — agrega DNI y Celular a cuenta de Google */
+  async completeProfile(userId: string, dni: string, phone: string) {
+    const dniClean = (dni ?? '').trim();
+    if (!/^\d{8}$/.test(dniClean)) throw new BadRequestException('DNI inválido: debe tener exactamente 8 dígitos');
+    if (!phone?.trim()) throw new BadRequestException('El celular es requerido');
+
+    const conflict = await this.userModel.findOne({ dni: dniClean });
+    if (conflict && conflict._id.toString() !== userId) {
+      throw new ConflictException('Ese DNI ya está registrado con otra cuenta');
+    }
+
+    const user = await this.userModel.findByIdAndUpdate(
+      userId,
+      { $set: { dni: dniClean, phone: phone.trim() } },
+      { new: true },
+    );
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    return await this.buildAuthResponse(user);
   }
 
   /**
@@ -315,7 +451,7 @@ export class AuthService {
           banReason: 'Exceso de intentos de recuperación de contraseña'
         }
       );
-      await this.mailService.sendAccountBannedForSpam(user.email, user.name);
+      await this.mailService.sendAccountBannedForSpam(user.email ?? '', user.name);
       // Retornamos el mismo mensaje para no dar indicios al atacante
       return { sent: true, message: 'Si el correo está registrado, enviamos las instrucciones.' };
     }
@@ -368,7 +504,7 @@ export class AuthService {
     const user = await this.userModel.findById(userId).select('+passwordHash');
     if (!user) throw new UnauthorizedException();
     if (!force) {
-      const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+      const ok = await bcrypt.compare(currentPassword, user.passwordHash ?? '');
       if (!ok) throw new BadRequestException('La contraseña actual no es correcta');
     }
     const passwordHash = await bcrypt.hash(newPassword, 10);
@@ -393,7 +529,7 @@ export class AuthService {
     }
     const secret = totpGenerateSecret({ length: 20 });
     await this.userModel.updateOne({ _id: userId }, { totpSecret: secret });
-    const otpauth = totpURI({ secret, issuer: 'Misio', label: user.dni });
+    const otpauth = totpURI({ secret, issuer: 'Misio', label: user.dni ?? user.email ?? user._id.toString() });
     const qrDataUrl = await QRCode.toDataURL(otpauth);
     return { secret, qrDataUrl };
   }

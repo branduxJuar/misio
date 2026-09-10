@@ -143,29 +143,33 @@ export default function AdminDashboard() {
         </Col>
       </Row>
 
-      <TrendCharts />
+      {user?.role !== 'partner_admin' && (
+        <>
+          <TrendCharts />
 
-      {/* ── Salud del servidor ───────────────────────────────────── */}
-      <SystemHealth />
+          {/* ── Salud del servidor ───────────────────────────────────── */}
+          <SystemHealth />
 
-      {/* ── Atajos ───────────────────────────────────────────────── */}
-      <Card size="small" title="Accesos rápidos" style={{ marginTop: 14 }}>
-        <List
-          size="small"
-          dataSource={[
-            { t: '🎟️ Crear un sorteo nuevo', to: '/admin/rifas' },
-            { t: '💵 Verificar pagos Yape pendientes', to: '/admin/pagos' },
-            { t: '🎨 Editar el contenido de la portada', to: '/admin/contenido' },
-            { t: '📒 Ver el libro mayor del mes', to: '/admin/contabilidad' },
-            { t: '👥 Dar permisos a un colaborador', to: '/admin/usuarios' },
-          ]}
-          renderItem={(i) => (
-            <List.Item>
-              <Link to={i.to}>{i.t}</Link>
-            </List.Item>
-          )}
-        />
-      </Card>
+          {/* ── Atajos ───────────────────────────────────────────────── */}
+          <Card size="small" title="Accesos rápidos" style={{ marginTop: 14 }}>
+            <List
+              size="small"
+              dataSource={[
+                { t: '🎟️ Crear un sorteo nuevo', to: '/admin/rifas' },
+                { t: '💵 Verificar pagos Yape pendientes', to: '/admin/pagos' },
+                { t: '🎨 Editar el contenido de la portada', to: '/admin/contenido' },
+                { t: '📒 Ver el libro mayor del mes', to: '/admin/contabilidad' },
+                { t: '👥 Dar permisos a un colaborador', to: '/admin/usuarios' },
+              ]}
+              renderItem={(i) => (
+                <List.Item>
+                  <Link to={i.to}>{i.t}</Link>
+                </List.Item>
+              )}
+            />
+          </Card>
+        </>
+      )}
     </div>
   );
 }

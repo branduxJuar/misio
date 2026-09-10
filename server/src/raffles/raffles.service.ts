@@ -27,7 +27,7 @@ export class RafflesService {
     private readonly closingService: RaffleClosingService,
   ) {}
 
-  async create(dto: CreateRaffleDto) {
+  async create(dto: CreateRaffleDto, user?: any) {
     const isPaquete = dto.type === 'paquete';
 
     // MODO DIRECTO: una sola tirada y es la ganadora
@@ -52,12 +52,20 @@ export class RafflesService {
       throw new BadRequestException(`El código/prefijo "${prefix}" ya está en uso por un sorteo que está actualmente en curso. Debe ser único entre los sorteos activos.`);
     }
 
-    return this.raffleModel.create({
+    const payload: any = {
       ...dto,
       ticketPrefix: prefix,
       winningAttempt: !isPaquete && dto.drawMode === DrawMode.DIRECT ? 1 : (dto.winningAttempt ?? 3),
       drawDate: new Date(dto.drawDate),
-    });
+    };
+
+    if (user?.role === 'partner_admin' || user?.partnerId) {
+      payload.partnerId = user.partnerId;
+      payload.status = RaffleStatus.DRAFT;
+      payload.isZeroLoss = false; // Por defecto los Partners no tienen cashback
+    }
+
+    return this.raffleModel.create(payload);
   }
 
   /** Vitrina pública: rifas en venta o en vivo con conteo de vendidos. */
@@ -66,8 +74,12 @@ export class RafflesService {
   }
 
   /** Panel admin: TODAS las rifas (incluye completadas y canceladas). */
-  findAllAdmin(): Promise<RaffleListItem[]> {
-    return this.aggregateWithSold({});
+  findAllAdmin(user?: any): Promise<RaffleListItem[]> {
+    const match: any = {};
+    if (user?.role === 'partner_admin' || user?.partnerId) {
+      match.partnerId = user.partnerId;
+    }
+    return this.aggregateWithSold(match);
   }
 
   /**
@@ -80,6 +92,7 @@ export class RafflesService {
       .find(match)
       .sort({ drawDate: 1, createdAt: -1 })
       .select('-__v')
+      .populate('partnerId', 'name')
       .limit(200)
       .lean();
     return raffles.map((r) => ({ ...r, soldTickets: r.soldCount ?? 0 })) as RaffleListItem[];
@@ -177,17 +190,27 @@ export class RafflesService {
   }
 
   async findOne(id: string) {
-    const raffle = await this.raffleModel.findById(id).lean();
+    const raffle = await this.raffleModel.findById(id).populate('partnerId', 'name').lean();
     if (!raffle) throw new NotFoundException(`Rifa ${id} no existe`);
     return raffle;
   }
 
-  /** EDICIÓN de todos los campos — solo mientras la rifa está en venta. */
-  async update(id: string, dto: UpdateRaffleDto) {
+  /** EDICIÓN de todos los campos — solo mientras la rifa está en venta o borrador. */
+  async update(id: string, dto: UpdateRaffleDto, user?: any) {
     const raffle = await this.raffleModel.findById(id);
     if (!raffle) throw new NotFoundException('Rifa no existe');
-    if (raffle.status !== RaffleStatus.ACTIVE) {
-      throw new BadRequestException('Solo se puede editar una rifa en venta (status active)');
+    
+    if (user?.role === 'partner_admin' || user?.partnerId) {
+      if (raffle.partnerId?.toString() !== user.partnerId?.toString()) {
+        throw new BadRequestException('No tienes permiso para editar este sorteo');
+      }
+      if (raffle.status === RaffleStatus.PENDING_APPROVAL) {
+        throw new BadRequestException('No puedes editar un sorteo que está pendiente de aprobación por el administrador');
+      }
+    }
+
+    if (![RaffleStatus.ACTIVE, RaffleStatus.DRAFT, RaffleStatus.PENDING_APPROVAL].includes(raffle.status as any)) {
+      throw new BadRequestException('Solo se puede editar una rifa en venta, borrador o pendiente de revisión');
     }
 
     const patch: any = { ...dto };
@@ -224,6 +247,41 @@ export class RafflesService {
     }
 
     return this.raffleModel.findByIdAndUpdate(id, patch, { new: true });
+  }
+
+  async requestApproval(id: string, user: any) {
+    const raffle = await this.raffleModel.findById(id);
+    if (!raffle) throw new NotFoundException('Rifa no existe');
+    if (raffle.partnerId?.toString() !== user.partnerId?.toString()) {
+      throw new BadRequestException('No tienes permiso para solicitar revisión de este sorteo');
+    }
+    if (raffle.status !== RaffleStatus.DRAFT) {
+      throw new BadRequestException('Solo los sorteos en borrador pueden solicitar revisión');
+    }
+    raffle.status = RaffleStatus.PENDING_APPROVAL;
+    return raffle.save();
+  }
+
+  async approve(id: string) {
+    const raffle = await this.raffleModel.findById(id);
+    if (!raffle) throw new NotFoundException('Rifa no existe');
+    if (raffle.status !== RaffleStatus.PENDING_APPROVAL) {
+      throw new BadRequestException('El sorteo no está pendiente de aprobación');
+    }
+    raffle.status = RaffleStatus.ACTIVE;
+    raffle.rejectionReason = ''; // Limpiar motivo anterior si lo hubo
+    return raffle.save();
+  }
+
+  async reject(id: string, reason: string) {
+    const raffle = await this.raffleModel.findById(id);
+    if (!raffle) throw new NotFoundException('Rifa no existe');
+    if (raffle.status !== RaffleStatus.PENDING_APPROVAL) {
+      throw new BadRequestException('El sorteo no está pendiente de aprobación');
+    }
+    raffle.status = RaffleStatus.DRAFT;
+    raffle.rejectionReason = reason;
+    return raffle.save();
   }
 
   /**

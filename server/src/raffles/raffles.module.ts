@@ -6,6 +6,7 @@ import { Ticket, TicketSchema } from '../tickets/ticket.schema';
 import { Transaction, TransactionSchema } from '../transactions/transaction.schema';
 import { User, UserSchema } from '../users/user.schema';
 import { LogisticsERP, LogisticsERPSchema } from '../logistics/logistics.schema';
+import { Partner, PartnerSchema } from '../partners/partner.schema';
 import { RafflesController } from './raffles.controller';
 import { RafflesService } from './raffles.service';
 import { RaffleClosingService } from './raffle-closing.service';
@@ -29,6 +30,7 @@ import { InboxModule } from '../inbox/inbox.module';
       { name: Transaction.name, schema: TransactionSchema },
       { name: User.name, schema: UserSchema },
       { name: LogisticsERP.name, schema: LogisticsERPSchema },
+      { name: Partner.name, schema: PartnerSchema }, // Para acreditar billetera B2B al cerrar
     ]),
     NotificationsModule, // Avisos de aplazamiento/cancelación a compradores
     TransactionsModule, // Números en proceso de compra (pagos pendientes)

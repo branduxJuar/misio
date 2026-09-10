@@ -121,6 +121,9 @@ async function bootstrap() {
   app.useWebSocketAdapter(redisAdapter);
 
   // Archivos subidos (evidencias, QRs, avatares)
+  // La subcarpeta privada solo puede servirse mediante /api/v1/files/:filename
+  // con URL firmada; nunca debe quedar expuesta por el middleware estático.
+  app.use('/uploads/private', (_req, res) => res.sendStatus(404));
   app.useStaticAssets(UPLOADS_DIR, { prefix: '/uploads/', maxAge: '1d' });
 
   const port = process.env.PORT ?? 3000;

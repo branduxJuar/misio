@@ -1,7 +1,7 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post,
-  Query, UploadedFiles, UseGuards, UseInterceptors,
+  Query, UploadedFiles, UseGuards, UseInterceptors, Req
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { JwtService } from '@nestjs/jwt';
@@ -236,8 +236,8 @@ export class RafflesController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePerm('sorteos')
   @Get('admin/all')
-  findAllAdmin(): Promise<RaffleListItem[]> {
-    return this.rafflesService.findAllAdmin();
+  findAllAdmin(@Req() req): Promise<RaffleListItem[]> {
+    return this.rafflesService.findAllAdmin(req.user);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -273,16 +273,46 @@ export class RafflesController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePerm('sorteos')
   @Post()
-  create(@Body() dto: CreateRaffleDto) {
-    return this.rafflesService.create(dto);
+  create(@Req() req, @Body() dto: CreateRaffleDto) {
+    return this.rafflesService.create(dto, req.user);
   }
 
-  /** PATCH /api/v1/raffles/:id — editar TODOS los campos (rifa en venta). */
+  /** PATCH /api/v1/raffles/:id — editar TODOS los campos. */
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePerm('sorteos')
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateRaffleDto) {
-    return this.rafflesService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateRaffleDto, @Req() req) {
+    return this.rafflesService.update(id, dto, req.user);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('sorteos')
+  @Post(':id/request-approval')
+  requestApproval(@Param('id') id: string, @Req() req) {
+    return this.rafflesService.requestApproval(id, req.user);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('sorteos')
+  @Post(':id/approve')
+  approve(@Param('id') id: string, @Req() req) {
+    if (req.user?.role === 'partner_admin' || req.user?.partnerId) {
+      throw new BadRequestException('Los Partners no pueden aprobar sorteos. Espere la revisión del administrador.');
+    }
+    return this.rafflesService.approve(id);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('sorteos')
+  @Post(':id/reject')
+  reject(@Param('id') id: string, @Body('reason') reason: string, @Req() req) {
+    if (req.user?.role === 'partner_admin' || req.user?.partnerId) {
+      throw new BadRequestException('No autorizado');
+    }
+    if (!reason || reason.trim().length < 5) {
+      throw new BadRequestException('Debe ingresar un motivo de rechazo (mín. 5 caracteres)');
+    }
+    return this.rafflesService.reject(id, reason.trim());
   }
 
   /** POST /api/v1/raffles/:id/postpone — aplazar con motivo (avisa a compradores). */

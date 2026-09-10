@@ -29,6 +29,7 @@ const LiveDrawRoom = lazy(() => import('./views/LiveDrawRoom/LiveDrawRoom'));
 const AdminLogisticsDashboard = lazy(() => import('./views/AdminLogisticsDashboard/AdminLogisticsDashboard'));
 const AuthPage = lazy(() => import('./views/AuthPage/AuthPage'));
 const ResetPassword = lazy(() => import('./views/ResetPassword/ResetPassword'));
+const GoogleCallback = lazy(() => import('./GoogleCallback'));
 const BingoFamiliar = lazy(() => import('./views/BingoFamiliar/BingoFamiliar'));
 const AdminRaffles = lazy(() => import('./views/AdminRaffles/AdminRaffles'));
 const AdminDrawPanel = lazy(() => import('./views/AdminDrawPanel/AdminDrawPanel'));
@@ -54,10 +55,14 @@ const AdminAccounting = lazy(() => import('./views/AdminAccounting/AdminAccounti
 const AdminContent = lazy(() => import('./views/AdminContent/AdminContent'));
 const AdminComplaints = lazy(() => import('./views/AdminComplaints/AdminComplaints'));
 const AdminDashboard = lazy(() => import('./views/AdminDashboard/AdminDashboard'));
+const AdminAnalytics = lazy(() => import('./views/AdminDashboard/AdminAnalytics'));
+const AdminPartners = lazy(() => import('./views/AdminPartners/index.jsx'));
 const AdminSystemStats = lazy(() => import('./views/AdminSystemStats/AdminSystemStats'));
 const AdminCampaigns = lazy(() => import('./views/AdminCampaigns/AdminCampaigns'));
 const TicketValidation = lazy(() => import('./views/TicketValidation/TicketValidation'));
 const AdminRoles = lazy(() => import('./views/AdminRoles/AdminRoles'));
+const PartnerWallet = lazy(() => import('./views/PartnerWallet/PartnerWallet'));
+
 
 const { Header, Content, Footer } = Layout;
 const { useBreakpoint } = Grid;
@@ -479,17 +484,19 @@ function AdminRoutes() {
     <Route
       path="/admin"
       element={
-        <ProtectedRoute roles={['admin', 'operator', 'presenter', 'seller']}>
+        <ProtectedRoute roles={['admin', 'operator', 'presenter', 'seller', 'partner_admin']}>
           <AdminShell />
         </ProtectedRoute>
       }
     >
       <Route index element={<ProtectedRoute perm="dashboard"><AdminDashboard /></ProtectedRoute>} />
+      <Route path="analiticas" element={<ProtectedRoute perm="dashboard"><AdminAnalytics /></ProtectedRoute>} />
       <Route path="rifas" element={<ProtectedRoute perm="sorteos"><AdminRaffles /></ProtectedRoute>} />
       <Route path="sorteo/:id" element={<ProtectedRoute perm="sorteos"><AdminDrawPanel /></ProtectedRoute>} />
       <Route path="pagos" element={<ProtectedRoute perm="pagos"><AdminPayments /></ProtectedRoute>} />
       <Route path="usuarios" element={<ProtectedRoute perm="usuarios"><AdminUsers /></ProtectedRoute>} />
       <Route path="reclamos" element={<ProtectedRoute perm="reclamos"><AdminComplaints /></ProtectedRoute>} />
+      <Route path="empresas" element={<ProtectedRoute perm="dashboard"><AdminPartners /></ProtectedRoute>} />
       <Route path="subastas" element={<ProtectedRoute perm="subastas"><AdminAuctions /></ProtectedRoute>} />
       <Route path="subasta/:id" element={<ProtectedRoute perm="subastas"><AdminAuctionPanel /></ProtectedRoute>} />
       <Route path="contabilidad" element={<ProtectedRoute perm="contabilidad"><AdminAccounting /></ProtectedRoute>} />
@@ -501,6 +508,8 @@ function AdminRoutes() {
       <Route path="auditoria" element={<ProtectedRoute perm="usuarios"><AdminAudit /></ProtectedRoute>} />
       <Route path="roles" element={<ProtectedRoute perm="usuarios"><AdminRoles /></ProtectedRoute>} />
       <Route path="server-stats" element={<ProtectedRoute perm="dashboard"><AdminSystemStats /></ProtectedRoute>} />
+      {/* Billetera Empresarial: solo visible para partner_admin */}
+      <Route path="billetera" element={<ProtectedRoute><PartnerWallet /></ProtectedRoute>} />
     </Route>
   );
 }
@@ -649,6 +658,8 @@ export default function App() {
             {/* 1 · Acceso */}
             <Route path="/login" element={<AuthPage />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            {/* Callback de Google OAuth — la ventana popup aterriza aquí */}
+            <Route path="/auth/google/callback" element={<GoogleCallback />} />
 
             {/* 2 · Panel de administración (aplicación aparte) */}
             {AdminRoutes()}

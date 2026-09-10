@@ -194,7 +194,7 @@ export default function MarketplaceLanding() {
                 hoverable
                 className={`z-raffle-card${isLive ? ' hot' : ''}`}
                 onClick={() => (isLive ? navigate(`/en-vivo/${raffle._id}`) : openDetail(raffle))}
-                style={{ background: '#ffffff', border: 'none', borderRadius: 24, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 12px 32px rgba(0,0,0,0.06)' }}
+                style={{ background: '#ffffff', border: raffle.partnerId ? `2px solid ${MISIO_COLORS.primary}` : 'none', borderRadius: 24, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: raffle.partnerId ? '0 8px 24px rgba(13,148,136,0.25)' : '0 12px 32px rgba(0,0,0,0.06)' }}
                 styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column', flex: 1 } }}
               >
                 {/* 1. Imagen cabecera de borde a borde */}
@@ -268,8 +268,13 @@ export default function MarketplaceLanding() {
                           📅 Sorteo: {new Date(raffle.drawDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
                         </Text>
                         <Text style={{ fontSize: 14, color: '#64748b', display: 'flex', alignItems: 'center', gap: 6 }}>
-                          {raffle.isZeroLoss !== false ? '🎁 Cero Pérdida' : '⚪ Sorteo Normal'}
+                          {raffle.isZeroLoss !== false ? '🎁 Sorteo: Cero Pérdida' : '⚪ Sorteo: Normal'}
                         </Text>
+                        {raffle.partnerId && (
+                          <Text style={{ fontSize: 14, color: '#64748b', display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                            🏢 Empresa: <span style={{ fontWeight: 700, color: '#0f172a' }}>{raffle.partnerId.name}</span>
+                          </Text>
+                        )}
                       </div>
                     )}
                   </div>

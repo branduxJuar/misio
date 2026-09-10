@@ -3,7 +3,7 @@ import {
   Query, UploadedFiles, UseGuards, UseInterceptors,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { evidenceUploadOptions, receiptUploadOptions } from '../logistics/upload.config';
+import { evidenceUploadOptions, privateEvidenceUploadOptions, privateFileUrl, receiptUploadOptions } from '../logistics/upload.config';
 import { StoreService } from './store.service';
 import { CheckoutDto, CreateStoreItemDto, DeliverRedemptionDto, RedeemDto, UpdateStoreItemDto } from './dto/store.dto';
 import { OptionalJwtGuard, JwtAuthGuard } from '../auth/guards/auth.guards';
@@ -128,10 +128,10 @@ export class StoreController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePerm('tienda')
   @Post('redemptions/:id/evidence')
-  @UseInterceptors(FilesInterceptor('files', 5, evidenceUploadOptions))
+  @UseInterceptors(FilesInterceptor('files', 5, privateEvidenceUploadOptions))
   async uploadEvidence(@Param('id') id: string, @UploadedFiles() files: Express.Multer.File[]) {
     const list = (Array.isArray(files) ? files : [files]).filter(Boolean);
-    const urls = list.map((f) => `/uploads/${f.filename}`);
+    const urls = list.map((f) => privateFileUrl(f.filename));
     return this.storeService.addEvidence(id, urls);
   }
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -158,7 +158,7 @@ export class StoreController {
   @UseInterceptors(FilesInterceptor('files', 5, receiptUploadOptions))
   async uploadReceipts(@Param('id') id: string, @UploadedFiles() files: Express.Multer.File[]) {
     const list = (Array.isArray(files) ? files : [files]).filter(Boolean);
-    const urls = list.map((f) => `/uploads/${f.filename}`);
+    const urls = list.map((f) => privateFileUrl(f.filename));
     return this.storeService.addReceipts(id, urls);
   }
 

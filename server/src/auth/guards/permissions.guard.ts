@@ -4,7 +4,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { User, UserDocument, UserRole } from '../../users/user.schema';
+import { User, UserDocument, UserRole, AdminModule } from '../../users/user.schema';
 
 export const PERMS_KEY = 'perms';
 
@@ -21,7 +21,7 @@ export class PermissionsGuard implements CanActivate {
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
-    const required = this.reflector.getAllAndOverride<string[]>(PERMS_KEY, [
+    const required = this.reflector.getAllAndOverride<AdminModule[]>(PERMS_KEY, [
       ctx.getHandler(),
       ctx.getClass(),
     ]);

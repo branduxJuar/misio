@@ -61,6 +61,7 @@ export default function RaffleDetail() {
   const [legalPages, setLegalPages] = useState(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [showBalance, setShowBalance] = useState(false);
+  const [showPrices, setShowPrices] = useState(true);
   const [checkoutRulesOpen, setCheckoutRulesOpen] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [pendingPaymentMethod, setPendingPaymentMethod] = useState(null);
@@ -485,8 +486,17 @@ export default function RaffleDetail() {
                 <Title level={3} style={{ margin: 0, fontFamily: 'Outfit, sans-serif', fontWeight: 900, textTransform: 'uppercase', color: '#0f172a', lineHeight: 1.1, flex: 1, minWidth: 200 }}>
                   {raffle.title}
                 </Title>
-                <div style={{ fontSize: 30, fontWeight: 900, lineHeight: 1, color: '#047857' }}>
-                  S/ {raffle.ticketPrice}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ fontSize: 30, fontWeight: 900, lineHeight: 1, color: '#047857' }}>
+                    S/ {showPrices ? raffle.ticketPrice : '***'}
+                  </div>
+                  <span 
+                    onClick={() => setShowPrices(!showPrices)} 
+                    style={{ cursor: 'pointer', color: '#cbd5e1', fontSize: 20, display: 'flex', alignItems: 'center' }}
+                    title="Ocultar/Mostrar precios"
+                  >
+                    {showPrices ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                  </span>
                 </div>
               </div>
               
@@ -542,7 +552,8 @@ export default function RaffleDetail() {
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               style={{ 
-                padding: '10px 14px', 
+                padding: '0 14px', 
+                height: 36,
                 cursor: 'pointer',
                 display: 'flex', 
                 alignItems: 'center', 
@@ -553,9 +564,9 @@ export default function RaffleDetail() {
             >
                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                  <div style={{ 
-                   width: 36, 
-                   height: 36, 
-                   borderRadius: 10, 
+                   width: 25, 
+                   height: 25, 
+                   borderRadius: 8, 
                    background: '#dcfce7', 
                    display: 'flex', 
                    alignItems: 'center', 
@@ -568,7 +579,7 @@ export default function RaffleDetail() {
                  </div>
                  <div>
                    <Typography.Text strong style={{ display: 'block', color: '#0f172a', fontSize: 13, fontFamily: 'Outfit, sans-serif' }}>
-                     Compartir por WhatsApp
+                     Compartir
                    </Typography.Text>
                  </div>
                </div>
@@ -593,7 +604,8 @@ export default function RaffleDetail() {
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               style={{ 
-                padding: '10px 14px', 
+                padding: '0 14px', 
+                height: 36,
                 cursor: 'pointer',
                 display: 'flex', 
                 alignItems: 'center', 
@@ -603,9 +615,9 @@ export default function RaffleDetail() {
             >
                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                  <div style={{ 
-                   width: 36, 
-                   height: 36, 
-                   borderRadius: 10, 
+                   width: 25, 
+                   height: 25, 
+                   borderRadius: 8, 
                    background: '#eff6ff', 
                    display: 'flex', 
                    alignItems: 'center', 
@@ -640,7 +652,8 @@ export default function RaffleDetail() {
             {/* Indicador de Tipo de Sorteo */}
             <div 
               style={{ 
-                padding: '10px 14px', 
+                padding: '0 14px', 
+                height: 36,
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'space-between',
@@ -650,9 +663,9 @@ export default function RaffleDetail() {
             >
                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                  <div style={{ 
-                   width: 36, 
-                   height: 36, 
-                   borderRadius: 10, 
+                   width: 25, 
+                   height: 25, 
+                   borderRadius: 8, 
                    background: raffle.isZeroLoss !== false ? '#dcfce7' : '#e2e8f0', 
                    display: 'flex', 
                    alignItems: 'center', 
@@ -683,6 +696,47 @@ export default function RaffleDetail() {
                  {raffle.isZeroLoss !== false ? '✓' : 'ℹ'}
                </div>
             </div>
+            
+            {raffle.partnerId && (
+              <div 
+                style={{ 
+                  padding: '0 14px', 
+                  height: 36,
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  background: '#f8fafc',
+                  borderTop: '1px solid #f1f5f9'
+                }}
+              >
+                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                   <div style={{ 
+                     width: 25, 
+                     height: 25, 
+                     borderRadius: 8, 
+                     background: '#f1f5f9', 
+                     display: 'flex', 
+                     alignItems: 'center', 
+                     justifyContent: 'center', 
+                     color: '#64748b', 
+                     fontSize: 16,
+                     boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.5), 0 2px 4px rgba(100, 116, 139, 0.15)',
+                     overflow: 'hidden'
+                   }}>
+                     {raffle.partnerId.logo ? (
+                       <img src={`${window.location.origin}${raffle.partnerId.logo}`} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                     ) : (
+                       '🏢'
+                     )}
+                   </div>
+                   <div>
+                     <Typography.Text strong style={{ display: 'block', color: '#64748b', fontSize: 13, fontFamily: 'Outfit, sans-serif' }}>
+                       Empresa: <span style={{ color: '#0f172a', fontWeight: 800 }}>{raffle.partnerId.name}</span>
+                     </Typography.Text>
+                   </div>
+                 </div>
+              </div>
+            )}
           </Card>
         </Col>
 
@@ -991,7 +1045,7 @@ export default function RaffleDetail() {
                             </span>
                           </div>
                           <span style={{ fontSize: 11, fontWeight: 800, background: 'rgba(0, 0, 0, 0.25)', padding: '3px 6px', borderRadius: 6, color: '#6ee7b7', whiteSpace: 'nowrap' }}>
-                            S/ {raffle.ticketPrice}
+                            S/ {showPrices ? raffle.ticketPrice : '***'}
                           </span>
                         </div>
 
@@ -1032,9 +1086,17 @@ export default function RaffleDetail() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10 }}>
-                  <span style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'block' }}>Total a pagar:</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'block' }}>Total a pagar:</span>
+                    <span 
+                      onClick={() => setShowPrices(!showPrices)} 
+                      style={{ cursor: 'pointer', color: '#94a3b8', fontSize: 14 }}
+                    >
+                      {showPrices ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                    </span>
+                  </div>
                   <span style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.1, color: '#047857', display: 'block' }}>
-                    S/ {total.toFixed(2)}
+                    S/ {showPrices ? total.toFixed(2) : '***'}
                   </span>
                   {user && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
@@ -1102,7 +1164,8 @@ export default function RaffleDetail() {
                         borderRadius: 8,
                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)' 
                       }}
-                      disabled={cart.length === 0}
+                      disabled={cart.length === 0 || !!raffle.partnerId}
+                      title={raffle.partnerId ? "La venta externa no está habilitada para sorteos de empresas asociadas" : undefined}
                     >
                       🛒 Venta Externa (POS)
                     </Button>

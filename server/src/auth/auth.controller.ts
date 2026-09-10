@@ -143,4 +143,29 @@ export class AuthController {
   verify2FA(@Body('dni') dni: string, @Body('code') code: string) {
     return this.authService.verify2FA(dni, code);
   }
+
+  /** POST /api/v1/auth/google — login o registro con Google (id_token). */
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('google')
+  googleLogin(@Body('credential') credential: string) {
+    return this.authService.googleLogin(credential);
+  }
+
+  /** POST /api/v1/auth/google-userinfo — login/registro con access token de Google. */
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('google-userinfo')
+  googleLoginUserInfo(@Body('accessToken') accessToken: string) {
+    return this.authService.googleLoginUserInfo(accessToken);
+  }
+
+  /** PUT /api/v1/auth/complete-profile — completa DNI y celular de usuario Google. */
+  @UseGuards(JwtAuthGuard)
+  @Post('complete-profile')
+  completeProfile(
+    @CurrentUser() user: AuthUser,
+    @Body('dni') dni: string,
+    @Body('phone') phone: string,
+  ) {
+    return this.authService.completeProfile(user.userId, dni, phone);
+  }
 }

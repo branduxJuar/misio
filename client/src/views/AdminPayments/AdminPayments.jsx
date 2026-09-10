@@ -86,6 +86,10 @@ export default function AdminPayments() {
 
   const { data: methods, demo, refresh: refreshMethods } = useApiOrMock('/payments/methods/all', MOCK_METHODS);
   const { data: pending, refresh: refreshPending, loading } = useApiOrMock('/payments/pending', MOCK_PENDING);
+  // El backend actual devuelve arrays, pero aceptar { items } evita que una
+  // respuesta paginada o una respuesta vacía rompa List/Table.
+  const methodRows = Array.isArray(methods) ? methods : (methods?.items ?? []);
+  const pendingRows = Array.isArray(pending) ? pending : (pending?.items ?? []);
 
   const [editingMethod, setEditingMethod] = useState(null); // null cerrado, {} nuevo, obj editar
   const [saving, setSaving] = useState(false);
@@ -436,8 +440,8 @@ export default function AdminPayments() {
             style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.05)', border: 'none', borderRadius: 16 }}
           >
             <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-              {methods.length === 0 && <Empty description="Configura tu primer método (Yape, Plin…)" />}
-              {methods.map((m) => (
+              {methodRows.length === 0 && <Empty description="Configura tu primer método (Yape, Plin…)" />}
+              {methodRows.map((m) => (
                 <Card key={m._id} size="small" styles={{ body: { display: 'flex', gap: 12, alignItems: 'center' } }}>
                   {m.qrImageUrl ? (
                     <Image src={`${SERVER_URL}${m.qrImageUrl}`} width={56} height={56}
@@ -474,14 +478,14 @@ export default function AdminPayments() {
         {/* ── Verificación de pagos ───────────────────────────────── */}
         <Col xs={24} lg={16} xl={17}>
           <Card
-            title={<>💰 Pagos por verificar <Tag color="warning">{pending.length} en cola</Tag></>}
+            title={<>💰 Pagos por verificar <Tag color="warning">{pendingRows.length} en cola</Tag></>}
             extra={<Button size="small" icon={<ReloadOutlined />} onClick={refreshPending} loading={loading} />}
             style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.05)', border: 'none', borderRadius: 16 }}
             styles={{ body: { padding: isDesktop ? 24 : '12px 0' } }}
           >
             {isDesktop ? (
               <Table
-                dataSource={pending}
+                dataSource={pendingRows}
                 columns={pendingColumns}
                 rowKey="_id"
                 size="small"
@@ -491,7 +495,7 @@ export default function AdminPayments() {
               />
             ) : (
               <List
-                dataSource={pending}
+                dataSource={pendingRows}
                 locale={{ emptyText: <Empty description="Sin pagos pendientes 🎉" /> }}
                 renderItem={(r) => (
                   <List.Item style={{ padding: '0 12px 12px' }}>
@@ -528,7 +532,7 @@ export default function AdminPayments() {
                             🛒 <b>Intención:</b> {r.intentDetails.raffleTitle}
                           </Text>
                           {/* (El resto de la lógica de conflicto ya está en columns, para simplificar renderizamos la misma celda de Detalles) */}
-                          {pendingColumns.find(c => c.key === 'intentDetails').render(null, r)}
+                          {pendingColumns.find(c => c.key === 'intent')?.render(null, r)}
                         </div>
                       )}
                       

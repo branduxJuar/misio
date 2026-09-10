@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import ThemeProvider from './theme/ThemeProvider';
 import SiteProvider from './theme/SiteProvider';
 import App from './App';
@@ -33,10 +34,12 @@ if ('caches' in window) {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <SiteProvider>
-      <ThemeProvider>
-        <App />
-      </ThemeProvider>
-    </SiteProvider>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+      <SiteProvider>
+        <ThemeProvider>
+          <App />
+        </ThemeProvider>
+      </SiteProvider>
+    </GoogleOAuthProvider>
   </React.StrictMode>,
 );

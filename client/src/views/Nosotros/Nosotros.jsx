@@ -39,7 +39,7 @@ export default function Nosotros() {
             c: 'Operamos para todo el país: pagos con Yape/Plin, envíos a nivel nacional con seguimiento, y soporte en tu idioma y tu horario.' },
         ].map((b) => (
           <Col xs={24} md={8} key={b.t}>
-            <Card className="glass-card" hoverable style={{ height: '100%' }} bodyStyle={{ padding: 28 }}>
+            <Card className="glass-card" hoverable style={{ height: '100%' }} styles={{ body: { padding: 28 } }}>
               <div style={{ fontSize: 32, marginBottom: 16 }}>{b.icon}</div>
               <Title level={4} style={{ marginBottom: 12 }}>{b.t}</Title>
               <Paragraph style={{ color: MISIO_COLORS.textMuted, fontSize: 14, lineHeight: 1.5, margin: 0 }}>
@@ -51,7 +51,7 @@ export default function Nosotros() {
       </Row>
 
       <div style={{ marginTop: 40 }} className="fade-in-up">
-        <Card className="glass-card" bodyStyle={{ padding: '32px 40px' }}>
+        <Card className="glass-card" styles={{ body: { padding: '32px 40px' } }}>
           <Title level={3} style={{ marginBottom: 32, textAlign: 'center' }}>¿Cómo funciona?</Title>
           <Timeline
             style={{ maxWidth: 600, margin: '0 auto' }}

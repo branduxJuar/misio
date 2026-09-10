@@ -85,6 +85,8 @@ export class PaymentsController {
     });
   }
 
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePerm('pagos')
   @Get('pending')
   findPending() {
     return this.paymentsService.findPending();
