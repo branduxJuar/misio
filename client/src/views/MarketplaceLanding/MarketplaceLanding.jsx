@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Card, Col, Row, Progress, Tag, Button, Typography, Space, Badge, message, Alert, Collapse, Divider, Statistic
+  Card, Col, Row, Progress, Tag, Button, Typography, Space, Badge, message, Alert, Collapse, Divider, Statistic, Skeleton
 } from 'antd';
 import {
   ThunderboltFilled, FireFilled, SafetyCertificateFilled, WalletFilled, LeftOutlined, RightOutlined
@@ -25,7 +25,7 @@ export default function MarketplaceLanding() {
   // Se usará un mesh gradient limpio en su lugar.
 
   // Rifas reales (GET /raffles incluye soldTickets del aggregate) o mock
-  const { data: raffles, demo, refresh } = useApiOrMock('/raffles', MOCK_RAFFLES);
+  const { data: raffles, demo, loading, refresh } = useApiOrMock('/raffles', MOCK_RAFFLES);
 
   const [selectedMonthKey, setSelectedMonthKey] = useState('all');
   const scrollRef = React.useRef(null);
@@ -182,7 +182,19 @@ export default function MarketplaceLanding() {
 
       {/* ── Grid de rifas activas ─────────────────────────────────── */}
       <Row gutter={[20, 20]}>
-        {filteredRaffles.map((raffle) => {
+        {loading
+          ? Array.from({ length: 4 }).map((_, index) => (
+            <Col xs={24} sm={12} lg={6} key={`raffle-skeleton-${index}`}>
+              <Card
+                style={{ borderRadius: 24, overflow: 'hidden' }}
+                styles={{ body: { padding: 16 } }}
+              >
+                <Skeleton.Image active style={{ width: '100%', height: 180 }} />
+                <Skeleton active paragraph={{ rows: 3 }} style={{ marginTop: 16 }} />
+              </Card>
+            </Col>
+          ))
+          : filteredRaffles.map((raffle) => {
           const sold = raffle.soldTickets ?? 0;
           const soldPct = Math.round((sold / raffle.totalTickets) * 100);
           const isLive = raffle.status === 'live';
@@ -321,7 +333,7 @@ export default function MarketplaceLanding() {
               </Card>
             </Col>
           );
-        })}
+          })}
       </Row>
 
       <Divider style={{ margin: '60px 0' }} />

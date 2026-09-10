@@ -11,9 +11,14 @@ import { api } from '../auth/api';
  * Cuando el backend esté siempre disponible, basta eliminar el fallback.
  */
 export function useApiOrMock(path, mockData, { enabled = true } = {}) {
-  // Conserva los datos de demostración recibidos por la vista como respaldo.
+  // El mock solo es respaldo ante error; nunca debe aparecer durante la carga.
   const fallbackData = mockData;
-  const [data, setData] = useState(fallbackData);
+  const initialData = Array.isArray(mockData)
+    ? []
+    : mockData && typeof mockData === 'object'
+      ? {}
+      : mockData;
+  const [data, setData] = useState(initialData);
   const [demo, setDemo] = useState(false);
   const [loading, setLoading] = useState(enabled);
 
