@@ -275,20 +275,45 @@ export class AuthService {
     };
   }
 
-  /** POST /auth/google-userinfo — recibe el perfil ya obtenido con access_token del cliente. */
-  async googleLoginUserInfo(data: { email: string; name: string; googleId: string; picture?: string }) {
-    if (!data.email || !data.googleId) {
-      throw new UnauthorizedException('Datos de Google incompletos');
+  /**
+   * POST /auth/google-userinfo — valida el access token directamente con Google.
+   * Nunca se debe confiar en email/googleId enviados por el navegador.
+   */
+  async googleLoginUserInfo(accessToken: string) {
+    if (!accessToken?.trim()) {
+      throw new UnauthorizedException('Token de Google requerido');
     }
-    const email = data.email.toLowerCase();
 
-    let user = await this.userModel.findOne({ $or: [{ googleId: data.googleId }, { email }] });
+    let googleUser: { email?: string; email_verified?: boolean; name?: string; sub?: string };
+    try {
+      const tokenInfo = await googleClient.getTokenInfo(accessToken.trim());
+      if (tokenInfo.aud !== process.env.GOOGLE_CLIENT_ID) {
+        throw new Error('Audiencia de Google inválida');
+      }
+
+      const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${accessToken.trim()}` },
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (!response.ok) throw new Error('Respuesta inválida de Google');
+      googleUser = (await response.json()) as typeof googleUser;
+    } catch {
+      throw new UnauthorizedException('Token de Google inválido o expirado');
+    }
+
+    if (!googleUser.email || !googleUser.sub || googleUser.email_verified !== true) {
+      throw new UnauthorizedException('La cuenta de Google no está verificada');
+    }
+
+    const email = googleUser.email.toLowerCase();
+    const googleId = googleUser.sub;
+    let user = await this.userModel.findOne({ $or: [{ googleId }, { email }] });
 
     if (!user) {
       user = await this.userModel.create({
-        name: data.name ?? email.split('@')[0],
+        name: googleUser.name ?? email.split('@')[0],
         email,
-        googleId: data.googleId,
+        googleId,
         role: UserRole.USER,
         walletBalance: 0,
         walletCanje: 0,
@@ -298,7 +323,7 @@ export class AuthService {
     } else {
       let changed = false;
       if (!user.googleId) {
-        user.googleId = data.googleId;
+        user.googleId = googleId;
         changed = true;
       }
       if (!user.emailVerifiedAt) {

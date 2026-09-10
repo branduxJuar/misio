@@ -8,7 +8,7 @@ import { JwtAuthGuard } from '../auth/guards/auth.guards';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePerm } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/user.schema';
-import { receiptUploadOptions } from '../logistics/upload.config';
+import { privateFileUrl, receiptUploadOptions } from '../logistics/upload.config';
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('empresas')
@@ -48,7 +48,7 @@ export class PartnersController {
   @Post('upload-contract')
   @UseInterceptors(FileInterceptor('file', receiptUploadOptions))
   async uploadContract(@UploadedFile() file: Express.Multer.File) {
-    return { url: `/uploads/${file.filename}` };
+    return { url: privateFileUrl(file.filename) };
   }
 
   /** El partner ve solo sus retiros; el admin ve todos */
@@ -72,7 +72,7 @@ export class PartnersController {
     @Param('id') id: string,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    const receiptUrl = file ? `/uploads/${file.filename}` : undefined;
+    const receiptUrl = file ? privateFileUrl(file.filename) : undefined;
     return this.partnersService.processPayout(id, receiptUrl);
   }
 

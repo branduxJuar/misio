@@ -57,11 +57,13 @@ export class StatsController {
       this.raffleModel.countDocuments({ ...raffleMatch, status: RaffleStatus.ACTIVE }),
       this.raffleModel.countDocuments({ ...raffleMatch, status: RaffleStatus.LIVE }),
       this.ticketModel.countDocuments(ticketMatch),
-      // Ingresos por boletos: compras del ledger (montos negativos → se invierte)
-      // Solo tomamos compras de sorteos NO cancelados. meta.raffleId se guarda como String.
+      // Ingresos por boletos: incluye compras online y ventas offline/POS.
+      // El ledger guarda las compras online en negativo y las offline en
+      // positivo, por eso sumamos el valor absoluto de cada movimiento.
+      // Solo tomamos sorteos NO cancelados. meta.raffleId se guarda como String.
       this.txModel.aggregate([
-        { $match: { type: TransactionType.TICKET_PURCHASE, status: TransactionStatus.COMPLETED, 'meta.raffleId': { $in: validRaffleIdsStr } } },
-        { $group: { _id: null, total: { $sum: '$amount' } } },
+        { $match: { type: { $in: [TransactionType.TICKET_PURCHASE, TransactionType.OFFLINE_SALE] }, status: TransactionStatus.COMPLETED, 'meta.raffleId': { $in: validRaffleIdsStr } } },
+        { $group: { _id: null, total: { $sum: { $abs: '$amount' } } } },
       ]),
       // Pasivo: saldo total vivo en billeteras de usuarios
       isPartner ? [] : this.userModel.aggregate([

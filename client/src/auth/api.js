@@ -10,13 +10,38 @@ export const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/a
 
 const TOKEN_KEY = 'misio_token';
 const REFRESH_KEY = 'misio_refresh';
+const LEGACY_TOKEN_KEY = 'token';
+const LEGACY_REFRESH_KEY = 'refreshToken';
 
 export const tokenStore = {
-  get: () => localStorage.getItem(TOKEN_KEY),
+  get: () => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) return token;
+    const legacyToken = localStorage.getItem(LEGACY_TOKEN_KEY);
+    if (legacyToken) {
+      localStorage.setItem(TOKEN_KEY, legacyToken);
+      localStorage.removeItem(LEGACY_TOKEN_KEY);
+    }
+    return legacyToken;
+  },
   set: (token) => localStorage.setItem(TOKEN_KEY, token),
-  getRefresh: () => localStorage.getItem(REFRESH_KEY),
+  getRefresh: () => {
+    const refreshToken = localStorage.getItem(REFRESH_KEY);
+    if (refreshToken) return refreshToken;
+    const legacyRefreshToken = localStorage.getItem(LEGACY_REFRESH_KEY);
+    if (legacyRefreshToken) {
+      localStorage.setItem(REFRESH_KEY, legacyRefreshToken);
+      localStorage.removeItem(LEGACY_REFRESH_KEY);
+    }
+    return legacyRefreshToken;
+  },
   setRefresh: (token) => localStorage.setItem(REFRESH_KEY, token),
-  clear: () => { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(REFRESH_KEY); },
+  clear: () => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_KEY);
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
+    localStorage.removeItem(LEGACY_REFRESH_KEY);
+  },
 };
 
 /**

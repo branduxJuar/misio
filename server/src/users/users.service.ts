@@ -131,7 +131,15 @@ export class UsersService {
     leanUser.achievements = leanUser.achievements || [];
 
     // 4. PERFECT_PROFILE (Perfil Perfecto - Dinámico en vivo)
-    const isPerfect = !!(leanUser.dni && leanUser.phone && leanUser.address?.line1 && leanUser.avatarUrl);
+    // La insignia valida los datos del formulario; la foto de perfil es opcional.
+    const isPerfect = !!(
+      leanUser.email?.trim()
+      && leanUser.dni?.trim()
+      && leanUser.phone?.trim()
+      && leanUser.address?.line1?.trim()
+      && leanUser.address?.city?.trim()
+      && leanUser.address?.region?.trim()
+    );
     if (isPerfect && !leanUser.achievements.includes('PERFECT_PROFILE')) {
       leanUser.achievements.push('PERFECT_PROFILE');
     }

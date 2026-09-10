@@ -4,7 +4,7 @@ import { Model } from 'mongoose';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guards';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePerm } from '../auth/decorators/roles.decorator';
-import { User, UserDocument, UserRole } from '../users/user.schema';
+import { User, UserDocument } from '../users/user.schema';
 import {
   Transaction, TransactionDocument, TransactionStatus, TransactionType,
 } from '../transactions/transaction.schema';
@@ -57,7 +57,8 @@ export class AccountingController {
 
     const [
       deposits, ticketSales, storeCanje, storeVenta, refundsCanje,
-      cancelRefunds, bonuses, auctionPayments, offlineSales, posCancelled, walletAgg, erpAgg, pendingDeposits, expiringAgg,
+      cancelRefunds, bonuses, auctionPayments, offlineSales, posCancelled, ticketCountAgg,
+      walletAgg, erpAgg, pendingDeposits, expiringAgg,
     ] = await Promise.all([
       sum({ type: TransactionType.DEPOSIT_YAPE }), // 💵 dinero real que ENTRÓ por Yape/bancos
       sum({ type: TransactionType.TICKET_PURCHASE }),
@@ -69,6 +70,29 @@ export class AccountingController {
       sum({ type: TransactionType.AUCTION_PAYMENT }),
       sum({ type: TransactionType.OFFLINE_SALE }), // Ventas en efectivo POS
       sum({ type: TransactionType.POS_SALE_CANCELLED }, false), // Devoluciones POS (amount es negativo, sumarlo sin abs restará)
+      // Un movimiento puede contener varios boletos; contar transacciones
+      // produciría "4 boletos" aunque aquí existan 15 boletos vendidos.
+      this.txModel.aggregate([
+        {
+          $match: {
+            ...done,
+            ...inRange,
+            type: { $in: [TransactionType.TICKET_PURCHASE, TransactionType.OFFLINE_SALE] },
+          },
+        },
+        {
+          $project: {
+            count: {
+              $cond: [
+                { $isArray: '$meta.ticketNumbers' },
+                { $size: '$meta.ticketNumbers' },
+                0,
+              ],
+            },
+          },
+        },
+        { $group: { _id: null, total: { $sum: '$count' } } },
+      ]),
       this.userModel.aggregate([
         {
           $group: {
@@ -118,7 +142,7 @@ export class AccountingController {
       // ── Actividad (mueve saldo, no es ingreso nuevo) ──
       activity: {
         ticketSales: (ticketSales.total + offlineSales.total + posCancelled.total) - cancelRefunds.total,
-        ticketsCount: ticketSales.n + offlineSales.n,
+        ticketsCount: ticketCountAgg[0]?.total ?? 0,
         storeVenta: storeVenta.total,
         storeCanje: storeCanje.total,
         auctionPayments: auctionPayments.total,

@@ -2,24 +2,48 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Typography, Button, Checkbox, message, Space } from 'antd';
 import { GiftOutlined, CopyOutlined } from '@ant-design/icons';
 import { api } from '../auth/api';
+import { useAuth } from '../auth/AuthContext';
 
 const { Title, Text, Paragraph } = Typography;
 
 export default function CampaignPopup() {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [campaignMsg, setCampaignMsg] = useState(null);
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
+  const dismissedKey = user?._id
+    ? `dismissedCampaigns:${user._id}`
+    : 'dismissedCampaigns';
+
+  const readDismissed = () => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(dismissedKey) || '[]');
+      const legacy = JSON.parse(localStorage.getItem('dismissedCampaigns') || '[]');
+      return [
+        ...(Array.isArray(legacy) ? legacy : []),
+        ...(Array.isArray(stored) ? stored : []),
+      ].filter((value, index, values) => values.indexOf(value) === index);
+    } catch {
+      return [];
+    }
+  };
+
   useEffect(() => {
+    if (!user?._id) return undefined;
+
     const fetchInbox = async () => {
       try {
         const messages = await api('/inbox');
         if (messages && messages.length > 0) {
-          // Find the latest message that looks like a campaign/promo and hasn't been dismissed
-          const dismissedIds = JSON.parse(localStorage.getItem('dismissedCampaigns') || '[]');
+          // Se conserva por usuario y por cÃ³digo para que una misma promo
+          // no reaparezca aunque el backend cree otro mensaje con otro _id.
+          const dismissedIds = readDismissed();
           
           const promoMsg = messages.find(msg => 
-            !dismissedIds.includes(msg._id) && msg.kind === 'code'
+            msg.kind === 'code' &&
+            !dismissedIds.includes(msg._id) &&
+            (!msg.code || !dismissedIds.includes(`code:${msg.code}`))
           );
 
           if (promoMsg) {
@@ -33,13 +57,18 @@ export default function CampaignPopup() {
     };
 
     fetchInbox();
-  }, []);
+  }, [user?._id, dismissedKey]);
 
   const handleClose = () => {
     if (dontShowAgain && campaignMsg) {
-      const dismissedIds = JSON.parse(localStorage.getItem('dismissedCampaigns') || '[]');
-      dismissedIds.push(campaignMsg._id);
-      localStorage.setItem('dismissedCampaigns', JSON.stringify(dismissedIds));
+      const dismissedIds = readDismissed();
+      if (campaignMsg._id && !dismissedIds.includes(campaignMsg._id)) {
+        dismissedIds.push(campaignMsg._id);
+      }
+      if (campaignMsg.code && !dismissedIds.includes(`code:${campaignMsg.code}`)) {
+        dismissedIds.push(`code:${campaignMsg.code}`);
+      }
+      localStorage.setItem(dismissedKey, JSON.stringify(dismissedIds));
     }
     setOpen(false);
   };
@@ -47,7 +76,7 @@ export default function CampaignPopup() {
   const copyCode = () => {
     if (campaignMsg?.code) {
       navigator.clipboard.writeText(campaignMsg.code);
-      message.success('Código copiado al portapapeles');
+      message.success('Cï¿½digo copiado al portapapeles');
     }
   };
 
@@ -60,7 +89,7 @@ export default function CampaignPopup() {
       footer={null}
       centered
       closable={true}
-      bodyStyle={{ textAlign: 'center', padding: '24px' }}
+      styles={{ body: { textAlign: 'center', padding: '24px' } }}
     >
       <GiftOutlined style={{ fontSize: 64, color: '#1890ff', marginBottom: 16 }} />
       <Title level={3}>{campaignMsg.subject}</Title>
@@ -78,7 +107,7 @@ export default function CampaignPopup() {
           border: '2px dashed #1890ff'
         }}>
           <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
-            Tu Código Promocional:
+            Tu Cï¿½digo Promocional:
           </Text>
           <Space>
             <Text strong style={{ fontSize: 24, letterSpacing: 2 }}>{campaignMsg.code}</Text>

@@ -151,11 +151,11 @@ export class AuthController {
     return this.authService.googleLogin(credential);
   }
 
-  /** POST /api/v1/auth/google-userinfo — login/registro con datos del userinfo de Google. */
+  /** POST /api/v1/auth/google-userinfo — login/registro con access token de Google. */
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('google-userinfo')
-  googleLoginUserInfo(@Body() body: { email: string; name: string; googleId: string; picture?: string }) {
-    return this.authService.googleLoginUserInfo(body);
+  googleLoginUserInfo(@Body('accessToken') accessToken: string) {
+    return this.authService.googleLoginUserInfo(accessToken);
   }
 
   /** PUT /api/v1/auth/complete-profile — completa DNI y celular de usuario Google. */

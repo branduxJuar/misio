@@ -6,7 +6,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { LogisticsService } from './logistics.service';
 import { CreateLogisticsDto, UpdateLogisticsDto } from './dto/logistics.dto';
 import { DeliveryStatus } from './logistics.schema';
-import { evidenceUploadOptions, receiptUploadOptions } from './upload.config';
+import { privateEvidenceUploadOptions, privateFileUrl, receiptUploadOptions } from './upload.config';
 import { JwtAuthGuard } from '../auth/guards/auth.guards';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePerm } from '../auth/decorators/roles.decorator';
@@ -83,14 +83,14 @@ export class LogisticsController {
   @UseInterceptors(FileInterceptor('file', receiptUploadOptions))
   uploadReceipt(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('Falta el archivo (campo "file")');
-    return this.logisticsService.attachFile(id, 'receipt', `/uploads/${file.filename}`);
+    return this.logisticsService.attachFile(id, 'receipt', privateFileUrl(file.filename));
   }
 
   /** POST /api/v1/logistics/:id/evidence — foto de entrega (solo imagen). */
   @Post(':id/evidence')
-  @UseInterceptors(FileInterceptor('file', evidenceUploadOptions))
+  @UseInterceptors(FileInterceptor('file', privateEvidenceUploadOptions))
   uploadEvidence(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('Falta el archivo (campo "file")');
-    return this.logisticsService.attachFile(id, 'evidence', `/uploads/${file.filename}`);
+    return this.logisticsService.attachFile(id, 'evidence', privateFileUrl(file.filename));
   }
 }

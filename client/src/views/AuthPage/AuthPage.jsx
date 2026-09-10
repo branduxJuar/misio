@@ -158,14 +158,12 @@ export default function AuthPage() {
     setGoogleLoading(true);
     try {
       const res = await api('/auth/google', { method: 'POST', body: { credential: credentialResponse.credential } });
-      localStorage.setItem('token', res.accessToken);
-      localStorage.setItem('refreshToken', res.refreshToken);
-      localStorage.setItem('user', JSON.stringify(res.user));
+      const session = setExternalSession(res);
 
-      if (!res.user?.isProfileComplete) {
+      if (!session.user?.isProfileComplete) {
         setCompleteProfileOpen(true);
       } else {
-        msgApi.success(`¡Bienvenido, ${res.user.name}! ⚡`);
+        msgApi.success(`¡Bienvenido, ${session.user.name}! ⚡`);
         setTimeout(() => navigate('/mi-cuenta', { replace: true }), 50);
       }
     } catch (err) {
@@ -222,18 +220,9 @@ export default function AuthPage() {
 
   const handleGoogleToken = async (access_token) => {
     try {
-      const userInfo = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${access_token}` },
-      }).then(r => r.json());
-
       const res = await api('/auth/google-userinfo', {
         method: 'POST',
-        body: {
-          email: userInfo.email,
-          name: userInfo.name,
-          googleId: userInfo.sub,
-          picture: userInfo.picture,
-        },
+        body: { accessToken: access_token },
       });
 
       const updatedRes = setExternalSession(res);
@@ -413,15 +402,11 @@ export default function AuthPage() {
         requiredMark={false}
         onFinish={async (values) => {
           try {
-            const token = localStorage.getItem('token');
             const res = await api('/auth/complete-profile', {
               method: 'POST',
               body: { dni: values.dni, phone: values.phone },
-              headers: { Authorization: `Bearer ${token}` },
             });
-            localStorage.setItem('token', res.accessToken);
-            localStorage.setItem('refreshToken', res.refreshToken);
-            localStorage.setItem('user', JSON.stringify(res.user));
+            setExternalSession(res);
             setCompleteProfileOpen(false);
             msgApi.success('¡Perfil completado! Ya puedes comprar y recargar. 🎉');
             setTimeout(() => navigate('/mi-cuenta', { replace: true }), 100);

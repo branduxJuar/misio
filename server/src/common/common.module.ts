@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { HealthController } from './health.controller';
 import { WsRateLimiter } from './ws-rate-limiter';
+import { PrivateFilesController } from './private-files.controller';
 
 /**
  * Piezas transversales: sondas de salud y utilidades compartidas.
@@ -9,7 +10,7 @@ import { WsRateLimiter } from './ws-rate-limiter';
  */
 @Global()
 @Module({
-  controllers: [HealthController],
+  controllers: [HealthController, PrivateFilesController],
   providers: [WsRateLimiter],
   exports: [WsRateLimiter],
 })

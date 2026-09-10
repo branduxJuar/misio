@@ -84,8 +84,9 @@ export default function MiPerfil() {
       phone: profile.phone,
       altContact: profile.altContact,
       addressLine1: profile.address?.line1,
+      addressLine2: profile.address?.reference,
       city: profile.address?.city,
-      region: profile.address?.region,
+      state: profile.address?.region,
       reference: profile.address?.reference,
     });
   }, [profile]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -101,7 +102,12 @@ export default function MiPerfil() {
           dni: v.dni,
           phone: v.phone,
           altContact: v.altContact,
-          address: { line1: v.addressLine1, city: v.city, region: v.state, reference: v.reference },
+          address: {
+            line1: v.addressLine1,
+            city: v.city,
+            region: v.state,
+            reference: v.reference || v.addressLine2,
+          },
         },
       });
       msgApi.success('Perfil actualizado ✓ — con tu dirección ya podemos enviarte lo que ganes.');
@@ -585,7 +591,12 @@ export default function MiPerfil() {
                   </Col>
                   <Col xs={24} md={12}>
                     <Form.Item name="addressLine2" label="Referencia (Opcional)">
-                      <Input size="large" placeholder="Frente al parque" style={{ borderRadius: 8 }} />
+                      <Input
+                        size="large"
+                        placeholder="Frente al parque"
+                        style={{ borderRadius: 8 }}
+                        onChange={(e) => form.setFieldValue('reference', e.target.value)}
+                      />
                     </Form.Item>
                   </Col>
                   <Col xs={12} md={12}>
@@ -600,7 +611,12 @@ export default function MiPerfil() {
                   </Col>
                   </Row>
                   <Form.Item name="reference" label={<Text strong style={{ color: '#334155' }}>Referencia para el courier</Text>}>
-                    <Input size="large" placeholder="Frente al parque, portón negro" style={{ borderRadius: 8 }} />
+                    <Input
+                      size="large"
+                      placeholder="Frente al parque, portón negro"
+                      style={{ borderRadius: 8 }}
+                      onChange={(e) => form.setFieldValue('addressLine2', e.target.value)}
+                    />
                   </Form.Item>
                   <Button 
                     type="primary" 
