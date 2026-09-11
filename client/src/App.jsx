@@ -404,7 +404,7 @@ function PublicShell() {
             display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden', textOverflow: 'ellipsis' }}
         >
           {site.logoUrl ? (
-            <img src={`${SERVER_URL}${site.logoUrl}`} alt={site.brandName} style={{ height: 28, objectFit: 'contain' }} />
+            <img src={`${SERVER_URL}${site.logoUrl}`} alt={site.brandName} width="28" height="28" style={{ height: 28, width: 28, objectFit: 'contain' }} />
           ) : site.loading ? (
             <Skeleton.Avatar active size="small" shape="circle" style={{ width: 28, height: 28, minWidth: 28 }} />
           ) : (
