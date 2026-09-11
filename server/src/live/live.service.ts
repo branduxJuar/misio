@@ -5,6 +5,7 @@ import { Model } from 'mongoose';
 import { DrawMode, Raffle, RaffleDocument, RaffleStatus } from '../raffles/raffle.schema';
 import { Ticket, TicketDocument, TicketStatus } from '../tickets/ticket.schema';
 import { ClosingSummary, RaffleClosingService } from '../raffles/raffle-closing.service';
+import { DistributedLockService } from '../common/distributed-lock.service';
 
 /**
  * Máscara de privacidad: "Brandon Juarez Pérez" → "BRAN… JUA…".
@@ -43,6 +44,7 @@ export class LiveService {
     @InjectModel(Raffle.name) private raffleModel: Model<RaffleDocument>,
     @InjectModel(Ticket.name) private ticketModel: Model<TicketDocument>,
     private readonly closingService: RaffleClosingService,
+    private readonly lockService: DistributedLockService,
   ) {}
 
   /**
@@ -125,6 +127,15 @@ export class LiveService {
    *   (Los reembolsos Cero Pérdida masivos se disparan en la Iteración 4.)
    */
   async drawNext(raffleId: string, prizeIndex: number = -1): Promise<DrawResult> {
+    const release = await this.lockService.acquire(`raffle-draw:${raffleId}:${prizeIndex}`);
+    try {
+      return await this.drawNextOnce(raffleId, prizeIndex);
+    } finally {
+      await release();
+    }
+  }
+
+  private async drawNextOnce(raffleId: string, prizeIndex: number = -1): Promise<DrawResult> {
     const raffle = await this.raffleModel.findById(raffleId);
     if (!raffle) throw new NotFoundException('Rifa no existe');
 
@@ -252,6 +263,15 @@ export class LiveService {
    * activo, y aplica la misma secuencia al agua/ganador que la virtual.
    */
   async drawSpecific(raffleId: string, ticketNumber: number, prizeIndex: number = -1): Promise<DrawResult> {
+    const release = await this.lockService.acquire(`raffle-draw:${raffleId}:${prizeIndex}`);
+    try {
+      return await this.drawSpecificOnce(raffleId, ticketNumber, prizeIndex);
+    } finally {
+      await release();
+    }
+  }
+
+  private async drawSpecificOnce(raffleId: string, ticketNumber: number, prizeIndex: number = -1): Promise<DrawResult> {
     const raffle = await this.raffleModel.findById(raffleId);
     if (!raffle) throw new NotFoundException('Rifa no existe');
     if (raffle.status !== RaffleStatus.LIVE) {

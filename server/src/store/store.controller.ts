@@ -1,5 +1,5 @@
 import {
-  BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post,
+  BadRequestException, Body, Controller, Delete, Get, Headers, Param, Patch, Post,
   Query, UploadedFiles, UseGuards, UseInterceptors,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
@@ -26,16 +26,17 @@ export class StoreController {
   @Post('checkout')
   checkout(
     @CurrentUser() user: AuthUser,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body() dto: CheckoutDto,
   ) {
-    return this.storeService.checkout(user.userId, dto.items ?? [], dto.delivery);
+    return this.storeService.checkout(user.userId, dto.items ?? [], dto.delivery, idempotencyKey);
   }
 
   /** POST /api/v1/store/redeem — canjear con saldo Misio (autenticado). */
   @UseGuards(JwtAuthGuard)
   @Post('redeem')
-  redeem(@CurrentUser() user: AuthUser, @Body() dto: RedeemDto) {
-    return this.storeService.redeem(user.userId, dto.itemId);
+  redeem(@CurrentUser() user: AuthUser, @Headers('idempotency-key') idempotencyKey: string | undefined, @Body() dto: RedeemDto) {
+    return this.storeService.redeem(user.userId, dto.itemId, idempotencyKey);
   }
 
   @UseGuards(JwtAuthGuard)

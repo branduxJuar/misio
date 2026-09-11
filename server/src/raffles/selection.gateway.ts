@@ -3,6 +3,7 @@ import {
   WebSocketGateway, WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { RealtimeStateService } from '../common/realtime-state.service';
 
 const room = (raffleId: string) => `sel:${raffleId}`;
 const HOLD_MS = 3 * 60 * 1000; // Una selección "viva" dura máx. 3 min sin renovarse
@@ -22,13 +23,17 @@ interface Hold { socketId: string; expiresAt: number }
  * Si Brandux cierra la pestaña o pasan 3 min, sus números se liberan
  * solos para todos.
  */
-@WebSocketGateway({ namespace: '/selection', cors: { origin: '*' } })
+const selectionOrigins = (process.env.CLIENT_URL ?? 'http://localhost:5173').split(',').map((origin) => origin.trim());
+
+@WebSocketGateway({ namespace: '/selection', cors: { origin: selectionOrigins } })
 export class SelectionGateway implements OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
   /** raffleId → (ticketNumber → hold) */
   private holds = new Map<string, Map<number, Hold>>();
+
+  constructor(private readonly realtimeState: RealtimeStateService) {}
 
   private roomHolds(raffleId: string) {
     if (!this.holds.has(raffleId)) this.holds.set(raffleId, new Map());
@@ -50,19 +55,24 @@ export class SelectionGateway implements OnGatewayDisconnect {
   }
 
   @SubscribeMessage('join_selection')
-  join(@ConnectedSocket() socket: Socket, @MessageBody() body: { raffleId: string }) {
+  async join(@ConnectedSocket() socket: Socket, @MessageBody() body: { raffleId: string }) {
     socket.join(room(body.raffleId));
     socket.data.raffleId = body.raffleId;
     // Estado actual solo para el recién llegado
-    return { numbers: this.liveNumbers(body.raffleId) };
+    return { numbers: (await this.realtimeState.getSelectionHolds(body.raffleId)) ?? this.liveNumbers(body.raffleId) };
   }
 
   /** El cliente manda SU selección completa (idempotente y simple). */
   @SubscribeMessage('set_selection')
-  setSelection(
+  async setSelection(
     @ConnectedSocket() socket: Socket,
     @MessageBody() body: { raffleId: string; numbers: number[] },
   ) {
+    const distributed = await this.realtimeState.setSelection(body.raffleId, socket.id, body.numbers ?? []);
+    if (distributed) {
+      this.server.to(room(body.raffleId)).emit('selection_update', { numbers: distributed });
+      return { ok: true };
+    }
     const map = this.roomHolds(body.raffleId);
     // Retirar lo que este socket tenía y ya no tiene
     for (const [n, h] of map) {
@@ -81,9 +91,14 @@ export class SelectionGateway implements OnGatewayDisconnect {
   }
 
   /** Al cerrar la pestaña, sus números se liberan para todos. */
-  handleDisconnect(socket: Socket) {
+  async handleDisconnect(socket: Socket) {
     const raffleId = socket.data?.raffleId;
     if (!raffleId) return;
+    const distributed = await this.realtimeState.removeSelectionSocket(raffleId, socket.id);
+    if (distributed) {
+      this.server.to(room(raffleId)).emit('selection_update', { numbers: distributed });
+      return;
+    }
     const map = this.roomHolds(raffleId);
     for (const [n, h] of map) if (h.socketId === socket.id) map.delete(n);
     this.broadcast(raffleId);

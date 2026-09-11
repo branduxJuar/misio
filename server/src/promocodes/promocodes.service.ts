@@ -32,11 +32,11 @@ export class PromoCodesService {
   }
 
   /** Valida si un usuario puede usar un código para un propósito específico */
-  async validate(code: string, userId: string, expectedType?: PromoCodeType) {
+  async validate(code: string, userId: string, expectedType?: PromoCodeType, session?: ClientSession) {
     if (!code) throw new BadRequestException('Código no proporcionado');
     const upperCode = code.toUpperCase();
 
-    const promo = await this.promoCodeModel.findOne({ code: upperCode });
+    const promo = await this.promoCodeModel.findOne({ code: upperCode }).session(session ?? null);
     if (!promo) {
       throw new NotFoundException('El código promocional no es válido o no existe.');
     }
@@ -57,7 +57,7 @@ export class PromoCodesService {
     const userUsages = await this.usageModel.countDocuments({ 
       promoCodeId: promo._id, 
       userId: new Types.ObjectId(userId) 
-    });
+    }).session(session ?? null);
 
     if (userUsages >= promo.maxUsesPerUser) {
       throw new BadRequestException('Ya has alcanzado el límite de usos para este código.');
@@ -68,7 +68,7 @@ export class PromoCodesService {
 
   /** Aplica el código y registra su uso (debe llamarse DENTRO de una transacción o tras confirmarla) */
   async apply(code: string, userId: string, referenceId?: string | Types.ObjectId, session?: ClientSession) {
-    const promo = await this.validate(code, userId);
+    const promo = await this.validate(code, userId, undefined, session);
 
     // Registrar el uso
     await this.usageModel.create([{

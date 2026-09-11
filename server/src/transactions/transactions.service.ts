@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { ClientSession, Model, Types } from 'mongoose';
+import { ClientSession, Connection, Model, Types } from 'mongoose';
+import { InjectConnection } from '@nestjs/mongoose';
 import {
   Transaction,
   TransactionDocument,
@@ -10,15 +11,35 @@ import {
 import { UsersService } from '../users/users.service';
 import { PromoCodesService } from '../promocodes/promocodes.service';
 import { MailService } from '../auth/mail.service';
+import { IdempotencyService } from '../common/idempotency.service';
 
 @Injectable()
 export class TransactionsService {
   constructor(
     @InjectModel(Transaction.name) private txModel: Model<TransactionDocument>,
+    @InjectConnection() private readonly connection: Connection,
     private readonly usersService: UsersService,
     private readonly promoCodesService: PromoCodesService,
     private readonly mailService: MailService,
+    private readonly idempotencyService: IdempotencyService,
   ) {}
+
+  private async supportsTransactions() {
+    const hello = await this.connection.db?.admin().command({ hello: 1 });
+    return !!hello?.setName || hello?.msg === 'isdbgrid';
+  }
+
+  claimIdempotency(scope: string, key: string | undefined, userId: string) {
+    return this.idempotencyService.claim(scope, key, userId);
+  }
+
+  completeIdempotency(id: Types.ObjectId, response: Record<string, any>) {
+    return this.idempotencyService.complete(id, response);
+  }
+
+  failIdempotency(id: Types.ObjectId) {
+    return this.idempotencyService.fail(id);
+  }
 
   /**
    * Historial de movimientos de la billetera (UserDashboard).
@@ -211,6 +232,36 @@ export class TransactionsService {
    * doble confirmación (dos admins a la vez) NO acredite el saldo dos veces.
    */
   async confirmDeposit(txId: string, shiftId?: string) {
+    if (await this.supportsTransactions()) return this.confirmDepositAtomic(txId, shiftId);
+    return this.confirmDepositLegacy(txId, shiftId);
+  }
+
+  private async confirmDepositAtomic(txId: string, shiftId?: string) {
+    const session = await this.connection.startSession();
+    let result: TransactionDocument | null = null;
+    try {
+      await session.withTransaction(async () => {
+        const tx = await this.txModel.findOneAndUpdate(
+          { _id: txId, status: TransactionStatus.PENDING, type: TransactionType.DEPOSIT_YAPE },
+          { status: TransactionStatus.COMPLETED, shiftId },
+          { new: true, session },
+        );
+        if (!tx) throw new BadRequestException('Depósito no existe, ya fue procesado o no es un depósito');
+        let finalAmount = tx.amount;
+        if (tx.meta?.promoCode && tx.meta?.promoValue) {
+          finalAmount += tx.amount * (tx.meta.promoValue / 100);
+          await this.promoCodesService.apply(tx.meta.promoCode, tx.userId.toString(), tx._id, session);
+        }
+        await this.usersService.adjustWallet(tx.userId.toString(), finalAmount, session);
+        result = tx;
+      });
+      return result;
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  private async confirmDepositLegacy(txId: string, shiftId?: string) {
     const tx = await this.txModel.findOneAndUpdate(
       { _id: txId, status: TransactionStatus.PENDING, type: TransactionType.DEPOSIT_YAPE },
       { status: TransactionStatus.COMPLETED, shiftId },

@@ -17,6 +17,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { SettingsModule } from '../settings/settings.module';
 import { InboxModule } from '../inbox/inbox.module';
+import { CommonModule } from '../common/common.module';
+import { JobsModule } from '../jobs/jobs.module';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { InboxModule } from '../inbox/inbox.module';
     ]),
     NotificationsModule, // Avisos de aplazamiento/cancelación a compradores
     TransactionsModule, // Números en proceso de compra (pagos pendientes)
+    CommonModule,
+    JobsModule,
     JwtModule.registerAsync({
       // Tokens de 5 min para el link público de la lista de boletos
       inject: [ConfigService],

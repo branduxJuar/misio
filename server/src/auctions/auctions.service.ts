@@ -16,6 +16,7 @@ import {
 } from '../transactions/transaction.schema';
 import { LogisticsERP, LogisticsERPDocument } from '../logistics/logistics.schema';
 import { maskName } from '../common/mask-name.util';
+import { DistributedLockService } from '../common/distributed-lock.service';
 
 export const AUCTIONS_FLAG_KEY = 'auctions';
 
@@ -48,6 +49,7 @@ export class AuctionsService {
     private readonly usersService: UsersService,
     private readonly settingsService: SettingsService,
     private readonly notifService: NotificationsService,
+    private readonly lockService: DistributedLockService,
   ) {}
 
   /** ¿El admin tiene el módulo encendido? */
@@ -156,7 +158,11 @@ export class AuctionsService {
     const prev = this.locks.get(auctionId) ?? Promise.resolve();
     const task = prev
       .catch(() => {}) // El error de la puja anterior no bloquea la cadena
-      .then(() => this.doPlaceBid(userId, userName, auctionId, Math.floor(amount)));
+      .then(async () => {
+        const release = await this.lockService.acquire(`auction-bid:${auctionId}`, 15_000);
+        try { return await this.doPlaceBid(userId, userName, auctionId, Math.floor(amount)); }
+        finally { await release(); }
+      });
     this.locks.set(auctionId, task);
     return task;
   }
@@ -229,19 +235,22 @@ export class AuctionsService {
   async buyNow(userId: string, userName: string, auctionId: string) {
     const prev = this.locks.get(auctionId) ?? Promise.resolve();
     const task = prev.catch(() => {}).then(async () => {
-      await this.assertEnabled();
-      const auction = await this.auctionModel.findById(auctionId);
-      if (!auction || auction.status !== AuctionStatus.LIVE) {
-        throw new BadRequestException('La subasta no está en vivo');
-      }
-      if (!auction.buyNowPrice) throw new BadRequestException('Esta subasta no tiene "Cómpralo ya"');
-      if (!auction.enrolled.some((e) => e.toString() === userId)) {
-        throw new ForbiddenException('Debes matricularte para comprar');
-      }
+      const release = await this.lockService.acquire(`auction-bid:${auctionId}`, 15_000);
+      try {
+        await this.assertEnabled();
+        const auction = await this.auctionModel.findById(auctionId);
+        if (!auction || auction.status !== AuctionStatus.LIVE) {
+          throw new BadRequestException('La subasta no está en vivo');
+        }
+        if (!auction.buyNowPrice) throw new BadRequestException('Esta subasta no tiene "Cómpralo ya"');
+        if (!auction.enrolled.some((e) => e.toString() === userId)) {
+          throw new ForbiddenException('Debes matricularte para comprar');
+        }
 
-      // Retener + consumir en el acto (mismo camino del dinero que una puja ganadora)
-      await this.usersService.holdFunds(userId, auction.buyNowPrice);
-      return this.finalize(auction, { userId, name: userName, amount: auction.buyNowPrice });
+        // Retener + consumir en el acto (mismo camino del dinero que una puja ganadora)
+        await this.usersService.holdFunds(userId, auction.buyNowPrice);
+        return this.finalize(auction, { userId, name: userName, amount: auction.buyNowPrice });
+      } finally { await release(); }
     });
     this.locks.set(auctionId, task);
     return task;

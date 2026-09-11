@@ -4,6 +4,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcrypt';
 import { ClientSession, Model, Types } from 'mongoose';
 import { ADMIN_MODULES, DEFAULT_PERMISSIONS, User, UserDocument, UserRole } from './user.schema';
+import { RealtimeStateService } from '../common/realtime-state.service';
 
 @Injectable()
 export class UsersService {
@@ -11,10 +12,14 @@ export class UsersService {
   private activeUsers = new Map<string, { start: number, last: number }>();
   private readonly logger = new Logger(UsersService.name);
 
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly realtimeState: RealtimeStateService,
+  ) {}
 
   /** Actualiza el timestamp del usuario indicando que está activo */
-  pingPresence(userId: string) {
+  async pingPresence(userId: string) {
+    await this.realtimeState.pingPresence(userId);
     const now = Date.now();
     const existing = this.activeUsers.get(userId);
     if (existing) {
@@ -26,6 +31,13 @@ export class UsersService {
 
   /** Devuelve los usuarios activos en los últimos `minutes` */
   async getActiveUsers(minutes = 5): Promise<any[]> {
+    const distributed = await this.realtimeState.getPresence(minutes);
+    if (distributed) {
+      const users = await this.userModel.find({ _id: { $in: distributed.map((entry) => entry.id) } })
+        .select('name dni phone email role').lean();
+      const starts = new Map(distributed.map((entry) => [entry.id, entry.start]));
+      return users.map((u) => ({ ...u, sessionStart: starts.get(u._id.toString()) ?? Date.now() }));
+    }
     const cutoff = Date.now() - minutes * 60 * 1000;
     const activeSessions = Array.from(this.activeUsers.entries())
       .filter(([_, session]) => session.last > cutoff);

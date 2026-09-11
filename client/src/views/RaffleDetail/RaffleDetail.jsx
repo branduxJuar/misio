@@ -312,6 +312,7 @@ export default function RaffleDetail() {
     try {
       const res = await api('/tickets/purchase', {
         method: 'POST',
+        idempotencyKey: crypto.randomUUID(),
         body: { 
           raffleId: id, 
           ticketNumbers: cart,

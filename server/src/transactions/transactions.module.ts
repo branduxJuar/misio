@@ -7,6 +7,7 @@ import { UsersModule } from '../users/users.module';
 import { PromoCodesModule } from '../promocodes/promocodes.module';
 
 import { AuthModule } from '../auth/auth.module';
+import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { AuthModule } from '../auth/auth.module';
     UsersModule,
     PromoCodesModule,
     forwardRef(() => AuthModule),
+    CommonModule,
   ],
   controllers: [TransactionsController],
   providers: [TransactionsService],

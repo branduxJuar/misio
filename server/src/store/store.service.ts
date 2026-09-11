@@ -12,6 +12,7 @@ import { NotificationType } from '../notifications/notification.schema';
 import { InboxService } from '../inbox/inbox.service';
 import { MailService } from '../auth/mail.service';
 import { PushService } from '../notifications/push.service';
+import { IdempotencyService } from '../common/idempotency.service';
 
 @Injectable()
 export class StoreService {
@@ -24,6 +25,7 @@ export class StoreService {
     private readonly inbox: InboxService,
     private readonly mailService: MailService,
     private readonly pushService: PushService,
+    private readonly idempotencyService: IdempotencyService,
   ) {}
 
   // ── Catálogo ────────────────────────────────────────────────────
@@ -77,6 +79,24 @@ export class StoreService {
    *     con sus líneas + notificación.
    */
   async checkout(
+    userId: string,
+    cart: { itemId: string; qty: number }[],
+    delivery?: { address?: string; reference?: string; phone?: string; email?: string; note?: string },
+    idempotencyKey?: string,
+  ) {
+    const claim = await this.idempotencyService.claim('store.checkout', idempotencyKey, userId);
+    if (claim?.kind === 'replay') return claim.response;
+    try {
+      const result = await this.checkoutOnce(userId, cart, delivery);
+      if (claim?.kind === 'new') await this.idempotencyService.complete(claim.id, result as any);
+      return result;
+    } catch (error) {
+      if (claim?.kind === 'new') await this.idempotencyService.fail(claim.id);
+      throw error;
+    }
+  }
+
+  private async checkoutOnce(
     userId: string,
     cart: { itemId: string; qty: number }[],
     delivery?: { address?: string; reference?: string; phone?: string; email?: string; note?: string },
@@ -236,8 +256,8 @@ export class StoreService {
   }
 
   /** Canje de un solo producto (compatibilidad): checkout de 1 línea. */
-  redeem(userId: string, itemId: string) {
-    return this.checkout(userId, [{ itemId, qty: 1 }]);
+  redeem(userId: string, itemId: string, idempotencyKey?: string) {
+    return this.checkout(userId, [{ itemId, qty: 1 }], undefined, idempotencyKey);
   }
 
   findMyRedemptions(userId: string) {

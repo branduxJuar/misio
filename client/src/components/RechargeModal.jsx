@@ -81,6 +81,7 @@ export default function RechargeModal({
     try {
       await api('/transactions/deposit', {
         method: 'POST',
+        idempotencyKey: crypto.randomUUID(),
         body: {
           amount,
           type: 'deposit_yape',

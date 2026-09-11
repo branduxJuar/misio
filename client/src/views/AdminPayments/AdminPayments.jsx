@@ -199,7 +199,7 @@ export default function AdminPayments() {
     if (guardDemo()) return;
     setProcessing(id);
     try {
-      const res = await api(`/payments/${id}/${action}`, { method: 'PATCH' });
+      const res = await api(`/payments/${id}/${action}`, { method: 'PATCH', idempotencyKey: crypto.randomUUID() });
       if (action === 'confirm') {
         if (res.autoPurchase === 'ok') {
           msgApi.success(`Saldo acreditado + AUTO-COMPRA ejecutada: ${res.detail} 🎟️`, 7);
