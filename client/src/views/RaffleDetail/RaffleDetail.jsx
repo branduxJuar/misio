@@ -320,8 +320,20 @@ export default function RaffleDetail() {
         },
       });
       msgApi.success(
-        `¡Tuyos! ${res.tickets.map((t) => t.code || `#${t.ticketNumber}`).join(', ')} — S/ ${res.totalPaid} pagados con tu Misio.`,
-        7,
+        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+          <span>
+            ¡Compra confirmada! Tus boletos: {res.tickets.map((t) => t.code || `#${t.ticketNumber}`).join(', ')}.
+          </span>
+          <Button
+            size="small"
+            type="primary"
+            onClick={() => navigate('/mi-cuenta?tab=3')}
+            style={{ background: MISIO_COLORS.primary, borderColor: MISIO_COLORS.primary }}
+          >
+            🎟️ Ver mis boletos comprados
+          </Button>
+        </Space>,
+        8,
       );
       socketRef.current?.emit('grid_purchased', { raffleId: id, numbers: cart });
       refreshUser?.();
