@@ -107,6 +107,11 @@ export default function UserDashboard() {
   const myRedemptions = rawMyRedemptions || [];
 
   const tickets = rawTickets.map(normalizeTicket);
+  // El contador representa solo boletos que todavía participan en rifas
+  // abiertas o en vivo; el historial completo sigue visible en la pestaña.
+  const ticketsInPlay = tickets.filter((ticket) =>
+    ticket.status === 'active' && ['active', 'live'].includes(ticket.raffleStatus),
+  );
   const transactions = rawTxs.map(normalizeTx);
   const balance = Number(profile.walletBalance ?? 0);
   const playingBalance = tickets
@@ -127,9 +132,9 @@ export default function UserDashboard() {
     },
     {
       key: '3',
-      label: 'Mis Boletos',
+      label: 'Mis boletos comprados',
       icon: '🎟️',
-      badge: tickets.length > 0 ? tickets.length : null,
+      badge: ticketsInPlay.length > 0 ? ticketsInPlay.length : null,
     },
     {
       key: '4',
@@ -288,6 +293,9 @@ export default function UserDashboard() {
               )
             }))}
           />
+          <div style={{ marginTop: 8, color: MISIO_COLORS.textMuted, fontSize: 12, textAlign: 'center' }}>
+            Selecciona <strong>Mis boletos comprados</strong> para ver tus números.
+          </div>
         </div>
       ) : (
         <div className="misio-tabs-container">

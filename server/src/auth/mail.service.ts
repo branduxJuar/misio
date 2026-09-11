@@ -153,6 +153,50 @@ export class MailService {
       `));
   }
 
+  /** Confirmación de compra directa de boletos (saldo Misio o compra automática). */
+  async sendTicketPurchaseConfirmation(
+    email: string,
+    name: string,
+    raffleId: string,
+    raffleTitle: string,
+    raffleDate: Date,
+    tickets: string[],
+  ) {
+    const baseUrl = process.env.CLIENT_URL ?? 'https://misio.pe';
+    const raffleUrl = `${baseUrl}/rifa/${raffleId}`;
+    const drawDateFormatted = new Intl.DateTimeFormat('es-PE', {
+      dateStyle: 'long',
+      timeStyle: 'short',
+    }).format(new Date(raffleDate));
+    const ticketsHtml = tickets.map((ticketCode) => `
+      <div style="background:#fff;border:1px solid #dbeafe;border-radius:12px;padding:14px 16px;margin:10px 0;text-align:center">
+        <div style="font-size:11px;color:#64748b;text-transform:uppercase">Boleto comprado</div>
+        <div style="font-size:22px;font-weight:900;color:#047857;margin-top:5px">${ticketCode}</div>
+      </div>
+    `).join('');
+
+    return this.send(email, `🎟️ Compra confirmada: ${raffleTitle} — Misio`,
+      this.wrap(`
+        <h2 style="color:#047857;text-align:center">¡Compra confirmada, ${name}! 🎉</h2>
+        <p style="text-align:center;font-size:15px;color:#334155">
+          Tus boletos fueron comprados correctamente para el sorteo <b>"${raffleTitle}"</b>.
+        </p>
+        <div style="background:#ecfdf5;border:1px solid #10b981;border-radius:12px;padding:16px;margin:20px 0">
+          <p style="margin:0;color:#065f46"><b>Fecha del sorteo:</b> ${drawDateFormatted}</p>
+          <p style="margin:8px 0 0;color:#065f46"><b>Tus boletos:</b></p>
+          ${ticketsHtml}
+        </div>
+        <p style="text-align:center;color:#475569;font-size:14px">
+          El día del sorteo podrás ver la transmisión y el resultado entrando a este mismo panel de compra.
+        </p>
+        <div style="text-align:center;margin:20px 0">
+          <a href="${raffleUrl}" style="display:inline-block;padding:12px 26px;background:#0d9488;color:#fff;border-radius:10px;text-decoration:none;font-weight:700">
+            Ver mi sorteo →
+          </a>
+        </div>
+      `));
+  }
+
   /** ⛔ Cuenta suspendida por spam en recuperación de clave. */
   async sendAccountBannedForSpam(email: string, name: string) {
     return this.send(email, '⛔ Tu cuenta ha sido bloqueada por seguridad — Misio',

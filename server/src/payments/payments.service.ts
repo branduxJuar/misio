@@ -265,22 +265,27 @@ export class PaymentsService {
       name: user?.name ?? 'Usuario',
       amount: Number(tx.amount ?? 0),
     };
-    const notificationQueued = await this.jobsService.enqueuePaymentNotification(paymentJob);
-    const emailQueued = user?.email
-      ? await this.jobsService.enqueuePaymentEmail({ email: user.email, name: user.name ?? 'Usuario', amount: paymentJob.amount })
-      : true;
-    if (!notificationQueued) {
-      try {
-        await this.notifService.notifyUser(
-          userId,
-          `✅ Tu recarga de S/ ${Number(tx.amount ?? 0).toFixed(2)} fue confirmada y ya está en tu Billetera Misio.`,
-          NotificationType.GENERAL,
-        );
-      } catch { /* la notificación nunca bloquea el abono */ }
-    }
-    if (!emailQueued && user?.email) {
-      try { await this.mailService.sendPaymentConfirmed(user.email, user.name ?? 'Usuario', paymentJob.amount); }
-      catch { /* el correo nunca bloquea el abono */ }
+    const hasTicketIntent = Boolean(tx.meta?.raffleId && tx.meta?.ticketNumbers?.length);
+    // Una compra iniciada desde el carrito no es una recarga: esperamos a
+    // completar la compra para enviar el comprobante correcto.
+    if (!hasTicketIntent) {
+      const notificationQueued = await this.jobsService.enqueuePaymentNotification(paymentJob);
+      const emailQueued = user?.email
+        ? await this.jobsService.enqueuePaymentEmail({ email: user.email, name: user.name ?? 'Usuario', amount: paymentJob.amount })
+        : true;
+      if (!notificationQueued) {
+        try {
+          await this.notifService.notifyUser(
+            userId,
+            `✅ Tu recarga de S/ ${Number(tx.amount ?? 0).toFixed(2)} fue confirmada y ya está en tu Billetera Misio.`,
+            NotificationType.GENERAL,
+          );
+        } catch { /* la notificación nunca bloquea el abono */ }
+      }
+      if (!emailQueued && user?.email) {
+        try { await this.mailService.sendPaymentConfirmed(user.email, user.name ?? 'Usuario', paymentJob.amount); }
+        catch { /* el correo nunca bloquea el abono */ }
+      }
     }
 
     let autoPurchase: 'ok' | 'failed' | null = null;
@@ -329,6 +334,12 @@ export class PaymentsService {
           `⚠️ Tu pago se confirmó y el saldo está en tu billetera, pero la compra automática falló: ${detail}. Entra a la rifa y elige tus números — tu saldo te espera.`,
           NotificationType.GENERAL,
         );
+        // El saldo sí fue confirmado, pero la compra no pudo completarse:
+        // en este caso sí corresponde informar la recarga acreditada.
+        if (user?.email) {
+          this.mailService.sendPaymentConfirmed(user.email, user.name ?? 'Usuario', paymentJob.amount)
+            .catch(() => {});
+        }
         try { this.liveGateway.notifyReleased(String(intentRaffle), intentNumbers); } catch { /* ignore ws err */ }
       }
       this.logger.log(`Auto-compra tras depósito ${txId}: ${autoPurchase} (${detail})`);

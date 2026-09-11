@@ -169,6 +169,7 @@ export class TicketsService {
       const session = useTx ? await this.connection.startSession() : null;
       try {
         let result: { tickets: TicketDocument[]; totalPaid: number } | undefined;
+        let purchaseInfo: { title: string; drawDate: Date; ticketPrefix: string; totalTickets: number } | undefined;
 
         const body = async () => {
           // 1. Rifa en venta
@@ -176,6 +177,12 @@ export class TicketsService {
           if (!raffle || raffle.status !== RaffleStatus.ACTIVE) {
             throw new BadRequestException('La rifa no está en venta');
           }
+          purchaseInfo = {
+            title: raffle.title,
+            drawDate: raffle.drawDate,
+            ticketPrefix: raffle.ticketPrefix,
+            totalTickets: raffle.totalTickets,
+          };
 
           // 2a. DELIMITADOR por usuario
           const alreadyOwned = await this.ticketModel
@@ -343,6 +350,20 @@ export class TicketsService {
         if (session) await session.withTransaction(body);
         else await body();
 
+        if (result && purchaseInfo && userProfile.email) {
+          const info = purchaseInfo;
+          const ticketCodes = result.tickets.map((ticket) => ticket.code || formatTicketCode(
+            info.ticketPrefix, ticket.ticketNumber, info.totalTickets,
+          ));
+          this.mailService.sendTicketPurchaseConfirmation(
+            userProfile.email,
+            userProfile.name,
+            raffleId,
+            info.title,
+            info.drawDate,
+            ticketCodes,
+          ).catch((error) => this.logger.warn(`No se pudo enviar confirmación de compra: ${error?.message ?? error}`));
+        }
         if (claim?.kind === 'new' && result) await this.idempotencyService.complete(claim.id, result as any);
         return result;
       } catch (err: any) {
