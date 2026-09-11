@@ -13,7 +13,9 @@ const room = (id: string) => `auction:${id}`;
  * TODO exige token (las subastas son solo para matriculados) y cada puja
  * valida dinero real con retención en AuctionsService.
  */
-@WebSocketGateway({ namespace: '/auctions', cors: { origin: '*' } })
+const auctionOrigins = (process.env.CLIENT_URL ?? 'http://localhost:5173').split(',').map((origin) => origin.trim());
+
+@WebSocketGateway({ namespace: '/auctions', cors: { origin: auctionOrigins } })
 export class AuctionsGateway {
   @WebSocketServer()
   server: Server;
@@ -34,7 +36,7 @@ export class AuctionsGateway {
   /** Entrar a la sala — SOLO matriculados (el admin entra como observador). */
   @SubscribeMessage('join_auction')
   async join(@ConnectedSocket() socket: Socket, @MessageBody() body: { auctionId: string }) {
-    const limited = this.wsLimit.check(socket, 'join_auction');
+    const limited = await this.wsLimit.check(socket, 'join_auction');
     if (limited) return { ok: false, error: limited };
     try {
       const { userId, role } = this.auth(socket);
@@ -52,7 +54,7 @@ export class AuctionsGateway {
    */
   @SubscribeMessage('watch_auction')
   async watch(@ConnectedSocket() socket: Socket, @MessageBody() body: { auctionId: string }) {
-    const limited = this.wsLimit.check(socket, 'watch_auction');
+    const limited = await this.wsLimit.check(socket, 'watch_auction');
     if (limited) return { ok: false, error: limited };
     try {
       const { role } = this.auth(socket);
@@ -77,7 +79,7 @@ export class AuctionsGateway {
     @MessageBody() body: { auctionId: string; amount: number },
   ) {
     // Anti-inundación: sin esto un bot dispara miles de pujas por segundo
-    const limited = this.wsLimit.check(socket, 'place_bid');
+    const limited = await this.wsLimit.check(socket, 'place_bid');
     if (limited) return { ok: false, error: limited };
     try {
       const { userId, name } = this.auth(socket);
@@ -92,7 +94,7 @@ export class AuctionsGateway {
   /** CÓMPRALO YA: cierre inmediato transmitido a la sala. */
   @SubscribeMessage('buy_now')
   async buyNow(@ConnectedSocket() socket: Socket, @MessageBody() body: { auctionId: string }) {
-    const limited = this.wsLimit.check(socket, 'buy_now');
+    const limited = await this.wsLimit.check(socket, 'buy_now');
     if (limited) return { ok: false, error: limited };
     try {
       const { userId, name } = this.auth(socket);

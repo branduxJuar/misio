@@ -113,7 +113,7 @@ export class LiveGateway implements OnGatewayConnection {
     @ConnectedSocket() socket: Socket,
     @MessageBody() body: { raffleId: string; prizeIndex?: number },
   ) {
-    const limited = this.wsLimit.check(socket, 'presenter_draw');
+    const limited = await this.wsLimit.check(socket, 'presenter_draw');
     if (limited) return { ok: false, error: limited };
     try {
       this.assertAdmin(socket);
@@ -155,7 +155,7 @@ export class LiveGateway implements OnGatewayConnection {
     @ConnectedSocket() socket: Socket,
     @MessageBody() body: { raffleId: string; numbers: number[] },
   ) {
-    const limited = this.wsLimit.check(socket, 'grid_select');
+    const limited = await this.wsLimit.check(socket, 'grid_select');
     if (limited) return { ok: false, error: limited };
     if (!body?.raffleId) return { ok: false };
     const numbers = (body.numbers ?? []).filter((n) => Number.isInteger(n)).slice(0, 60);
@@ -283,7 +283,7 @@ export class LiveGateway implements OnGatewayConnection {
     @ConnectedSocket() socket: Socket,
     @MessageBody() body: { raffleId: string; ticketNumber: number; prizeIndex?: number },
   ) {
-    const limited = this.wsLimit.check(socket, 'presenter_draw_manual');
+    const limited = await this.wsLimit.check(socket, 'presenter_draw_manual');
     if (limited) return { ok: false, error: limited };
     try {
       this.assertAdmin(socket);
@@ -307,14 +307,19 @@ export class LiveGateway implements OnGatewayConnection {
    * espectador puede reaccionar; los contadores se transmiten a la sala.
    */
   @SubscribeMessage('react')
-  react(
+  async react(
     @ConnectedSocket() socket: Socket,
     @MessageBody() body: { raffleId: string; reaction: 'like' | 'sad' },
   ) {
-    const limited = this.wsLimit.check(socket, 'react');
+    const limited = await this.wsLimit.check(socket, 'react');
     if (limited) return { ok: false, error: limited };
     if (!['like', 'sad'].includes(body?.reaction)) return { ok: false };
     const r = room(body.raffleId);
+    const distributed = await this.realtimeState.incrementReaction(body.raffleId, body.reaction);
+    if (distributed) {
+      this.server.to(r).emit('reaction_update', { like: distributed.like, sad: distributed.sad });
+      return { ok: true };
+    }
     const counts = this.reactions.get(r) ?? { like: 0, sad: 0 };
     counts[body.reaction] += 1;
     this.reactions.set(r, counts);

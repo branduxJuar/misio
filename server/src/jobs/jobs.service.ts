@@ -17,6 +17,12 @@ export interface RaffleNotificationJob {
   type: NotificationType;
 }
 
+export interface PaymentEmailJob {
+  email: string;
+  name: string;
+  amount: number;
+}
+
 @Injectable()
 export class JobsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(JobsService.name);
@@ -48,8 +54,25 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async enqueuePaymentConfirmed(data: PaymentConfirmedJob) {
+    const notificationQueued = await this.enqueuePaymentNotification(data);
+    const emailQueued = data.email ? await this.enqueuePaymentEmail({ email: data.email, name: data.name, amount: data.amount }) : true;
+    return notificationQueued && emailQueued;
+  }
+
+  async enqueuePaymentNotification(data: PaymentConfirmedJob) {
     if (!this.queue) return false;
-    await this.queue.add('payment-confirmed', data, {
+    await this.queue.add('payment-notification', data, {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 2_000 },
+      removeOnComplete: 1000,
+      removeOnFail: 5000,
+    });
+    return true;
+  }
+
+  async enqueuePaymentEmail(data: PaymentEmailJob) {
+    if (!this.queue) return false;
+    await this.queue.add('payment-email', data, {
       attempts: 3,
       backoff: { type: 'exponential', delay: 2_000 },
       removeOnComplete: 1000,
@@ -70,14 +93,18 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async process(job: Job) {
-    if (job.name === 'payment-confirmed') {
+    if (job.name === 'payment-notification') {
       const data = job.data as PaymentConfirmedJob;
       await this.notificationsService.notifyUser(
         data.userId,
         `✅ Tu recarga de S/ ${Number(data.amount).toFixed(2)} fue confirmada y ya está en tu Billetera Misio.`,
         NotificationType.GENERAL,
       );
-      if (data.email) await this.mailService.sendPaymentConfirmed(data.email, data.name, Number(data.amount));
+      return;
+    }
+    if (job.name === 'payment-email') {
+      const data = job.data as PaymentEmailJob;
+      await this.mailService.sendPaymentConfirmed(data.email, data.name, Number(data.amount));
       return;
     }
     if (job.name === 'raffle-notification') {

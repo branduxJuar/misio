@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Connection, Model, Types } from 'mongoose';
+import { InjectConnection } from '@nestjs/mongoose';
 import { Raffle, RaffleDocument, RaffleStatus } from './raffle.schema';
 import { Ticket, TicketDocument, TicketStatus } from '../tickets/ticket.schema';
 import {
@@ -47,6 +48,7 @@ export class RaffleClosingService {
   private readonly logger = new Logger(RaffleClosingService.name);
 
   constructor(
+    @InjectConnection() private readonly connection: Connection,
     @InjectModel(Raffle.name) private raffleModel: Model<RaffleDocument>,
     @InjectModel(Ticket.name) private ticketModel: Model<TicketDocument>,
     @InjectModel(Transaction.name) private txModel: Model<TransactionDocument>,
@@ -60,6 +62,36 @@ export class RaffleClosingService {
     @InjectModel(Partner.name) private partnerModel: Model<PartnerDocument>,
     private readonly lockService: DistributedLockService,
   ) {}
+
+  private async persistGroupedRefunds(
+    groups: { _id: Types.ObjectId; count: number }[],
+    amountFor: (count: number) => number,
+    wallet: 'canje' | 'contable',
+    source: string,
+  ) {
+    const write = async (session?: any) => {
+      await this.txModel.insertMany(
+        groups.map((g) => ({ userId: g._id, amount: amountFor(g.count), type: wallet === 'canje' ? TransactionType.CERO_PERDIDA_REFUND : TransactionType.RAFFLE_CANCELLED_REFUND, status: TransactionStatus.COMPLETED, wallet })),
+        { session },
+      );
+      const operations = groups.map((g) => {
+        const amount = amountFor(g.count);
+        const update: any = { $inc: { [wallet === 'canje' ? 'walletCanje' : 'walletBalance']: amount } };
+        if (wallet === 'canje') {
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + Number(process.env.CANJE_EXPIRATION_DAYS || 20));
+          update.$push = { canjeTranches: { amount, originalAmount: amount, expiresAt, source, createdAt: new Date() } };
+        }
+        return { updateOne: { filter: { _id: g._id }, update } };
+      });
+      await this.userModel.bulkWrite(operations, { session });
+    };
+    const hello = await this.connection.db?.admin().command({ hello: 1 });
+    if (!hello?.setName && hello?.msg !== 'isdbgrid') return write();
+    const session = await this.connection.startSession();
+    try { await session.withTransaction(() => write(session)); }
+    finally { await session.endSession(); }
+  }
 
   async closeRaffle(raffleId: string): Promise<ClosingSummary> {
     const release = await this.lockService.acquire(`raffle-close:${raffleId}`, 5 * 60_000);
@@ -87,6 +119,7 @@ export class RaffleClosingService {
       );
     }
 
+    let refundsApplied = false;
     try {
       const raffleOid = new Types.ObjectId(raffleId);
       const ridMatch: any = { $in: [raffleOid, String(raffleOid)] };
@@ -169,46 +202,8 @@ export class RaffleClosingService {
         const refundPct = await this.settingsService.getRefundPercentage();
         const refundMultiplier = refundPct / 100;
 
-        // Ledger: una transacción de reembolso por usuario
-        // 🎁 Cashback alimenta el SALDO DE CANJE (no el contable):
-        // solo compra artículos marcados como CANJE en la tienda.
-        await this.txModel.insertMany(
-          groups.map((g) => ({
-            userId: g._id,
-            amount: (raffle.ticketPrice * g.count) * refundMultiplier,
-            type: TransactionType.CERO_PERDIDA_REFUND,
-            status: TransactionStatus.COMPLETED,
-            wallet: 'canje',
-          })),
-        );
-
-        // Billeteras: incrementos masivos en un solo round-trip y registro de tramos
-        const expirationDays = Number(process.env.CANJE_EXPIRATION_DAYS || 20);
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + expirationDays);
-
-        await this.userModel.bulkWrite(
-          groups.map((g) => {
-            const amount = (raffle.ticketPrice * g.count) * refundMultiplier;
-            return {
-              updateOne: {
-                filter: { _id: g._id },
-                update: {
-                  $inc: { walletCanje: amount },
-                  $push: {
-                    canjeTranches: {
-                      amount,
-                      originalAmount: amount,
-                      expiresAt,
-                      source: raffle.title,
-                      createdAt: new Date(),
-                    },
-                  },
-                },
-              },
-            };
-          }),
-        );
+        await this.persistGroupedRefunds(groups, (count) => raffle.ticketPrice * count * refundMultiplier, 'canje', raffle.title);
+        refundsApplied = true;
 
         refundedTickets = groups.reduce((sum, g) => sum + g.count, 0);
         refundedTotal = groups.reduce((sum, g) => sum + ((raffle.ticketPrice * g.count) * refundMultiplier), 0);
@@ -317,8 +312,12 @@ export class RaffleClosingService {
       return summary;
     } catch (err) {
       // Liberar el candado para permitir reintento manual (POST /raffles/:id/close)
-      await this.raffleModel.updateOne({ _id: raffleId }, { refundsProcessed: false });
-      this.logger.error(`Cierre de rifa ${raffleId} falló, candado liberado`, err);
+      if (!refundsApplied) {
+        await this.raffleModel.updateOne({ _id: raffleId }, { refundsProcessed: false });
+        this.logger.error(`Cierre de rifa ${raffleId} falló, candado liberado`, err);
+      } else {
+        this.logger.error(`Cierre de rifa ${raffleId} completó el reembolso, pero falló una tarea posterior`, err);
+      }
       throw err;
     }
   }
@@ -331,6 +330,7 @@ export class RaffleClosingService {
    */
   async cancelRaffle(raffleId: string, reason: string) {
     const release = await this.lockService.acquire(`raffle-cancel:${raffleId}`, 5 * 60_000);
+    let refundsApplied = false;
     try {
       return await this.cancelRaffleOnce(raffleId, reason);
     } finally {
@@ -352,6 +352,7 @@ export class RaffleClosingService {
       throw new BadRequestException('La rifa no existe, ya terminó o ya fue cancelada');
     }
 
+    let refundsApplied = false;
     try {
       const raffleOid = new Types.ObjectId(raffleId);
 
@@ -364,23 +365,8 @@ export class RaffleClosingService {
 
       let refundedTotal = 0;
       if (groups.length > 0) {
-        await this.txModel.insertMany(
-          groups.map((g) => ({
-            userId: g._id,
-            amount: raffle.ticketPrice * g.count,
-            type: TransactionType.RAFFLE_CANCELLED_REFUND,
-            status: TransactionStatus.COMPLETED,
-            wallet: 'contable', // Pagaron con dinero real → vuelve como real
-          })),
-        );
-        await this.userModel.bulkWrite(
-          groups.map((g) => ({
-            updateOne: {
-              filter: { _id: g._id },
-              update: { $inc: { walletBalance: raffle.ticketPrice * g.count } },
-            },
-          })),
-        );
+        await this.persistGroupedRefunds(groups, (count) => raffle.ticketPrice * count, 'contable', `Cancelación: ${raffle.title}`);
+        refundsApplied = true;
         refundedTotal = groups.reduce((s, g) => s + g.count, 0) * raffle.ticketPrice;
       }
 
@@ -396,10 +382,12 @@ export class RaffleClosingService {
       return { refundedUsers: groups.length, refundedTotal, notified, reason };
     } catch (err) {
       // Liberar candado y restaurar estado para reintento
-      await this.raffleModel.updateOne(
-        { _id: raffleId },
-        { refundsProcessed: false, status: RaffleStatus.ACTIVE },
-      );
+      if (!refundsApplied) {
+        await this.raffleModel.updateOne(
+          { _id: raffleId },
+          { refundsProcessed: false, status: RaffleStatus.ACTIVE },
+        );
+      }
       throw err;
     }
   }

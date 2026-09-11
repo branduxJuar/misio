@@ -23,7 +23,9 @@ interface Hold { socketId: string; expiresAt: number }
  * Si Brandux cierra la pestaña o pasan 3 min, sus números se liberan
  * solos para todos.
  */
-@WebSocketGateway({ namespace: '/selection', cors: { origin: '*' } })
+const selectionOrigins = (process.env.CLIENT_URL ?? 'http://localhost:5173').split(',').map((origin) => origin.trim());
+
+@WebSocketGateway({ namespace: '/selection', cors: { origin: selectionOrigins } })
 export class SelectionGateway implements OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;

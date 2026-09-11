@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { Socket } from 'socket.io';
+import { Redis } from 'ioredis';
 
 /**
  * LÍMITE DE EVENTOS EN TIEMPO REAL.
@@ -46,14 +47,44 @@ export class WsRateLimiter {
   private readonly logger = new Logger('WsRateLimiter');
   /** socketId → evento → cubeta */
   private readonly buckets = new Map<string, Map<string, Bucket>>();
+  private redis?: Redis;
+  private redisReady?: Promise<void>;
+
+  private getRedis() {
+    if (!process.env.REDIS_URL) return undefined;
+    if (!this.redis) {
+      this.redis = new Redis(process.env.REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: 1 });
+      this.redisReady = this.redis.connect().then(() => undefined).catch(() => undefined);
+    }
+    return this.redis;
+  }
 
   /**
    * ¿Puede este socket ejecutar este evento ahora?
    * Devuelve null si puede; un mensaje para el usuario si debe esperar.
    */
-  check(socket: Socket, event: string): string | null {
+  async check(socket: Socket, event: string): Promise<string | null> {
     const rule = WS_LIMITS[event] ?? DEFAULT_LIMIT;
     const now = Date.now();
+
+    const redis = this.getRedis();
+    if (redis) {
+      try {
+        await this.redisReady;
+        const key = `misio:ws-limit:${socket.id}:${event}`;
+        const count = await redis.incr(key);
+        if (count === 1) await redis.pexpire(key, rule.windowMs);
+        if (count > rule.limit) {
+          const ttl = Math.max(1, await redis.pttl(key));
+          const wait = Math.ceil(ttl / 1000);
+          this.logger.warn(`Socket ${socket.id} excedió "${event}" (${count}/${rule.limit})`);
+          return `Vas muy rápido — espera ${wait}s antes de volver a intentar.`;
+        }
+        return null;
+      } catch {
+        // Redis no disponible: se mantiene la protección local sin romper el socket.
+      }
+    }
 
     let bySocket = this.buckets.get(socket.id);
     if (!bySocket) {

@@ -63,7 +63,7 @@ export class BingoGateway implements OnGatewayDisconnect {
   async hostCall(@ConnectedSocket() socket: Socket, @MessageBody() body: { roomId: string }) {
     // El modo automático canta cada pocos segundos: el límite deja pasar
     // el ritmo normal del juego y corta el spam.
-    const limited = this.wsLimit.check(socket, 'host_call');
+    const limited = await this.wsLimit.check(socket, 'host_call');
     if (limited) return { ok: false, error: limited };
     try {
       const user = this.auth(socket);
@@ -97,7 +97,7 @@ export class BingoGateway implements OnGatewayDisconnect {
    */
   @SubscribeMessage('claim_host')
   async claimHost(@ConnectedSocket() socket: Socket, @MessageBody() body: { roomId: string }) {
-    const limited = this.wsLimit.check(socket, 'claim_host');
+    const limited = await this.wsLimit.check(socket, 'claim_host');
     if (limited) return { ok: false, error: limited };
     try {
       const user = this.auth(socket);

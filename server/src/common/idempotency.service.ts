@@ -16,15 +16,24 @@ export class IdempotencyService {
     if (!normalized) return null;
     const filter = { scope, key: normalized, userId: new Types.ObjectId(userId) };
     const current = await this.model.findOne(filter).lean();
-    if (current?.status === 'completed' && current.response) return { kind: 'replay', response: current.response };
-    if (current) throw new ConflictException('Esta operación ya está siendo procesada');
+    const currentExpiresAt = current?.expiresAt ?? new Date(0);
+    if (current && currentExpiresAt <= new Date()) {
+      await this.model.deleteOne({ _id: current._id });
+    }
+    const active = current && currentExpiresAt > new Date() ? current : null;
+    if (active?.status === 'completed' && active.response) return { kind: 'replay', response: active.response };
+    if (active) throw new ConflictException('Esta operación ya está siendo procesada');
     try {
-      const created = await this.model.create({ ...filter, status: 'processing' });
+      const created = await this.model.create({ ...filter, status: 'processing', expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) });
       return { kind: 'new', id: created._id };
     } catch (error: any) {
       if (error?.code !== 11000) throw error;
       const duplicate = await this.model.findOne(filter).lean();
-      if (duplicate?.status === 'completed' && duplicate.response) return { kind: 'replay', response: duplicate.response };
+      const duplicateExpiresAt = duplicate?.expiresAt ?? new Date(0);
+      if (duplicateExpiresAt > new Date() && duplicate?.status === 'completed' && duplicate.response) return { kind: 'replay', response: duplicate.response };
+      if (duplicate && duplicateExpiresAt <= new Date()) {
+        await this.model.deleteOne({ _id: duplicate._id });
+      }
       throw new ConflictException('Esta operación ya está siendo procesada');
     }
   }

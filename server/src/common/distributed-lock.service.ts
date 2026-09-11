@@ -31,7 +31,15 @@ export class DistributedLockService {
         await this.redisReady;
         const acquired = await redis.set(`misio:lock:${key}`, token, 'PX', ttlMs, 'NX');
         if (acquired !== 'OK') throw new ConflictException('Esta operación ya está siendo procesada');
+        const timer = setInterval(() => {
+          redis.eval(
+            "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pexpire', KEYS[1], ARGV[2]) else return 0 end",
+            1, `misio:lock:${key}`, token, String(ttlMs),
+          ).catch(() => undefined);
+        }, Math.max(1000, Math.floor(ttlMs / 3)));
+        timer.unref?.();
         return async () => {
+          clearInterval(timer);
           await redis.eval(
             "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
             1,

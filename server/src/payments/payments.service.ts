@@ -255,24 +255,32 @@ export class PaymentsService {
     // }
 
     const tx = await this.txService.confirmDeposit(txId, shift?.id);
+    if (!tx) throw new Error('La transacción confirmada no fue encontrada');
     const userId = tx.userId.toString();
 
     const user = await this.userModel.findById(userId).select('name email').lean();
-    const queued = await this.jobsService.enqueuePaymentConfirmed({
+    const paymentJob = {
       userId,
       email: user?.email,
       name: user?.name ?? 'Usuario',
       amount: Number(tx.amount ?? 0),
-    });
-    if (!queued) {
+    };
+    const notificationQueued = await this.jobsService.enqueuePaymentNotification(paymentJob);
+    const emailQueued = user?.email
+      ? await this.jobsService.enqueuePaymentEmail({ email: user.email, name: user.name ?? 'Usuario', amount: paymentJob.amount })
+      : true;
+    if (!notificationQueued) {
       try {
         await this.notifService.notifyUser(
           userId,
           `✅ Tu recarga de S/ ${Number(tx.amount ?? 0).toFixed(2)} fue confirmada y ya está en tu Billetera Misio.`,
           NotificationType.GENERAL,
         );
-        if (user?.email) await this.mailService.sendPaymentConfirmed(user.email, user.name, Number(tx.amount ?? 0));
       } catch { /* la notificación nunca bloquea el abono */ }
+    }
+    if (!emailQueued && user?.email) {
+      try { await this.mailService.sendPaymentConfirmed(user.email, user.name ?? 'Usuario', paymentJob.amount); }
+      catch { /* el correo nunca bloquea el abono */ }
     }
 
     let autoPurchase: 'ok' | 'failed' | null = null;

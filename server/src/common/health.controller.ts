@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
+import { Redis } from 'ioredis';
 
 // La versión sale del package.json: una sola fuente de verdad.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -23,6 +24,19 @@ const { version: API_VERSION } = require('../../../package.json');
 @Controller('health')
 export class HealthController {
   constructor(@InjectConnection() private readonly connection: Connection) {}
+
+  private async redisCheck() {
+    if (!process.env.REDIS_URL) return { status: 'info', detail: 'REDIS_URL no definido' };
+    const redis = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: 1, connectTimeout: 2000 });
+    try {
+      await redis.ping();
+      return { status: 'ok', detail: 'Redis responde correctamente' };
+    } catch (error: any) {
+      return { status: 'error', detail: `Redis no responde: ${error?.message ?? error}` };
+    } finally {
+      await redis.quit().catch(() => redis.disconnect());
+    }
+  }
 
   @Get()
   live() {
@@ -60,6 +74,7 @@ export class HealthController {
   async system() {
     const mem = process.memoryUsage();
     const dbConnected = this.connection.readyState === 1;
+    const redis = await this.redisCheck();
 
     // ¿El Mongo soporta transacciones? (replica set). Sin esto, las
     // compras corren en modo degradado (sin atomicidad multi-documento).
@@ -104,12 +119,7 @@ export class HealthController {
               ? 'Mongo standalone: las compras corren SIN transacción (funciona en dev; en producción usa replica set)'
               : 'No se pudo determinar',
         },
-        redis: {
-          status: process.env.REDIS_URL ? 'ok' : 'info',
-          detail: process.env.REDIS_URL
-            ? 'Configurado — Socket.IO escala a varios procesos'
-            : 'Sin configurar — tiempo real en modo local (1 proceso). Suficiente para desarrollo.',
-        },
+        redis,
         webPush: {
           status: process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY ? 'ok' : 'info',
           detail: process.env.VAPID_PUBLIC_KEY

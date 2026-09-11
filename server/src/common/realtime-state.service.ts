@@ -23,8 +23,13 @@ export class RealtimeStateService {
   private async getRedis() {
     const redis = this.client();
     if (!redis) return undefined;
-    await this.ready;
-    return redis;
+    try {
+      await this.ready;
+      if (redis.status !== 'ready') return undefined;
+      return redis;
+    } catch {
+      return undefined;
+    }
   }
 
   async getSelectionHolds(raffleId: string) {
@@ -173,5 +178,40 @@ export class RealtimeStateService {
       await redis.srem(`misio:grid-sockets:${socketId}`, raffleId);
     }
     return rooms;
+  }
+
+  async incrementReaction(raffleId: string, reaction: 'like' | 'sad') {
+    const redis = await this.getRedis();
+    if (!redis) return undefined;
+    const key = `misio:reactions:${raffleId}`;
+    const count = await redis.hincrby(key, reaction, 1);
+    await redis.pexpire(key, 24 * 60 * 60 * 1000);
+    const values = await redis.hgetall(key);
+    return { like: Number(values.like ?? 0), sad: Number(values.sad ?? 0), updated: count };
+  }
+
+  async pingPresence(userId: string) {
+    const redis = await this.getRedis();
+    if (!redis) return false;
+    const now = Date.now();
+    const key = `misio:presence:${userId}`;
+    await redis.hset(key, { start: String((await redis.hget(key, 'start')) ?? now), last: String(now) });
+    await redis.pexpire(key, 10 * 60 * 1000);
+    return true;
+  }
+
+  async getPresence(minutes = 5) {
+    const redis = await this.getRedis();
+    if (!redis) return undefined;
+    const keys = await redis.keys('misio:presence:*');
+    const cutoff = Date.now() - minutes * 60 * 1000;
+    const result: { id: string; start: number; last: number }[] = [];
+    for (const key of keys) {
+      const value = await redis.hgetall(key);
+      const last = Number(value.last);
+      if (last > cutoff) result.push({ id: key.replace('misio:presence:', ''), start: Number(value.start), last });
+      else await redis.del(key);
+    }
+    return result;
   }
 }
