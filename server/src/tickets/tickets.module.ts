@@ -10,6 +10,7 @@ import { PromoCodesModule } from '../promocodes/promocodes.module';
 import { CashModule } from '../cash/cash.module';
 import { AuthModule } from '../auth/auth.module';
 import { PartnersModule } from '../partners/partners.module';
+import { CommonModule } from '../common/common.module';
 
 
 @Module({
@@ -24,6 +25,7 @@ import { PartnersModule } from '../partners/partners.module';
     CashModule,
     PartnersModule,
     forwardRef(() => AuthModule),
+    CommonModule,
   ],
   controllers: [TicketsController],
   providers: [TicketsService],

@@ -17,6 +17,7 @@ import { maskName } from '../common/mask-name.util';
 import { Ticket, TicketDocument } from '../tickets/ticket.schema';
 
 import { RaffleClosingService } from './raffle-closing.service';
+import { JobsService } from '../jobs/jobs.service';
 
 @Injectable()
 export class RafflesService {
@@ -25,6 +26,7 @@ export class RafflesService {
     @InjectModel(Ticket.name) private ticketModel: Model<TicketDocument>,
     private readonly notifService: NotificationsService,
     private readonly closingService: RaffleClosingService,
+    private readonly jobsService: JobsService,
   ) {}
 
   async create(dto: CreateRaffleDto, user?: any) {
@@ -302,13 +304,16 @@ export class RafflesService {
     raffle.dayBeforeNotified = false;
     await raffle.save();
 
-    const { notified } = await this.notifService.notifyRaffleBuyers(
-      id,
-      `📅 El sorteo de "${raffle.title}" se aplazó al ${raffle.drawDate.toLocaleString('es-PE')}. Motivo: ${reason}. Tus boletos siguen siendo válidos.`,
-      NotificationType.RAFFLE_POSTPONED,
-    );
+    const message = `📅 El sorteo de "${raffle.title}" se aplazó al ${raffle.drawDate.toLocaleString('es-PE')}. Motivo: ${reason}. Tus boletos siguen siendo válidos.`;
+    const notified = await this.notifService.countRaffleBuyers(id);
+    const queued = await this.jobsService.enqueueRaffleNotification({
+      raffleId: id,
+      message,
+      type: NotificationType.RAFFLE_POSTPONED,
+    });
+    if (!queued) await this.notifService.notifyRaffleBuyers(id, message, NotificationType.RAFFLE_POSTPONED);
 
-    return { raffle, notified };
+    return { raffle, notified, queued };
   }
 
   /** Agrega URLs de fotos del producto (tras el upload Multer). */

@@ -14,6 +14,7 @@ import { LiveService } from './live.service';
 import { WsRateLimiter } from '../common/ws-rate-limiter';
 import { maskName } from '../common/mask-name.util';
 import { UserRole } from '../users/user.schema';
+import { RealtimeStateService } from '../common/realtime-state.service';
 
 const room = (raffleId: string) => `raffle:${raffleId}`;
 
@@ -67,6 +68,7 @@ export class LiveGateway implements OnGatewayConnection {
     private readonly liveService: LiveService,
     private readonly jwtService: JwtService,
     private readonly wsLimit: WsRateLimiter,
+    private readonly realtimeState: RealtimeStateService,
   ) {}
 
   handleConnection(socket: Socket) {
@@ -87,7 +89,7 @@ export class LiveGateway implements OnGatewayConnection {
     await socket.join(r);
     await this.broadcastViewerCount(r);
     // Sincronizar al usuario entrante con las selecciones en curso en tiempo real
-    socket.emit('grid_update', { bySocket: this.getGridBySocket(body.raffleId) });
+    socket.emit('grid_update', { bySocket: (await this.realtimeState.getGridSelections(body.raffleId)) ?? this.getGridBySocket(body.raffleId) });
     return { joined: true };
   }
 
@@ -149,7 +151,7 @@ export class LiveGateway implements OnGatewayConnection {
    * carrito. Anónimos también (eligen sin cuenta): etiqueta "Alguien".
    */
   @SubscribeMessage('grid_select')
-  gridSelect(
+  async gridSelect(
     @ConnectedSocket() socket: Socket,
     @MessageBody() body: { raffleId: string; numbers: number[] },
   ) {
@@ -167,6 +169,11 @@ export class LiveGateway implements OnGatewayConnection {
       }
     } catch { /* token inválido: queda "Alguien" */ }
 
+    const distributed = await this.realtimeState.setGridSelection(body.raffleId, socket.id, { label, numbers });
+    if (distributed) {
+      this.server.to(room(body.raffleId)).emit('grid_update', { bySocket: distributed });
+      return { ok: true };
+    }
     if (!this.gridSelections.has(body.raffleId)) {
       this.gridSelections.set(body.raffleId, new Map());
     }
@@ -184,12 +191,18 @@ export class LiveGateway implements OnGatewayConnection {
    * siendo la BD; esto es sincronización visual inmediata).
    */
   @SubscribeMessage('grid_purchased')
-  gridPurchased(
+  async gridPurchased(
     @ConnectedSocket() socket: Socket,
     @MessageBody() body: { raffleId: string; numbers: number[] },
   ) {
     if (!body?.raffleId) return { ok: false };
     const numbers = (body.numbers ?? []).filter((n) => Number.isInteger(n));
+    const distributed = await this.realtimeState.removeGridNumbers(body.raffleId, numbers);
+    if (distributed) {
+      this.server.to(room(body.raffleId)).emit('grid_sold', { numbers });
+      this.server.to(room(body.raffleId)).emit('grid_update', { bySocket: distributed });
+      return { ok: true };
+    }
     // Liberar esos números de todas las selecciones en memoria
     const roomSel = this.gridSelections.get(body.raffleId);
     if (roomSel) {
@@ -210,12 +223,18 @@ export class LiveGateway implements OnGatewayConnection {
    * los marcan en naranja y previenen que otros intenten tomarlos.
    */
   @SubscribeMessage('grid_in_process')
-  gridInProcess(
+  async gridInProcess(
     @ConnectedSocket() socket: Socket,
     @MessageBody() body: { raffleId: string; numbers: number[] },
   ) {
     if (!body?.raffleId) return { ok: false };
     const numbers = (body.numbers ?? []).filter((n) => Number.isInteger(n));
+    const distributed = await this.realtimeState.removeGridNumbers(body.raffleId, numbers);
+    if (distributed) {
+      this.server.to(room(body.raffleId)).emit('grid_in_process', { numbers });
+      this.server.to(room(body.raffleId)).emit('grid_update', { bySocket: distributed });
+      return { ok: true };
+    }
     const roomSel = this.gridSelections.get(body.raffleId);
     if (roomSel) {
       for (const [sid, v] of roomSel) {
@@ -240,7 +259,15 @@ export class LiveGateway implements OnGatewayConnection {
     this.broadcastGrid(raffleId);
   }
 
-  handleDisconnect(socket: Socket) {
+  async handleDisconnect(socket: Socket) {
+    const distributedRooms = await this.realtimeState.removeGridSocket(socket.id);
+    if (distributedRooms) {
+      for (const raffleId of distributedRooms) {
+        const bySocket = await this.realtimeState.getGridSelections(raffleId);
+        this.server.to(room(raffleId)).emit('grid_update', { bySocket: bySocket ?? {} });
+      }
+      return;
+    }
     // Liberar las selecciones de este navegador en todas las rifas
     for (const [raffleId, roomSel] of this.gridSelections) {
       if (roomSel.delete(socket.id)) this.broadcastGrid(raffleId);

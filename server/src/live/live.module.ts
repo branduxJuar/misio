@@ -8,6 +8,7 @@ import { Ticket, TicketSchema } from '../tickets/ticket.schema';
 import { LiveController } from './live.controller';
 import { LiveGateway } from './live.gateway';
 import { LiveService } from './live.service';
+import { CommonModule } from '../common/common.module';
 
 /**
  * Módulo del Modo Presentador. Registra su propio JwtModule (misma
@@ -21,6 +22,7 @@ import { LiveService } from './live.service';
       { name: Ticket.name, schema: TicketSchema },
     ]),
     RafflesModule, // RaffleClosingService: cierre al salir el ganador
+    CommonModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

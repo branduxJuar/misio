@@ -10,6 +10,7 @@ import {
 import { UsersService } from '../users/users.service';
 import { PromoCodesService } from '../promocodes/promocodes.service';
 import { MailService } from '../auth/mail.service';
+import { IdempotencyService } from '../common/idempotency.service';
 
 @Injectable()
 export class TransactionsService {
@@ -18,7 +19,20 @@ export class TransactionsService {
     private readonly usersService: UsersService,
     private readonly promoCodesService: PromoCodesService,
     private readonly mailService: MailService,
+    private readonly idempotencyService: IdempotencyService,
   ) {}
+
+  claimIdempotency(scope: string, key: string | undefined, userId: string) {
+    return this.idempotencyService.claim(scope, key, userId);
+  }
+
+  completeIdempotency(id: Types.ObjectId, response: Record<string, any>) {
+    return this.idempotencyService.complete(id, response);
+  }
+
+  failIdempotency(id: Types.ObjectId) {
+    return this.idempotencyService.fail(id);
+  }
 
   /**
    * Historial de movimientos de la billetera (UserDashboard).

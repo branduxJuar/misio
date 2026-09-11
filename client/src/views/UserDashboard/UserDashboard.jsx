@@ -150,7 +150,7 @@ export default function UserDashboard() {
       return;
     }
     try {
-      await api('/store/redeem', { method: 'POST', body: { itemId: item._id } });
+      await api('/store/redeem', { method: 'POST', idempotencyKey: crypto.randomUUID(), body: { itemId: item._id } });
       msgApi.success(`¡Canje registrado! "${item.name}" — te contactaremos para la entrega.`, 6);
       reloadProfile();
       refreshStore();

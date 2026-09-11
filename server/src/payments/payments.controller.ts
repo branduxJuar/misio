@@ -1,6 +1,6 @@
 import {
   BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post,
-  Query, UploadedFile, UseGuards, UseInterceptors, Request,
+  Query, UploadedFile, UseGuards, UseInterceptors, Request, Headers,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { PaymentsService } from './payments.service';
@@ -96,8 +96,8 @@ export class PaymentsController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePerm('pagos')
   @Patch(':id/confirm')
-  confirm(@Param('id') id: string, @Request() req: any) {
-    return this.paymentsService.confirmDeposit(id, req.user.id);
+  confirm(@Param('id') id: string, @Request() req: any, @Headers('idempotency-key') idempotencyKey: string | undefined) {
+    return this.paymentsService.confirmDeposit(id, req.user.id, idempotencyKey);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)

@@ -18,6 +18,7 @@ import { NotificationType } from '../notifications/notification.schema';
 import { SettingsService } from '../settings/settings.service';
 import { InboxService } from '../inbox/inbox.service';
 import { Partner, PartnerDocument } from '../partners/partner.schema';
+import { DistributedLockService } from '../common/distributed-lock.service';
 
 /** Resumen del cierre, emitido por socket y devuelto por el endpoint. */
 export interface ClosingSummary {
@@ -57,9 +58,19 @@ export class RaffleClosingService {
     private readonly settingsService: SettingsService,
     private readonly inboxService: InboxService,
     @InjectModel(Partner.name) private partnerModel: Model<PartnerDocument>,
+    private readonly lockService: DistributedLockService,
   ) {}
 
   async closeRaffle(raffleId: string): Promise<ClosingSummary> {
+    const release = await this.lockService.acquire(`raffle-close:${raffleId}`, 5 * 60_000);
+    try {
+      return await this.closeRaffleOnce(raffleId);
+    } finally {
+      await release();
+    }
+  }
+
+  private async closeRaffleOnce(raffleId: string): Promise<ClosingSummary> {
     // 1. Reclamar el candado: solo UN proceso puede cerrar esta rifa
     const raffle = await this.raffleModel.findOneAndUpdate(
       { _id: raffleId, status: RaffleStatus.COMPLETED, refundsProcessed: { $ne: true } },
@@ -319,6 +330,15 @@ export class RaffleClosingService {
    * el motivo. Usa el mismo candado refundsProcessed: imposible duplicar.
    */
   async cancelRaffle(raffleId: string, reason: string) {
+    const release = await this.lockService.acquire(`raffle-cancel:${raffleId}`, 5 * 60_000);
+    try {
+      return await this.cancelRaffleOnce(raffleId, reason);
+    } finally {
+      await release();
+    }
+  }
+
+  private async cancelRaffleOnce(raffleId: string, reason: string) {
     const raffle = await this.raffleModel.findOneAndUpdate(
       {
         _id: raffleId,

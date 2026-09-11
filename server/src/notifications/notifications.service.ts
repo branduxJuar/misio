@@ -29,6 +29,11 @@ export class NotificationsService {
     return this.notifModel.create({ userId, message, type });
   }
 
+  async countRaffleBuyers(raffleId: string) {
+    const userIds = await this.ticketModel.distinct('userId', { raffleId });
+    return userIds.length;
+  }
+
   /** Notifica a TODOS los compradores de una rifa (userIds únicos). */
   async notifyRaffleBuyers(raffleId: string, message: string, type: NotificationType) {
     const userIds: Types.ObjectId[] = await this.ticketModel.distinct('userId', { raffleId });

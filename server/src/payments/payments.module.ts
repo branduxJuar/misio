@@ -13,6 +13,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { StoreModule } from '../store/store.module';
 import { LiveModule } from '../live/live.module';
 import { CashModule } from '../cash/cash.module';
+import { CommonModule } from '../common/common.module';
+import { JobsModule } from '../jobs/jobs.module';
 
 /**
  * Orquestador de pagos (Sprint 3). Evita dependencias circulares:
@@ -33,6 +35,8 @@ import { CashModule } from '../cash/cash.module';
     StoreModule,
     LiveModule,
     CashModule,
+    CommonModule,
+    JobsModule,
   ],
   controllers: [PaymentsController],
   providers: [PaymentsService],

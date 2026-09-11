@@ -10,7 +10,9 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   /** POST /api/v1/auth/register — crea cuenta y devuelve token. */
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  // Permite repetir una prueba o corregir datos desde la misma red sin
+  // abrir el endpoint: el límite sigue siendo por IP y por minuto.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('register')
   register(@Body() dto: RegisterDto) {
     if (dto.password) {

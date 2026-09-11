@@ -1,5 +1,5 @@
 import {
-  BadRequestException, Body, Controller, ForbiddenException, Get, Param, Query,
+  BadRequestException, Body, Controller, ForbiddenException, Get, Headers, Param, Query,
   Patch, Post, UploadedFile, UseGuards, UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -67,7 +67,7 @@ export class TransactionsController {
    * Nace 'pending': el saldo NO se acredita hasta que el operador confirme.
    */
   @Post('deposit')
-  async deposit(@CurrentUser() user: AuthUser, @Body() dto: CreateDepositDto) {
+  async deposit(@CurrentUser() user: AuthUser, @Headers('idempotency-key') idempotencyKey: string | undefined, @Body() dto: CreateDepositDto) {
     if (!dto.operationNumber || !dto.operationNumber.trim()) {
       throw new BadRequestException('El número de operación es obligatorio para validar tu pago con Yape o Plin');
     }
@@ -81,7 +81,10 @@ export class TransactionsController {
       };
     }
 
-    return this.txService.create({
+    const claim = await this.txService.claimIdempotency('deposit.create', idempotencyKey, user.userId);
+    if (claim?.kind === 'replay') return claim.response;
+    try {
+      const result = await this.txService.create({
       userId: user.userId,
       amount: dto.amount,
       type: dto.type,
@@ -93,7 +96,13 @@ export class TransactionsController {
         storeItems: dto.storeItems ?? undefined,
         ...(promoData ?? {}),
       },
-    });
+      });
+      if (claim?.kind === 'new') await this.txService.completeIdempotency(claim.id, result.toObject());
+      return result;
+    } catch (error) {
+      if (claim?.kind === 'new') await this.txService.failIdempotency(claim.id);
+      throw error;
+    }
   }
 
   /** GET /api/v1/transactions/pending — cola de depósitos por confirmar (admin). */

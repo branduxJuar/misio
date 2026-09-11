@@ -8,6 +8,7 @@ import { TransactionsModule } from '../transactions/transactions.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { InboxModule } from '../inbox/inbox.module';
 import { AuthModule } from '../auth/auth.module';
+import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AuthModule } from '../auth/auth.module';
     NotificationsModule, // Notif + PushService (exportado)
     InboxModule, // Correo interno para códigos virtuales
     AuthModule, // MailService para correo externo
+    CommonModule,
   ],
   controllers: [StoreController],
   providers: [StoreService],

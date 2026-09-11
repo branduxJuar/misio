@@ -14,6 +14,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/notification.schema';
 import { LiveGateway } from '../live/live.gateway';
 import { CashService } from '../cash/cash.service';
+import { IdempotencyService } from '../common/idempotency.service';
+import { JobsService } from '../jobs/jobs.service';
 
 /**
  * SPRINT 3 — Orquestador de pagos.
@@ -71,6 +73,8 @@ export class PaymentsService {
     private readonly mailService: MailService,
     private readonly liveGateway: LiveGateway,
     private readonly cashService: CashService,
+    private readonly idempotencyService: IdempotencyService,
+    private readonly jobsService: JobsService,
   ) {}
 
   // ── Métodos de pago ─────────────────────────────────────────────
@@ -230,7 +234,20 @@ export class PaymentsService {
    *    intacto en la billetera y se le avisa para que elija otros.
    * 3. Notifica al usuario el resultado en ambos casos.
    */
-  async confirmDeposit(txId: string, adminId: string) {
+  async confirmDeposit(txId: string, adminId: string, idempotencyKey?: string) {
+    const claim = await this.idempotencyService.claim('payments.confirm', idempotencyKey, adminId);
+    if (claim?.kind === 'replay') return claim.response;
+    try {
+      const result = await this.confirmDepositOnce(txId, adminId);
+      if (claim?.kind === 'new') await this.idempotencyService.complete(claim.id, result as any);
+      return result;
+    } catch (error) {
+      if (claim?.kind === 'new') await this.idempotencyService.fail(claim.id);
+      throw error;
+    }
+  }
+
+  private async confirmDepositOnce(txId: string, adminId: string) {
     // REQUISITO RELAJADO: Se intenta vincular a un turno de caja si existe, pero no bloquea si no lo hay.
     const shift = await this.cashService.getActiveShift(adminId);
     // if (!shift) {
@@ -240,21 +257,23 @@ export class PaymentsService {
     const tx = await this.txService.confirmDeposit(txId, shift?.id);
     const userId = tx.userId.toString();
 
-    try {
-      await this.notifService.notifyUser(
-        userId,
-        `✅ Tu recarga de S/ ${Number(tx.amount ?? 0).toFixed(2)} fue confirmada y ya está en tu Billetera Misio.`,
-        NotificationType.GENERAL,
-      );
-    } catch { /* la notificación nunca bloquea el abono */ }
-
-    // Correo: el usuario sabe que su plata llegó sin tener que abrir la app
-    try {
-      const user = await this.userModel.findById(userId);
-      if (user?.email) {
-        await this.mailService.sendPaymentConfirmed(user.email, user.name, Number(tx.amount ?? 0));
-      }
-    } catch { /* el correo nunca bloquea el abono */ }
+    const user = await this.userModel.findById(userId).select('name email').lean();
+    const queued = await this.jobsService.enqueuePaymentConfirmed({
+      userId,
+      email: user?.email,
+      name: user?.name ?? 'Usuario',
+      amount: Number(tx.amount ?? 0),
+    });
+    if (!queued) {
+      try {
+        await this.notifService.notifyUser(
+          userId,
+          `✅ Tu recarga de S/ ${Number(tx.amount ?? 0).toFixed(2)} fue confirmada y ya está en tu Billetera Misio.`,
+          NotificationType.GENERAL,
+        );
+        if (user?.email) await this.mailService.sendPaymentConfirmed(user.email, user.name, Number(tx.amount ?? 0));
+      } catch { /* la notificación nunca bloquea el abono */ }
+    }
 
     let autoPurchase: 'ok' | 'failed' | null = null;
     let detail = '';

@@ -126,6 +126,7 @@ export default function StoreFront() {
     try {
       const res = await api('/store/checkout', {
         method: 'POST',
+        idempotencyKey: crypto.randomUUID(),
         body: { items: lines.map((l) => ({ itemId: l.item._id, qty: l.qty })), delivery },
       });
       setDeliveryOpen(false);

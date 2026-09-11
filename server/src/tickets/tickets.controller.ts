@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { TicketsService } from './tickets.service';
 import { AdminAddTicketsDto, PurchaseOfflineDto, PurchaseTicketsDto } from './dto/purchase.dto';
 import { CancelPosSaleDto } from './dto/cancel-pos-sale.dto';
@@ -18,11 +18,12 @@ export class TicketsController {
    * en una sola transacción MongoDB (sin sobreventa ni saldos fantasma).
    */
   @Post('purchase')
-  purchase(@CurrentUser() user: AuthUser, @Body() dto: PurchaseTicketsDto) {
+  purchase(@CurrentUser() user: AuthUser, @Headers('idempotency-key') idempotencyKey: string | undefined, @Body() dto: PurchaseTicketsDto) {
     return this.ticketsService.purchase(user.userId, dto.raffleId, {
       quantity: dto.quantity,
       ticketNumbers: dto.ticketNumbers,
       promoCode: dto.promoCode,
+      idempotencyKey,
     });
   }
 

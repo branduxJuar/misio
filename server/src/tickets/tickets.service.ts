@@ -14,6 +14,7 @@ import { CashService } from '../cash/cash.service';
 import { CashMovementType } from '../cash/cash.schema';
 import { MailService } from '../auth/mail.service';
 import { PartnersService } from '../partners/partners.service';
+import { IdempotencyService } from '../common/idempotency.service';
 
 
 /** Reintentos ante colisión de números (dos compras simultáneas). */
@@ -41,6 +42,7 @@ export class TicketsService {
     private readonly cashService: CashService,
     private readonly mailService: MailService,
     private readonly partnersService: PartnersService,
+    private readonly idempotencyService: IdempotencyService,
   ) {}
 
   /**
@@ -135,7 +137,7 @@ export class TicketsService {
   async purchase(
     userId: string,
     raffleId: string,
-    opts: { quantity?: number; ticketNumbers?: number[]; fromPendingConfirmation?: boolean; promoCode?: string },
+    opts: { quantity?: number; ticketNumbers?: number[]; fromPendingConfirmation?: boolean; promoCode?: string; idempotencyKey?: string },
   ) {
     const explicit = opts.ticketNumbers?.length ? [...new Set(opts.ticketNumbers)] : null;
     const quantity = explicit ? explicit.length : (opts.quantity ?? 0);
@@ -160,6 +162,8 @@ export class TicketsService {
     }
 
     const useTx = await this.supportsTransactions();
+    const claim = await this.idempotencyService.claim('tickets.purchase', opts.idempotencyKey, userId);
+    if (claim?.kind === 'replay') return claim.response;
 
     for (let attempt = 1; attempt <= PURCHASE_RETRIES; attempt++) {
       const session = useTx ? await this.connection.startSession() : null;
@@ -339,6 +343,7 @@ export class TicketsService {
         if (session) await session.withTransaction(body);
         else await body();
 
+        if (claim?.kind === 'new' && result) await this.idempotencyService.complete(claim.id, result as any);
         return result;
       } catch (err: any) {
         // 11000 = duplicate key: otro usuario tomó el número en paralelo
@@ -346,9 +351,11 @@ export class TicketsService {
         // Con números ELEGIDOS no se reintenta: el otro comprador ganó ese
         // número; el usuario debe elegir otro (su pago NO se ejecutó).
         if (isCollision && explicit) {
+          if (claim?.kind === 'new') await this.idempotencyService.fail(claim.id);
           throw new ConflictException('Alguien acaba de comprar uno de esos números — elige otros');
         }
         if (isCollision && attempt < PURCHASE_RETRIES) continue; // Reintentar (compra rápida)
+        if (claim?.kind === 'new') await this.idempotencyService.fail(claim.id);
         throw isCollision
           ? new ConflictException('Alta demanda: intenta de nuevo en unos segundos')
           : err;
@@ -357,6 +364,7 @@ export class TicketsService {
       }
     }
     // Si llegamos aquí, los reintentos se agotaron sin éxito ni error claro
+    if (claim?.kind === 'new') await this.idempotencyService.fail(claim.id);
     throw new ConflictException('No se pudo completar la compra — intenta de nuevo');
   }
 

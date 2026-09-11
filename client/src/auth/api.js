@@ -76,13 +76,14 @@ async function tryRefresh() {
   return refreshPromise;
 }
 
-export async function api(path, { method = 'GET', body } = {}) {
+export async function api(path, { method = 'GET', body, idempotencyKey } = {}) {
   const token = tokenStore.get();
 
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
+      ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -106,7 +107,7 @@ export async function api(path, { method = 'GET', body } = {}) {
 
     if (tokenStore.getRefresh()) {
       const renewed = await tryRefresh();
-      if (renewed) return api(path, { method, body }); // reintenta con el token nuevo
+      if (renewed) return api(path, { method, body, idempotencyKey }); // reintenta con el token nuevo
     }
     
     // Si llegamos aquí, falló la renovación o no había refresh token
