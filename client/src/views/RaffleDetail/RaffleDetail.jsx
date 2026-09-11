@@ -61,7 +61,6 @@ export default function RaffleDetail() {
   const [legalPages, setLegalPages] = useState(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [showBalance, setShowBalance] = useState(false);
-  const [showPrices, setShowPrices] = useState(true);
   const [checkoutRulesOpen, setCheckoutRulesOpen] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [pendingPaymentMethod, setPendingPaymentMethod] = useState(null);
@@ -422,9 +421,12 @@ export default function RaffleDetail() {
   const shareRaffleWhatsApp = () => {
     const baseUrl = window.location.origin;
     const url = `${baseUrl}/rifa/${raffle._id}`;
-    const utmUrl = `${url}?utm_source=share&utm_medium=whatsapp&utm_campaign=${encodeURIComponent(raffle.title?.slice(0, 30) ?? 'sorteo')}`;
-    const text = `🎟️ ¡Mira este increíble sorteo! ${raffle.title} por solo S/ ${raffle.ticketPrice}. ¡Participa ya!`;
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(`${text}\n${utmUrl}`)}`;
+    const title = raffle.title?.trim() || 'este sorteo';
+    const benefit = raffle.isZeroLoss
+      ? '💚 Si no ganas, recuperas el valor en saldo para la tienda.'
+      : '✨ Participa y prueba tu suerte.';
+    const text = `🎁 ${title}\n🎟️ Boleto desde S/ ${raffle.ticketPrice}.\n${benefit}\n👉 ${url}`;
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(waUrl, '_blank');
   };
 
@@ -488,15 +490,8 @@ export default function RaffleDetail() {
                 </Title>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ fontSize: 30, fontWeight: 900, lineHeight: 1, color: '#047857' }}>
-                    S/ {showPrices ? raffle.ticketPrice : '***'}
+                    S/ {raffle.ticketPrice}
                   </div>
-                  <span 
-                    onClick={() => setShowPrices(!showPrices)} 
-                    style={{ cursor: 'pointer', color: '#cbd5e1', fontSize: 20, display: 'flex', alignItems: 'center' }}
-                    title="Ocultar/Mostrar precios"
-                  >
-                    {showPrices ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                  </span>
                 </div>
               </div>
               
@@ -1045,7 +1040,7 @@ export default function RaffleDetail() {
                             </span>
                           </div>
                           <span style={{ fontSize: 11, fontWeight: 800, background: 'rgba(0, 0, 0, 0.25)', padding: '3px 6px', borderRadius: 6, color: '#6ee7b7', whiteSpace: 'nowrap' }}>
-                            S/ {showPrices ? raffle.ticketPrice : '***'}
+                            S/ {raffle.ticketPrice}
                           </span>
                         </div>
 
@@ -1088,15 +1083,9 @@ export default function RaffleDetail() {
                 <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'block' }}>Total a pagar:</span>
-                    <span 
-                      onClick={() => setShowPrices(!showPrices)} 
-                      style={{ cursor: 'pointer', color: '#94a3b8', fontSize: 14 }}
-                    >
-                      {showPrices ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                    </span>
                   </div>
                   <span style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.1, color: '#047857', display: 'block' }}>
-                    S/ {showPrices ? total.toFixed(2) : '***'}
+                    S/ {total.toFixed(2)}
                   </span>
                   {user && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>

@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@400;500;600&display=swap');
-
 :root {
   /* ── Paleta OSCURA (Teal & Ocean) ── */
   --z-bg-base: #06181b;
@@ -840,6 +838,23 @@ body.light {
   flex-shrink: 0;
   transition: height 0.3s ease;
 }
+.z-raffle-skeleton-media {
+  width: 100%;
+  height: 200px;
+  display: block;
+  overflow: hidden;
+  background: #f8fafc;
+}
+.z-raffle-skeleton-media .ant-skeleton-element,
+.z-raffle-skeleton-media .ant-skeleton-image {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+.z-raffle-skeleton-media .ant-skeleton-image-svg {
+  width: 28px;
+  height: 28px;
+}
 .z-raffle-card .z-card-body {
   padding: 24px;
   display: flex;
@@ -859,6 +874,9 @@ body.light {
 @media (max-width: 576px) {
   .z-raffle-card .z-img-wrapper {
     height: 150px !important; /* Más reducido en móviles */
+  }
+  .z-raffle-skeleton-media {
+    height: 150px;
   }
   .z-raffle-card .z-card-body {
     padding: 16px !important; /* Más compacto */

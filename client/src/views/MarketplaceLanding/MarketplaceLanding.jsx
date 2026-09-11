@@ -187,14 +187,18 @@ export default function MarketplaceLanding() {
             <Col xs={24} sm={12} lg={6} key={`raffle-skeleton-${index}`}>
               <Card
                 style={{ borderRadius: 24, overflow: 'hidden' }}
-                styles={{ body: { padding: 16 } }}
+                styles={{ body: { padding: 0 } }}
               >
-                <Skeleton.Image active style={{ width: '100%', height: 180 }} />
-                <Skeleton active paragraph={{ rows: 3 }} style={{ marginTop: 16 }} />
+                <div className="z-raffle-skeleton-media">
+                  <Skeleton.Image active />
+                </div>
+                <div style={{ padding: 16 }}>
+                  <Skeleton active paragraph={{ rows: 3 }} />
+                </div>
               </Card>
             </Col>
           ))
-          : filteredRaffles.map((raffle) => {
+        : filteredRaffles.map((raffle, index) => {
           const sold = raffle.soldTickets ?? 0;
           const soldPct = Math.round((sold / raffle.totalTickets) * 100);
           const isLive = raffle.status === 'live';
@@ -215,6 +219,11 @@ export default function MarketplaceLanding() {
                     <img
                       src={`${SERVER_URL}${raffle.images[0]}`}
                       alt={raffle.title}
+                      width="371"
+                      height="200"
+                      loading={index === 0 ? 'eager' : 'lazy'}
+                      fetchPriority={index === 0 ? 'high' : 'auto'}
+                      decoding="async"
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                   ) : (

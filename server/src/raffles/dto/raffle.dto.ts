@@ -73,6 +73,11 @@ export class CreateRaffleDto {
   @IsBoolean()
   notifyDayBefore?: boolean;
 
+  /** Activa el reembolso de Cero Pérdida para los boletos perdedores. */
+  @IsOptional()
+  @IsBoolean()
+  isZeroLoss?: boolean;
+
   @IsOptional()
   @IsUrl({}, { message: 'streamUrl debe ser una URL válida' })
   streamUrl?: string;
@@ -92,6 +97,7 @@ export class UpdateRaffleDto {
   @IsOptional() @IsInt() @Min(1) maxTicketsPerUser?: number;
   @IsOptional() @IsDateString() drawDate?: string;
   @IsOptional() @IsBoolean() notifyDayBefore?: boolean;
+  @IsOptional() @IsBoolean() isZeroLoss?: boolean;
   @IsOptional() @IsUrl() streamUrl?: string;
 }
 
