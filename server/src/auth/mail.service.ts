@@ -110,6 +110,23 @@ export class MailService {
     return this.send(to, subject, this.wrap(bodyHtml));
   }
 
+  /** Campaña de marketing enviada desde el panel administrativo. */
+  async sendCampaignEmail(to: string, name: string, subject: string, message: string, promoCode?: string) {
+    const escapeHtml = (value: string) => value.replace(/[&<>\"']/g, (char) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;',
+    }[char] ?? char));
+    const messageHtml = escapeHtml(message).replace(/\r?\n/g, '<br />');
+    const promoHtml = promoCode
+      ? `<div style="margin:20px 0;padding:14px;text-align:center;background:#ecfdf5;border:1px solid #10b981;border-radius:10px"><div style="font-size:12px;color:#047857">CÓDIGO PROMOCIONAL</div><strong style="font-size:22px;letter-spacing:2px;color:#065f46">${escapeHtml(promoCode)}</strong></div>`
+      : '';
+    return this.send(to, `${subject} — Misio`, this.wrap(`
+      <p>Hola <b>${escapeHtml(name)}</b>,</p>
+      <div style="font-size:15px;line-height:1.65;color:#334155">${messageHtml}</div>
+      ${promoHtml}
+      <p style="color:#64748b;font-size:12px;text-align:center">Puedes revisar esta promoción también en tu buzón interno de Misio.</p>
+    `));
+  }
+
   /** Código de verificación (registro / login con 2FA de email). */
   async sendVerificationCode(email: string, name: string, code: string) {
     return this.send(email, `${code} es tu código de verificación — Misio`,
@@ -167,6 +184,7 @@ export class MailService {
     const drawDateFormatted = new Intl.DateTimeFormat('es-PE', {
       dateStyle: 'long',
       timeStyle: 'short',
+      timeZone: 'America/Lima',
     }).format(new Date(raffleDate));
     const ticketsHtml = tickets.map((ticketCode) => `
       <div style="background:#fff;border:1px solid #dbeafe;border-radius:12px;padding:14px 16px;margin:10px 0;text-align:center">
@@ -267,7 +285,11 @@ export class MailService {
     const baseUrl = process.env.CLIENT_URL ?? 'https://misio.pe';
     const loginUrl = `${baseUrl}/login`;
     const raffleUrl = `${baseUrl}/rifa/${raffleId}`;
-    const drawDateFormatted = new Intl.DateTimeFormat('es-PE', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(raffleDate));
+    const drawDateFormatted = new Intl.DateTimeFormat('es-PE', {
+      dateStyle: 'long',
+      timeStyle: 'short',
+      timeZone: 'America/Lima',
+    }).format(new Date(raffleDate));
 
     return this.send(email, `🎟️ Tus boletos para "${raffleTitle}" — Misio`,
       this.wrap(`

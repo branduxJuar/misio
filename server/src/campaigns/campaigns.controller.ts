@@ -23,6 +23,7 @@ export class CampaignsController {
       message: body.message,
       target: body.target ?? {},
       promo: body.promo,
+      sendEmail: body.sendEmail ?? false,
       createdBy: user.userId,
     });
   }

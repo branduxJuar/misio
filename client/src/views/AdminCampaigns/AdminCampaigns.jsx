@@ -84,6 +84,7 @@ export default function AdminCampaigns() {
         body: {
           title: values.title,
           message: values.message,
+          sendEmail: values.sendEmail === true,
           target: {
             audienceType: values.audienceType,
             monthsInactive: values.monthsInactive,
@@ -300,6 +301,13 @@ export default function AdminCampaigns() {
           <Form.Item label="Mensaje" name="message" rules={[{ required: true, message: 'El mensaje es obligatorio' }]}>
             <Input.TextArea rows={4} placeholder="Escribe el mensaje persuasivo que llegará al buzón de los usuarios..." />
           </Form.Item>
+
+          <Form.Item name="sendEmail" valuePropName="checked" initialValue={false}>
+            <Switch checkedChildren="También enviar por correo" unCheckedChildren="Solo buzón interno" />
+          </Form.Item>
+          <Text type="secondary" style={{ display: 'block', marginTop: -12, marginBottom: 20, fontSize: 12 }}>
+            Solo se enviará a usuarios que tengan un correo registrado. Con Redis activo, el envío se procesa en segundo plano.
+          </Text>
 
           <Card type="inner" title={<><UsergroupAddOutlined /> Filtros de Audiencia</>} style={{ marginBottom: 24 }}>
             <Row gutter={[16, 16]}>

@@ -10,7 +10,7 @@ import ReactMarkdown from 'react-markdown';
 import {
   ShoppingCartOutlined, CalendarOutlined, ThunderboltFilled, DeleteOutlined,
   FireFilled, ShopOutlined, WhatsAppOutlined, PrinterOutlined, BookOutlined, SearchOutlined,
-  EyeOutlined, EyeInvisibleOutlined
+  EyeOutlined, EyeInvisibleOutlined, DownOutlined, UpOutlined
 } from '@ant-design/icons';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useAuth } from '../../auth/AuthContext';
@@ -64,6 +64,7 @@ export default function RaffleDetail() {
   const [checkoutRulesOpen, setCheckoutRulesOpen] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [pendingPaymentMethod, setPendingPaymentMethod] = useState(null);
+  const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
 
   const handlePreCheckout = (method) => {
     if (!user && method !== 'pos') {
@@ -465,8 +466,35 @@ export default function RaffleDetail() {
 
       <Row gutter={[20, 20]}>
         {/* ── Producto: fotos + info (Fijo/Sticky a la izquierda) ── */}
-        <Col xs={24} lg={5} xl={5} className="z-sticky-col">
-          <Card styles={{ body: { padding: 0, overflow: 'hidden', borderRadius: 16 } }} style={{ borderRadius: 16, border: '1px solid #cbd5e1', background: '#ffffff', boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.08)', height: 'auto' }}>
+        <Col xs={24} lg={5} xl={5} className={`z-sticky-col z-raffle-summary-col ${mobileSummaryOpen ? 'z-mobile-summary-expanded' : 'z-mobile-summary-collapsed'}`}>
+          <div
+            className="z-mobile-summary-card"
+            role="button"
+            tabIndex={0}
+            onClick={() => setMobileSummaryOpen((open) => !open)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') setMobileSummaryOpen((open) => !open);
+            }}
+            aria-expanded={mobileSummaryOpen}
+            aria-label={mobileSummaryOpen ? 'Ocultar detalles del sorteo' : 'Ver detalles del sorteo'}
+          >
+            <div className="z-mobile-summary-thumb">
+              {raffle.images?.[0] ? (
+                <img src={`${SERVER_URL}${raffle.images[0]}`} alt="" />
+              ) : (
+                <span>{raffle.emoji ?? '🎁'}</span>
+              )}
+            </div>
+            <div className="z-mobile-summary-copy">
+              <strong title={raffle.title}>{raffle.title}</strong>
+              <span>Ver detalles del sorteo</span>
+            </div>
+            <div className="z-mobile-summary-price">S/ {raffle.ticketPrice}</div>
+            <div className="z-mobile-summary-chevron">
+              {mobileSummaryOpen ? <UpOutlined /> : <DownOutlined />}
+            </div>
+          </div>
+          <Card className="z-raffle-media-card" styles={{ body: { padding: 0, overflow: 'hidden', borderRadius: 16 } }} style={{ borderRadius: 16, border: '1px solid #cbd5e1', background: '#ffffff', boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.08)', height: 'auto' }}>
             <div style={{ position: 'relative' }}>
               <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }}>
                 <span className="z-pill" style={{ padding: '6px 14px', fontSize: 12, background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(4px)', color: '#0f172a', border: '1px solid rgba(203, 213, 225, 0.5)', fontWeight: 800, borderRadius: 20, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
@@ -494,16 +522,17 @@ export default function RaffleDetail() {
             </div>
           </Card>
 
-          <Card className="z-stretch-card" style={{ borderRadius: 16, border: '1px solid #cbd5e1', background: '#ffffff', boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.08)' }} styles={{ body: { padding: '24px' } }}>
+          <Card className="z-stretch-card z-raffle-summary-card" style={{ borderRadius: 16, border: '1px solid #cbd5e1', background: '#ffffff', boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.08)' }} styles={{ body: { padding: '24px' } }}>
             <Space direction="vertical" size="middle" style={{ width: '100%' }}>
               
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-                <Title level={3} style={{ margin: 0, fontFamily: 'Outfit, sans-serif', fontWeight: 900, textTransform: 'uppercase', color: '#0f172a', lineHeight: 1.1, flex: 1, minWidth: 200 }}>
+                <Title level={3} style={{ margin: 0, fontFamily: 'Outfit, sans-serif', fontWeight: 900, color: '#0f172a', lineHeight: 1.1, flex: 1, minWidth: 200 }}>
                   {raffle.title}
                 </Title>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ fontSize: 30, fontWeight: 900, lineHeight: 1, color: '#047857' }}>
-                    S/ {raffle.ticketPrice}
+                  <div style={{ color: '#047857', textAlign: 'right' }}>
+                    <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>POR BOLETO</div>
+                    <div style={{ fontSize: 30, fontWeight: 900, lineHeight: 1 }}>S/ {raffle.ticketPrice}</div>
                   </div>
                 </div>
               </div>
@@ -519,7 +548,7 @@ export default function RaffleDetail() {
               <Paragraph style={{ color: '#475569', margin: 0, fontSize: 14, lineHeight: 1.5 }}>
                 {raffle.description || 'Participa en nuestro sorteo y gana excelentes premios.'}
               </Paragraph>
-              
+
               {raffle.type === 'paquete' && raffle.prizes && (
                 <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0' }}>
                   <Text strong style={{ color: '#0f172a', display: 'block', marginBottom: 8 }}>📦 Este paquete incluye {raffle.prizes.length} premios:</Text>
@@ -533,7 +562,7 @@ export default function RaffleDetail() {
 
               <div style={{ marginTop: 4 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <Text style={{ color: '#334155', fontWeight: 600, fontSize: 13 }}><FireFilled style={{ color: '#f59e0b', marginRight: 4 }} /> {sold.size} de {raffle.totalTickets} boletos vendidos</Text>
+                  <Text style={{ color: '#334155', fontWeight: 600, fontSize: 13 }}><FireFilled style={{ color: '#f59e0b', marginRight: 4 }} /> {sold.size} vendidos · quedan {Math.max(0, raffle.totalTickets - sold.size)}</Text>
                 </div>
                 <Progress percent={soldPct} size={['100%', 8]} showInfo={false}
                   strokeColor={{ from: '#10b981', to: '#047857' }} 
@@ -543,7 +572,7 @@ export default function RaffleDetail() {
           </Card>
 
           {/* ── Acciones Flotantes (Compartir y Bases) ── */}
-          <Card 
+          <Card className="z-raffle-secondary-card"
             style={{ 
               marginTop: 12, 
               borderRadius: 16, 
@@ -749,11 +778,11 @@ export default function RaffleDetail() {
         </Col>
 
         {/* ── Grilla de tickets ──────────────────────────────────── */}
-        <Col xs={24} lg={14} xl={14}>
+        <Col xs={24} lg={14} xl={14} className="z-raffle-grid-col">
           <Card
             style={{ borderRadius: 16, border: '1px solid #cbd5e1', background: '#ffffff', boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.08)', display: 'flex', flexDirection: 'column' }}
             className="z-grid-card-desktop"
-            styles={{ header: { padding: '8px 16px', minHeight: 'auto' }, body: { padding: '8px 16px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 } }}
+            styles={{ header: { padding: '10px 20px', minHeight: 'auto' }, body: { padding: '14px 20px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 } }}
             title={<span style={{ fontFamily: 'Outfit', fontWeight: 900, fontSize: 17, color: '#0f172a' }}>🎟️ ELIGE TUS NÚMEROS</span>}
             extra={
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -764,6 +793,9 @@ export default function RaffleDetail() {
               </div>
             }
           >
+            <div style={{ marginBottom: 10, padding: '9px 12px', borderRadius: 10, background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46', fontSize: 12, lineHeight: 1.45 }}>
+              <strong>¿Cómo participar?</strong> Toca un número disponible para seleccionarlo; se agregará a tu carrito y luego podrás pagar.
+            </div>
             {/* Leyenda y Buscador en una sola fila */}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
               <div style={{ flex: '1 1 auto', display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', padding: '4px 8px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
@@ -851,7 +883,7 @@ export default function RaffleDetail() {
             )}
             <div className="z-raffle-grid" style={{
               display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
-              gap: 8, paddingRight: 4,
+              gap: 8, padding: '0 4px 30px',
               paddingBottom: 30,
             }}>
               {visibleNumbers.map((n) => {
@@ -910,7 +942,7 @@ export default function RaffleDetail() {
         </Col>
 
         {/* ── Columna 3: Carrito de Boletos Fixed/Sticky ───────── */}
-        <Col xs={24} lg={5} xl={5} id="seccion-carrito" className="z-sticky-col">
+        <Col xs={24} lg={5} xl={5} id="seccion-carrito" className="z-sticky-col z-raffle-cart-col">
           <Card
             className="z-stretch-card"
             style={{ 

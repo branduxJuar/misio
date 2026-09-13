@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, Length, Min, ValidateNested } from 'class-validator';
+import { IsBoolean, IsDateString, IsEnum, IsNumber, IsOptional, IsString, Length, Min, ValidateNested } from 'class-validator';
 
 export class CampaignTargetDto {
   @IsOptional() @IsEnum(['all', 'inactive', 'new']) audienceType?: 'all' | 'inactive' | 'new';
@@ -33,4 +33,8 @@ export class CreateCampaignDto {
   @ValidateNested()
   @Type(() => CampaignPromoDto)
   promo?: CampaignPromoDto;
+
+  @IsOptional()
+  @IsBoolean()
+  sendEmail?: boolean;
 }

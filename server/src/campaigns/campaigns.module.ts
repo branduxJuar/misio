@@ -7,6 +7,8 @@ import { InboxModule } from '../inbox/inbox.module';
 import { PromoCodesModule } from '../promocodes/promocodes.module';
 import { User, UserSchema } from '../users/user.schema';
 import { Transaction, TransactionSchema } from '../transactions/transaction.schema';
+import { JobsModule } from '../jobs/jobs.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { Transaction, TransactionSchema } from '../transactions/transaction.sche
     ]),
     InboxModule,
     PromoCodesModule,
+    JobsModule,
+    AuthModule,
   ],
   controllers: [CampaignsController],
   providers: [CampaignsService],
