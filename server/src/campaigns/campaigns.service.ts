@@ -6,6 +6,8 @@ import { User } from '../users/user.schema';
 import { Transaction, TransactionType, TransactionStatus } from '../transactions/transaction.schema';
 import { InboxService } from '../inbox/inbox.service';
 import { PromoCodesService } from '../promocodes/promocodes.service';
+import { JobsService } from '../jobs/jobs.service';
+import { MailService } from '../auth/mail.service';
 
 @Injectable()
 export class CampaignsService {
@@ -15,13 +17,15 @@ export class CampaignsService {
     @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
     private inboxService: InboxService,
     private promoCodesService: PromoCodesService,
+    private jobsService: JobsService,
+    private mailService: MailService,
   ) {}
 
   async findAll() {
     return this.campaignModel.find().sort({ createdAt: -1 });
   }
 
-  async create(data: { title: string; message: string; target: ICampaignTarget; createdBy: string; promo?: any }) {
+  async create(data: { title: string; message: string; target: ICampaignTarget; createdBy: string; promo?: any; sendEmail?: boolean }) {
     if (data.promo && data.promo.code) {
       await this.promoCodesService.create({
         code: data.promo.code,
@@ -107,15 +111,41 @@ export class CampaignsService {
 
     const audienceIds = await this.findAudienceIds(campaign.target);
 
-    // Enviar mensajes uno por uno (o en lote si la app escala mucho)
-    for (const userId of audienceIds) {
+    const audienceUsers = await this.userModel
+      .find({ _id: { $in: audienceIds } })
+      .select('_id name email')
+      .lean();
+
+    // El buzón interno sigue llegando a toda la audiencia seleccionada.
+    for (const user of audienceUsers) {
+      const userId = user._id.toString();
       await this.inboxService.send({
-        userId: userId.toString(),
+        userId,
         subject: campaign.title,
         body: campaign.message,
         kind: campaign.promo?.code ? 'code' : 'info',
         code: campaign.promo?.code || '',
       });
+
+      if (campaign.sendEmail && user.email) {
+        const emailJob = {
+          email: user.email,
+          name: user.name ?? 'Usuario',
+          subject: campaign.title,
+          message: campaign.message,
+          promoCode: campaign.promo?.code || undefined,
+        };
+        const queued = await this.jobsService.enqueueCampaignEmail(emailJob);
+        if (!queued) {
+          await this.mailService.sendCampaignEmail(
+            emailJob.email,
+            emailJob.name,
+            emailJob.subject,
+            emailJob.message,
+            emailJob.promoCode,
+          ).catch(() => undefined);
+        }
+      }
     }
 
     campaign.status = CampaignStatus.SENT;

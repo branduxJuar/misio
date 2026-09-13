@@ -23,6 +23,14 @@ export interface PaymentEmailJob {
   amount: number;
 }
 
+export interface CampaignEmailJob {
+  email: string;
+  name: string;
+  subject: string;
+  message: string;
+  promoCode?: string;
+}
+
 @Injectable()
 export class JobsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(JobsService.name);
@@ -92,6 +100,17 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     return true;
   }
 
+  async enqueueCampaignEmail(data: CampaignEmailJob) {
+    if (!this.queue) return false;
+    await this.queue.add('campaign-email', data, {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 2_000 },
+      removeOnComplete: 1000,
+      removeOnFail: 5000,
+    });
+    return true;
+  }
+
   private async process(job: Job) {
     if (job.name === 'payment-notification') {
       const data = job.data as PaymentConfirmedJob;
@@ -105,6 +124,11 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     if (job.name === 'payment-email') {
       const data = job.data as PaymentEmailJob;
       await this.mailService.sendPaymentConfirmed(data.email, data.name, Number(data.amount));
+      return;
+    }
+    if (job.name === 'campaign-email') {
+      const data = job.data as CampaignEmailJob;
+      await this.mailService.sendCampaignEmail(data.email, data.name, data.subject, data.message, data.promoCode);
       return;
     }
     if (job.name === 'raffle-notification') {

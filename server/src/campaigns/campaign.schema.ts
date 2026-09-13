@@ -24,6 +24,10 @@ export class Campaign {
   @Prop({ type: Object, default: {} })
   target: ICampaignTarget;
 
+  /** Si está activo, además del buzón interno se envía a los correos disponibles. */
+  @Prop({ default: false })
+  sendEmail: boolean;
+
   @Prop({ type: Object, default: null })
   promo: {
     code: string;
