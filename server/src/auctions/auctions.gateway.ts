@@ -5,6 +5,7 @@ import { Server, Socket } from 'socket.io';
 import { WsRateLimiter } from '../common/ws-rate-limiter';
 import { JwtService } from '@nestjs/jwt';
 import { AuctionsService } from './auctions.service';
+import { clientOrigins } from '../common/client-origins.util';
 
 const room = (id: string) => `auction:${id}`;
 
@@ -13,7 +14,7 @@ const room = (id: string) => `auction:${id}`;
  * TODO exige token (las subastas son solo para matriculados) y cada puja
  * valida dinero real con retención en AuctionsService.
  */
-const auctionOrigins = (process.env.CLIENT_URL ?? 'http://localhost:5173').split(',').map((origin) => origin.trim());
+const auctionOrigins = clientOrigins('http://localhost:5173');
 
 @WebSocketGateway({ namespace: '/auctions', cors: { origin: auctionOrigins } })
 export class AuctionsGateway {

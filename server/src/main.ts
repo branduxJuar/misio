@@ -12,6 +12,7 @@ import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { validateEnv } from './common/env.validation';
 import * as mongoSanitize from 'express-mongo-sanitize';
 import { SanitizePipe } from './common/sanitize.pipe';
+import { clientOrigins } from './common/client-origins.util';
 
 /**
  * Punto de entrada de la API de Misio.
@@ -88,10 +89,7 @@ async function bootstrap() {
   // tablet) sin tener que listar cada IP a mano.
   // En prod: solo los orígenes de CLIENT_URL.
   const isDev = process.env.NODE_ENV !== 'production';
-  const clientOrigins = (process.env.CLIENT_URL ?? `${protocol}://localhost:5173`)
-    .split(',')
-    .map((o) => o.trim())
-    .filter(Boolean);
+  const allowedClientOrigins = clientOrigins(`${protocol}://localhost:5173`);
 
   app.enableCors({
     origin: isDev
@@ -100,7 +98,7 @@ async function bootstrap() {
           // ngrok...) sin tener que listar cada uno.
           callback(null, true);
         }
-      : clientOrigins,
+      : allowedClientOrigins,
     credentials: true,
   });
 

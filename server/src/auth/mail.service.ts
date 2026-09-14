@@ -56,6 +56,24 @@ export class MailService {
     }
   }
 
+  /**
+   * CLIENT_URL admite varios orígenes para CORS separados por coma. Los
+   * correos, en cambio, necesitan un único dominio absoluto en sus enlaces.
+   * PUBLIC_APP_URL permite fijarlo explícitamente; si no está definido usamos
+   * el primer origen configurado (https://misio.pe en producción).
+   */
+  private publicAppUrl() {
+    const configured = this.config.get<string>('PUBLIC_APP_URL')
+      ?? this.config.get<string>('CLIENT_URL')
+      ?? 'https://misio.pe';
+    const primary = configured
+      .split(',')
+      .map((url) => url.trim().replace(/^["']|["']$/g, ''))
+      .find((url) => /^https?:\/\//i.test(url));
+
+    return (primary ?? 'https://misio.pe').replace(/\/+$/, '');
+  }
+
   // ═══ Templates HTML (inline, sin dependencias) ═══
 
   private wrap(body: string) {
@@ -140,6 +158,7 @@ export class MailService {
 
   /** 🎉 ¡Ganaste! — se manda al cerrar la rifa (closeRaffle). */
   async sendWinnerNotification(email: string, name: string, prize: string, raffleTitle: string) {
+    const accountUrl = `${this.publicAppUrl()}/mi-cuenta`;
     return this.send(email, `🎉 ¡Ganaste "${prize}"! — Misio`,
       this.wrap(`
         <h2 style="color:#e8b84a;text-align:center">🏆 ¡Felicidades, ${name}!</h2>
@@ -150,7 +169,7 @@ export class MailService {
           Entra a <b>Mi Misio → Mis premios</b> para seguir el estado de tu envío.
         </p>
         <div style="text-align:center;margin-top:16px">
-          <a href="${process.env.CLIENT_URL ?? 'https://misio.pe'}/mi-cuenta"
+          <a href="${accountUrl}"
              style="display:inline-block;padding:12px 28px;background:#0d9488;color:#fff;
                     border-radius:10px;text-decoration:none;font-weight:700">
             Ver mi premio →
@@ -179,7 +198,7 @@ export class MailService {
     raffleDate: Date,
     tickets: string[],
   ) {
-    const baseUrl = process.env.CLIENT_URL ?? 'https://misio.pe';
+    const baseUrl = this.publicAppUrl();
     const raffleUrl = `${baseUrl}/rifa/${raffleId}`;
     const drawDateFormatted = new Intl.DateTimeFormat('es-PE', {
       dateStyle: 'long',
@@ -233,7 +252,7 @@ export class MailService {
 
   /** 🔑 Recuperación de contraseña. */
   async sendPasswordReset(email: string, name: string, token: string) {
-    const link = `${process.env.CLIENT_URL ?? 'https://misio.pe'}/reset-password?token=${token}`;
+    const link = `${this.publicAppUrl()}/reset-password?token=${token}`;
     return this.send(email, '🔑 Recupera tu contraseña — Misio',
       this.wrap(`
         <p>Hola <b>${name}</b>,</p>
@@ -282,7 +301,7 @@ export class MailService {
       </div>
     `).join('');
 
-    const baseUrl = process.env.CLIENT_URL ?? 'https://misio.pe';
+    const baseUrl = this.publicAppUrl();
     const loginUrl = `${baseUrl}/login`;
     const raffleUrl = `${baseUrl}/rifa/${raffleId}`;
     const drawDateFormatted = new Intl.DateTimeFormat('es-PE', {
