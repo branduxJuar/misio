@@ -6,9 +6,11 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { WsRateLimiter } from '../common/ws-rate-limiter';
+import { clientOrigins } from '../common/client-origins.util';
 import { BingoService } from './bingo.service';
 
 const room = (id: string) => `bingo:${id}`;
+const bingoOrigins = clientOrigins('http://localhost:5173');
 
 /**
  * Gateway del Bingo social (namespace /bingo). TODOS necesitan token
@@ -21,7 +23,7 @@ const room = (id: string) => `bingo:${id}`;
  */
 @WebSocketGateway({
   namespace: '/bingo',
-  cors: { origin: process.env.CLIENT_URL ?? 'http://localhost:5173' },
+  cors: { origin: bingoOrigins },
 })
 export class BingoGateway implements OnGatewayDisconnect {
   @WebSocketServer() server: Server;

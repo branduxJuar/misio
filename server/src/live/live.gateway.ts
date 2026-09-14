@@ -15,6 +15,7 @@ import { WsRateLimiter } from '../common/ws-rate-limiter';
 import { maskName } from '../common/mask-name.util';
 import { UserRole } from '../users/user.schema';
 import { RealtimeStateService } from '../common/realtime-state.service';
+import { clientOrigins } from '../common/client-origins.util';
 
 const room = (raffleId: string) => `raffle:${raffleId}`;
 
@@ -36,7 +37,7 @@ const room = (raffleId: string) => `raffle:${raffleId}`;
  */
 @WebSocketGateway({
   namespace: '/live',
-  cors: { origin: process.env.CLIENT_URL ?? 'http://localhost:5173' },
+  cors: { origin: clientOrigins('http://localhost:5173') },
 })
 export class LiveGateway implements OnGatewayConnection {
   @WebSocketServer() server: Server;

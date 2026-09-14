@@ -44,6 +44,7 @@ export default function BingoFamiliar() {
   const [speed, setSpeed] = useState(5); // Segundos entre números
   const [sound, setSound] = useState(true);
   const [hostGone, setHostGone] = useState(false); // El anfitrión cerró su pestaña
+  const [socketReady, setSocketReady] = useState(false);
   const socketRef = useRef(null);
   const autoRef = useRef(null);
   const [createForm] = Form.useForm();
@@ -119,12 +120,27 @@ export default function BingoFamiliar() {
       setHostGone(false);
 
       socketRef.current?.disconnect();
+      setSocketReady(false);
       const socket = io(`${WS_URL}/bingo`, {
         auth: { token: tokenStore.get() },
         transports: ['websocket'],
       });
       socketRef.current = socket;
-      socket.emit('join_room', { roomId });
+
+      socket.on('connect', () => {
+        socket.emit('join_room', { roomId }, (ack) => {
+          if (ack?.ok) {
+            setSocketReady(true);
+            return;
+          }
+          msgApi.error(ack?.error ?? 'No se pudo entrar al bingo en tiempo real');
+        });
+      });
+      socket.on('connect_error', () => {
+        setSocketReady(false);
+        msgApi.error('No se pudo conectar al bingo en tiempo real. Intenta recargar la página.');
+      });
+      socket.on('disconnect', () => setSocketReady(false));
 
       socket.on('player_joined', ({ name }) => {
         msgApi.info(`👋 ${name} se unió a la sala`);
@@ -205,9 +221,20 @@ export default function BingoFamiliar() {
   };
 
   const callNumber = () => {
+    const socket = socketRef.current;
+    if (!socket?.connected || !socketReady) {
+      stopAuto();
+      msgApi.error('El bingo todavía se está conectando. Espera un momento e inténtalo otra vez.');
+      return;
+    }
     setCalling(true);
-    socketRef.current.emit('host_call', { roomId: game.room._id }, (ack) => {
+    socket.timeout(8_000).emit('host_call', { roomId: game.room._id }, (timeoutError, ack) => {
       setCalling(false);
+      if (timeoutError) {
+        stopAuto();
+        msgApi.error('El bingo no respondió a tiempo. Revisa tu conexión e inténtalo otra vez.');
+        return;
+      }
       if (!ack?.ok) {
         stopAuto();
         msgApi.error(ack?.error ?? 'Error al cantar');
@@ -517,8 +544,8 @@ export default function BingoFamiliar() {
                 {isHost && !winner && (
                   <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <Button type="primary" size="large" block loading={calling}
-                      disabled={auto} onClick={callNumber} icon={<NotificationOutlined />}>
-                      {auto ? 'Cantando automático…' : '📣 Cantar número'}
+                      disabled={auto || !socketReady} onClick={callNumber} icon={<NotificationOutlined />}>
+                      {auto ? 'Cantando automático…' : socketReady ? '📣 Cantar número' : 'Conectando bingo…'}
                     </Button>
                     <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                       <Space size={6}>

@@ -4,6 +4,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { RealtimeStateService } from '../common/realtime-state.service';
+import { clientOrigins } from '../common/client-origins.util';
 
 const room = (raffleId: string) => `sel:${raffleId}`;
 const HOLD_MS = 3 * 60 * 1000; // Una selección "viva" dura máx. 3 min sin renovarse
@@ -23,7 +24,7 @@ interface Hold { socketId: string; expiresAt: number }
  * Si Brandux cierra la pestaña o pasan 3 min, sus números se liberan
  * solos para todos.
  */
-const selectionOrigins = (process.env.CLIENT_URL ?? 'http://localhost:5173').split(',').map((origin) => origin.trim());
+const selectionOrigins = clientOrigins('http://localhost:5173');
 
 @WebSocketGateway({ namespace: '/selection', cors: { origin: selectionOrigins } })
 export class SelectionGateway implements OnGatewayDisconnect {

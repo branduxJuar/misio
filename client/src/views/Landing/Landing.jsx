@@ -5,7 +5,7 @@ import {
   Statistic, Divider,
 } from 'antd';
 import {
-  ThunderboltFilled, SafetyCertificateFilled, EyeFilled, TrophyFilled,
+  TrophyFilled,
   GiftFilled, ShopFilled, FireFilled, SmileFilled, CheckCircleFilled,
   WhatsAppOutlined,
 } from '@ant-design/icons';
@@ -206,47 +206,7 @@ export default function Landing() {
         </Row>
       </Section>
 
-      {/* ═══ 4. TRANSPARENCIA — matar la duda "¿y esto es estafa?" ════
-          La objeción que no se dice en voz alta es la que hace perder la
-          venta. La respondemos antes de que la piensen. */}
-      <Section
-        eyebrow="Sin letra chica"
-        title="¿Y ustedes de qué viven?"
-        sub="La pregunta más justa del mundo. Esta es la respuesta completa."
-      >
-        <Card className="glass-card fade-in-up" hoverable={false} style={{ maxWidth: 760, margin: '0 auto' }}>
-          <Paragraph style={{ fontSize: 15 }}>
-            Cuando tu boleto no gana, tu plata vuelve como <Text strong>saldo de canje</Text>: sirve
-            para llevarte productos de nuestra tienda. Nosotros compramos esos productos al por
-            mayor, así que tú recibes el valor completo de tu boleto y a nosotros nos queda el
-            margen del producto.
-          </Paragraph>
-          <Paragraph style={{ fontSize: 15, marginBottom: 0 }}>
-            <Text strong>Todos ganan:</Text> tú nunca pierdes tu dinero, y nosotros vivimos de la
-            tienda — no de tu mala suerte. Por eso podemos mostrar cada sorteo en vivo: no
-            necesitamos que pierdas.
-          </Paragraph>
-          <Divider />
-          <Row gutter={[16, 16]}>
-            {[
-              { i: <EyeFilled style={{ color: MISIO_COLORS.electricBlue }} />, t: 'Sorteos en vivo',
-                d: 'Con la ruleta en pantalla y la lista de participantes a la vista. Nada de "ya se sorteó, confía".' },
-              { i: <SafetyCertificateFilled style={{ color: MISIO_COLORS.saldoGreen }} />, t: 'Entregas con evidencia',
-                d: 'Cada ganador aparece publicado con su boleto y la foto de la entrega.' },
-              { i: <ThunderboltFilled style={{ color: MISIO_COLORS.primary }} />, t: 'Reglas escritas',
-                d: 'Libro de Reclamaciones virtual (Ley 29571) y términos claros. Reclamas y respondemos.' },
-            ].map((b) => (
-              <Col xs={24} md={8} key={b.t}>
-                <div style={{ fontSize: 22 }}>{b.i}</div>
-                <Text strong style={{ display: 'block', marginTop: 4 }}>{b.t}</Text>
-                <Text style={{ color: MISIO_COLORS.textMuted, fontSize: 12 }}>{b.d}</Text>
-              </Col>
-            ))}
-          </Row>
-        </Card>
-      </Section>
-
-      {/* ═══ 5. ESCASEZ REAL — el sorteo de verdad, con datos de la BD ══ */}
+      {/* ═══ 4. ESCASEZ REAL — el sorteo de verdad, con datos de la BD ══ */}
       {featured && (
         <Section eyebrow="Ahora mismo" title="Este sorteo está corriendo"
           sub="Los números que quedan son de verdad — sin cuentas regresivas falsas.">
