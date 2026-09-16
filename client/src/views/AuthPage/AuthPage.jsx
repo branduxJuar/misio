@@ -12,7 +12,8 @@ import {
 import { useAuth } from '../../auth/AuthContext';
 import { useSite } from '../../theme/SiteProvider';
 import { MISIO_COLORS } from '../../theme/misioTheme';
-import { TERMS_PE } from '../../utils/terms';
+import ReactMarkdown from 'react-markdown';
+import { useLegalContent } from '../../hooks/useLegalContent';
 import { SERVER_URL, api } from '../../auth/api';
 // Google OAuth sin librería — más robusto y siempre funciona
 
@@ -66,6 +67,7 @@ export default function AuthPage() {
   const [tab, setTab] = useState('login');
   const [submitting, setSubmitting] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
+  const { content: legal, error: legalError, reload: reloadLegal } = useLegalContent(termsOpen);
   const [verifying, setVerifying] = useState(null); // { dni, message } → paso del código
   const [code, setCode] = useState('');
   const loginRef = React.useRef('');
@@ -737,13 +739,9 @@ const AuthBackground = () => (
         width={Math.min(620, window.innerWidth - 24)}
       >
         <div style={{ maxHeight: '55vh', overflowY: 'auto', paddingRight: 8 }}>
-          {TERMS_PE.map((s) => (
-            <div key={s.t} style={{ marginBottom: 14 }}>
-              <Text strong>{s.t}</Text>
-              <br />
-              <Text style={{ color: MISIO_COLORS.textMuted, fontSize: 13 }}>{s.c}</Text>
-            </div>
-          ))}
+          {legal?.terms ? <ReactMarkdown>{legal.terms}</ReactMarkdown>
+            : legalError ? <Button onClick={reloadLegal}>Reintentar carga de términos</Button>
+              : <p>Cargando términos...</p>}
         </div>
       </Modal>
       {completeProfileModal}

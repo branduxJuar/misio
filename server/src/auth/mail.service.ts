@@ -92,6 +92,7 @@ export class MailService {
   private async send(to: string, subject: string, html: string) {
     // Si no hay ninguno configurado, solo lo loguea (DEV)
     if (!this.transporter && !this.resend) {
+      if (process.env.NODE_ENV === 'production') throw new InternalServerErrorException('Proveedor de correo no configurado');
       this.logger.warn(`📧 [DEV] ${subject} → ${to}`);
       return { dev: true };
     }

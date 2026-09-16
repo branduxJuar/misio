@@ -41,10 +41,22 @@ export class BingoGateway implements OnGatewayDisconnect {
     return { userId: payload.sub, name: payload.name };
   }
 
+  async notifyLeave(roomId: string, roomClosed: boolean) {
+    if (roomClosed) {
+      this.server.to(room(roomId)).emit('room_closed');
+      return;
+    }
+    const players = await this.bingoService.roomPlayers(roomId);
+    this.server.to(room(roomId)).emit('room_update', { players });
+  }
+
   @SubscribeMessage('join_room')
   async joinRoom(@ConnectedSocket() socket: Socket, @MessageBody() body: { roomId: string }) {
+    const limited = await this.wsLimit.check(socket, 'join_room');
+    if (limited) return { ok: false, error: limited };
     try {
       const user = this.auth(socket);
+      await this.bingoService.getRoomState(body.roomId, user.userId);
       // Guardamos quién es este socket: sirve para saber si el anfitrión
       // sigue presente y para avisar cuando se va.
       socket.data.userId = user.userId;
@@ -141,6 +153,8 @@ export class BingoGateway implements OnGatewayDisconnect {
    */
   @SubscribeMessage('host_restart')
   async hostRestart(@ConnectedSocket() socket: Socket, @MessageBody() body: { roomId: string }) {
+    const limited = await this.wsLimit.check(socket, 'host_restart');
+    if (limited) return { ok: false, error: limited };
     try {
       const user = this.auth(socket);
       await this.bingoService.restartRoom(body.roomId, user.userId);

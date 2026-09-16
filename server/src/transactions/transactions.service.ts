@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { ClientSession, Connection, Model, Types } from 'mongoose';
 import { InjectConnection } from '@nestjs/mongoose';
@@ -233,7 +233,34 @@ export class TransactionsService {
    */
   async confirmDeposit(txId: string, shiftId?: string) {
     if (await this.supportsTransactions()) return this.confirmDepositAtomic(txId, shiftId);
+    if (process.env.NODE_ENV === 'production') throw new ServiceUnavailableException('La confirmacion de pagos requiere replica set');
     return this.confirmDepositLegacy(txId, shiftId);
+  }
+
+  findConfirmedDeposit(txId: string) {
+    return this.txModel.findOne({ _id: txId, type: TransactionType.DEPOSIT_YAPE, status: TransactionStatus.COMPLETED });
+  }
+
+  findUnfulfilledDeposits() {
+    return this.txModel.find({ status: TransactionStatus.COMPLETED, 'fulfillment.status': 'pending' })
+      .sort({ updatedAt: 1 }).limit(25).lean();
+  }
+
+  async finishDepositPurchase(txId: string, userId: string, detail: string, session: ClientSession) {
+    const result = await this.txModel.updateOne({
+      _id: txId, userId, status: TransactionStatus.COMPLETED, 'fulfillment.status': 'pending',
+    }, { $set: { fulfillment: { status: 'ok', detail } } }, { session });
+    if (result.modifiedCount !== 1) throw new BadRequestException('La compra de este deposito ya fue resuelta');
+  }
+
+  async failDepositPurchase(txId: string, detail: string) {
+    await this.txModel.updateOne({ _id: txId, 'fulfillment.status': 'pending' },
+      { $set: { fulfillment: { status: 'failed', detail } } });
+  }
+
+  async deferDepositPurchase(txId: string) {
+    await this.txModel.updateOne({ _id: txId, 'fulfillment.status': 'pending' },
+      { $set: { 'fulfillment.lastAttemptAt': new Date() } });
   }
 
   private async confirmDepositAtomic(txId: string, shiftId?: string) {
@@ -253,6 +280,10 @@ export class TransactionsService {
           await this.promoCodesService.apply(tx.meta.promoCode, tx.userId.toString(), tx._id, session);
         }
         await this.usersService.adjustWallet(tx.userId.toString(), finalAmount, session);
+        if (tx.meta?.storeItems?.length || (tx.meta?.raffleId && tx.meta?.ticketNumbers?.length)) {
+          tx.fulfillment = { status: 'pending' };
+          await tx.save({ session });
+        }
         result = tx;
       });
       return result;

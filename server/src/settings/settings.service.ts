@@ -90,6 +90,11 @@ export class SettingsService {
   }
 
   async get<T>(key: string, fallback: T): Promise<T> {
+    // Published content must agree across replicas immediately after an edit.
+    if (key === SITE_KEY || key === 'legalPages') {
+      const doc = await this.settingModel.findOne({ key }).lean();
+      return (doc?.value as T) ?? fallback;
+    }
     const cached = this.cacheGet<T>(key);
     if (cached !== undefined) return cached;
 
@@ -100,12 +105,13 @@ export class SettingsService {
   }
 
   async set(key: string, value: any) {
-    this.cache.delete(key); // El cambio del admin se ve al instante
-    return this.settingModel.findOneAndUpdate(
+    const saved = await this.settingModel.findOneAndUpdate(
       { key },
       { value },
       { upsert: true, new: true },
     );
+    this.cache.delete(key);
+    return saved;
   }
 
   /** Contenido del sitio (marca + landing + nosotros), con defaults. */

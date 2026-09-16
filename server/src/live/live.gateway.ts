@@ -261,6 +261,11 @@ export class LiveGateway implements OnGatewayConnection {
   }
 
   async handleDisconnect(socket: Socket) {
+    try { await this.clearDisconnectedSocket(socket); }
+    catch { /* Shared selections expire even when Redis is temporarily unavailable. */ }
+  }
+
+  private async clearDisconnectedSocket(socket: Socket) {
     const distributedRooms = await this.realtimeState.removeGridSocket(socket.id);
     if (distributedRooms) {
       for (const raffleId of distributedRooms) {

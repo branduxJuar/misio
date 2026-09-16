@@ -76,6 +76,7 @@ export default function Landing() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const site = useSite();
+  const landing = site.landing ?? {};
   const refundPct = site.refundPercentage ?? 100;
   const exampleRefund = (5 * (refundPct / 100)).toFixed(2).replace(/\.00$/, '');
   
@@ -100,29 +101,24 @@ export default function Landing() {
           ⚡ Hecho para todo el Perú
         </span>
         <Title style={{ margin: '14px 0 10px', fontSize: 'clamp(32px, 6vw, 56px)', lineHeight: 1.05 }}>
-          Juega por el premio.<br />
-          <span className="gradient-animate">Nunca pierdas tu plata.</span>
+          {landing.heroTitle ?? 'Juega por el premio.'}<br />
+          <span className="gradient-animate">{landing.heroHighlight ?? 'Nunca pierdas tu plata.'}</span>
         </Title>
         <Paragraph style={{ color: MISIO_COLORS.textMuted, fontSize: 'clamp(15px, 2vw, 19px)',
           maxWidth: 620, margin: '0 auto 22px' }}>
-          En Misio, si tu boleto no gana, <Text strong>una parte vuelve a ti</Text> como
-          saldo de canje para nuestra tienda. Se llama <Text strong>Cashback Garantizado</Text> y es
-          nuestra regla de consuelo.
+          {landing.heroSubtitle ?? 'Si tu boleto no gana, una parte vuelve como saldo de canje para nuestra tienda.'}
         </Paragraph>
         <Space size="middle" wrap style={{ justifyContent: 'center' }}>
           <Button type="primary" size="large" className="btn-marketero" onClick={go(user ? '/sorteos' : '/login')}
             style={{ height: 60, paddingInline: 40, fontSize: 18 }}>
-            🎟️ {user ? 'Ver sorteos activos' : 'Crear mi cuenta gratis'}
+            🎟️ {user ? 'Ver sorteos activos' : (landing.ctaText ?? 'Crear mi cuenta gratis')}
           </Button>
           <Button size="large" href="#como-funciona" style={{ height: 60, paddingInline: 30, fontSize: 18, fontWeight: 600 }}>
             ¿Cómo funciona?
           </Button>
         </Space>
         <div style={{ marginTop: 28, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <span className="float-chip" style={{ animationDelay: '0s' }}>✅ Reembolso garantizado</span>
-          <span className="float-chip" style={{ animationDelay: '1s' }}>🔴 Sorteos en vivo</span>
-          <span className="float-chip" style={{ animationDelay: '2s' }}>📕 Libro de Reclamaciones</span>
-          <span className="float-chip" style={{ animationDelay: '3s' }}>🚚 Envío a todo el país</span>
+          {(landing.chips ?? []).map((chip, index) => <span key={`${index}-${chip}`} className="float-chip" style={{ animationDelay: `${index}s` }}>{chip}</span>)}
         </div>
       </div>
 
@@ -357,7 +353,7 @@ export default function Landing() {
       {/* ═══ 9. CIERRE — regla del pico-final ════════════════════════ */}
       <div className="glass-hero fade-in-up" style={{ margin: '64px 16px', padding: '64px 20px' }}>
         <Title level={2} style={{ fontSize: 'clamp(24px, 4vw, 36px)', marginBottom: 8 }}>
-          Lo peor que te puede pasar es <span className="saldo-glow">quedarte con tu plata</span>
+          {landing.closingTitle ?? 'Tú también puedes ser un ganador'}
         </Title>
         <Paragraph style={{ color: MISIO_COLORS.textMuted, maxWidth: 520, margin: '0 auto 20px' }}>
           Crea tu cuenta gratis, elige tu número de la suerte y míralo en vivo.

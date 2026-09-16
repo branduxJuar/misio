@@ -10,9 +10,9 @@ export class PresenceInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     // If user is authenticated, ping presence
     if (request.user && request.user.userId) {
-      this.usersService.pingPresence(request.user.userId.toString());
+      void this.usersService.pingPresence(request.user.userId.toString()).catch(() => undefined);
     } else if (request.user && request.user.id) {
-      this.usersService.pingPresence(request.user.id.toString());
+      void this.usersService.pingPresence(request.user.id.toString()).catch(() => undefined);
     }
     return next.handle();
   }

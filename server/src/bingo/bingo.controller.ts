@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { BingoService } from './bingo.service';
+import { BingoGateway } from './bingo.gateway';
 import { CreateBingoRoomDto, JoinBingoDto } from './dto/bingo.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guards';
 import { AuthUser, CurrentUser } from '../auth/decorators/roles.decorator';
@@ -11,7 +12,7 @@ import { AuthUser, CurrentUser } from '../auth/decorators/roles.decorator';
 @UseGuards(JwtAuthGuard)
 @Controller('bingo')
 export class BingoController {
-  constructor(private readonly bingoService: BingoService) {}
+  constructor(private readonly bingoService: BingoService, private readonly bingoGateway: BingoGateway) {}
 
   /** POST /api/v1/bingo/rooms — crear sala (el creador es el anfitrión). */
   @Post('rooms')
@@ -54,7 +55,9 @@ export class BingoController {
 
   /** POST /api/v1/bingo/rooms/:id/leave — abandonar la sala. */
   @Post('rooms/:id/leave')
-  leave(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.bingoService.leaveRoom(id, user.userId);
+  async leave(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    const result = await this.bingoService.leaveRoom(id, user.userId);
+    await this.bingoGateway.notifyLeave(id, result.roomClosed ?? false);
+    return result;
   }
 }

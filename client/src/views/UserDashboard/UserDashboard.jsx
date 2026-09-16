@@ -60,6 +60,45 @@ const normalizeTx = (tx) => ({
   date: tx.date ?? (tx.createdAt ? new Date(tx.createdAt).toLocaleString('es-PE') : '—'),
 });
 
+const transactionRaffleId = (tx) => String(tx.meta?.raffleId?._id ?? tx.meta?.raffleId ?? '');
+
+/**
+ * Una compra directa genera dos asientos contables: ingreso del Yape y débito
+ * del boleto. En el historial del cliente se presenta como una sola compra.
+ */
+const prepareTransactions = (rawTransactions) => {
+  const directDeposits = rawTransactions.filter((tx) =>
+    tx.type === 'deposit_yape'
+    && tx.status === 'completed'
+    && tx.fulfillment?.status === 'ok'
+    && transactionRaffleId(tx)
+    && tx.meta?.ticketNumbers?.length,
+  );
+
+  return rawTransactions
+    .filter((tx) => !directDeposits.some((deposit) => deposit._id === tx._id))
+    .map((tx) => {
+      if (tx.type !== 'ticket_purchase') return normalizeTx(tx);
+
+      const explicitDirectPayment = tx.meta?.paymentMethod === 'yape_plin';
+      const purchaseTime = new Date(tx.createdAt ?? 0).getTime();
+      const matchingDeposit = directDeposits.some((deposit) => {
+        const depositTime = new Date(deposit.createdAt ?? 0).getTime();
+        return transactionRaffleId(deposit) === transactionRaffleId(tx)
+          && Math.abs(Number(deposit.amount)) === Math.abs(Number(tx.amount))
+          && purchaseTime >= depositTime
+          && purchaseTime - depositTime <= 15 * 60 * 1000;
+      });
+
+      return normalizeTx({
+        ...tx,
+        displayLabel: explicitDirectPayment || matchingDeposit
+          ? 'Compra de boleto por Yape/Plin'
+          : undefined,
+      });
+    });
+};
+
 const ticketColumns = [
   { title: 'Rifa', dataIndex: 'raffleTitle', key: 'raffleTitle', ellipsis: true },
   {
@@ -112,7 +151,7 @@ export default function UserDashboard() {
   const ticketsInPlay = tickets.filter((ticket) =>
     ticket.status === 'active' && ['active', 'live'].includes(ticket.raffleStatus),
   );
-  const transactions = rawTxs.map(normalizeTx);
+  const transactions = prepareTransactions(rawTxs);
   const balance = Number(profile.walletBalance ?? 0);
   const playingBalance = tickets
     .filter(t => t.status === 'active' && t.raffleStatus !== 'completed')
@@ -447,7 +486,7 @@ export default function UserDashboard() {
                                 }
                                 title={
                                   <Text style={{ fontSize: 15, fontWeight: 500 }}>
-                                    {TX_LABEL[tx.type] ?? tx.type} {TX_STATUS_TAG[tx.status]}
+                                    {tx.displayLabel ?? TX_LABEL[tx.type] ?? tx.type} {TX_STATUS_TAG[tx.status]}
                                   </Text>
                                 }
                                 description={<Text style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>{tx.date}</Text>}

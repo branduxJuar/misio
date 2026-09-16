@@ -60,6 +60,9 @@ export class Transaction implements ITransaction {
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'CashShift' })
   shiftId?: Types.ObjectId;
 
+  @Prop({ type: Object })
+  fulfillment?: { status: 'pending' | 'ok' | 'failed'; detail?: string };
+
   /**
    * Metadata del depósito (Sprint 3):
    * - methodName / operationNumber: qué método usó y su N° de operación
@@ -77,7 +80,10 @@ export class Transaction implements ITransaction {
     storeItems?: { itemId: string; qty: number }[];
     itemName?: string;
     promoCode?: string;
+    ticketPromoCode?: string;
     promoValue?: number;
+    paymentMethod?: 'yape_plin' | 'wallet';
+    sourceDepositId?: string;
   } | null;
 }
 
@@ -96,3 +102,4 @@ export const TransactionSchema = SchemaFactory.createForClass(Transaction);
 TransactionSchema.index({ userId: 1, createdAt: -1 });
 TransactionSchema.index({ type: 1, status: 1, createdAt: -1 });
 TransactionSchema.index({ status: 1, createdAt: -1 });
+TransactionSchema.index({ 'fulfillment.status': 1, updatedAt: 1 });

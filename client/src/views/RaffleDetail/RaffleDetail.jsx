@@ -19,6 +19,7 @@ import { io } from 'socket.io-client';
 
 const WS_URL = (import.meta.env.VITE_WS_URL || SERVER_URL).replace(/\/api\/v1\/?$/, '');
 import RechargeModal from '../../components/RechargeModal';
+import { useLegalContent } from '../../hooks/useLegalContent';
 import { printTickets, shareWhatsAppImage } from '../../utils/ticketPrinter';
 
 const { Title, Text, Paragraph } = Typography;
@@ -58,10 +59,10 @@ export default function RaffleDetail() {
   const [posOpen, setPosOpen] = useState(false);
   const [posForm] = Form.useForm();
   const [posSuccess, setPosSuccess] = useState(null);
-  const [legalPages, setLegalPages] = useState(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [showBalance, setShowBalance] = useState(false);
   const [checkoutRulesOpen, setCheckoutRulesOpen] = useState(false);
+  const { content: legalPages, loading: legalLoading, error: legalError, reload: reloadLegal } = useLegalContent(rulesOpen || checkoutRulesOpen);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [pendingPaymentMethod, setPendingPaymentMethod] = useState(null);
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
@@ -98,7 +99,6 @@ export default function RaffleDetail() {
 
   const load = async () => {
     try {
-      api('/settings/legal').then(setLegalPages).catch(() => {});
       const [r, s] = await Promise.all([api(`/raffles/${id}`), api(`/raffles/${id}/sold`)]);
       setRaffle(r);
       setSold(new Set(s.sold));
@@ -1280,7 +1280,7 @@ export default function RaffleDetail() {
         open={yapeOpen}
         onClose={() => setYapeOpen(false)}
         fixedAmount={total}
-        purchaseIntent={{ raffleId: id, ticketNumbers: cart }}
+        purchaseIntent={{ raffleId: id, ticketNumbers: cart, ticketPromoCode: promoValid === 'valid' ? promoCode : undefined }}
         onRegistered={() => {
           socketRef.current?.emit('grid_in_process', { raffleId: id, numbers: cart });
           setInProcess((prev) => new Set([...prev, ...cart.map(Number)]));
@@ -1303,7 +1303,7 @@ export default function RaffleDetail() {
             setCheckoutRulesOpen(false);
             setPendingPaymentMethod(null);
           }}>Cancelar</Button>,
-          <Button key="confirm" type="primary" disabled={!termsAccepted} onClick={handleConfirmCheckout} loading={paying}>
+          <Button key="confirm" type="primary" disabled={!termsAccepted || legalLoading || !legalPages?.raffleRules} onClick={handleConfirmCheckout} loading={paying}>
             Aceptar y Continuar
           </Button>
         ]}
@@ -1312,7 +1312,7 @@ export default function RaffleDetail() {
           {legalPages?.raffleRules ? (
             <ReactMarkdown>{legalPages.raffleRules}</ReactMarkdown>
           ) : (
-            <p>Cargando bases del sorteo...</p>
+            legalError ? <Button onClick={reloadLegal}>Reintentar carga de bases</Button> : <p>Cargando bases del sorteo...</p>
           )}
         </div>
         <Checkbox checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)}>
@@ -1502,7 +1502,7 @@ export default function RaffleDetail() {
             <ReactMarkdown>{legalPages.raffleRules}</ReactMarkdown>
           </div>
         ) : (
-          <p>Cargando bases del sorteo...</p>
+          legalError ? <Button onClick={reloadLegal}>Reintentar carga de bases</Button> : <p>Cargando bases del sorteo...</p>
         )}
       </Modal>
     </div>

@@ -19,7 +19,7 @@ export enum BingoWinMode {
  * El anfitrión canta los números; el sistema detecta el BINGO solo.
  * Sin admin, sin créditos, sin premios del sistema: pura reunión.
  */
-@Schema({ timestamps: true, collection: 'bingo_rooms' })
+@Schema({ timestamps: true, collection: 'bingo_rooms', optimisticConcurrency: true })
 export class BingoRoom {
   /** Código corto para compartir (ej: ZB-4F7K). */
   @Prop({ required: true, unique: true, uppercase: true })

@@ -24,6 +24,7 @@ import type { ServerOptions } from 'socket.io';
 export class RedisIoAdapter extends IoAdapter {
   private readonly logger = new Logger('RedisIoAdapter');
   private adapterConstructor: ReturnType<typeof createAdapter> | null = null;
+  private clients: Redis[] = [];
 
   constructor(app: INestApplication) {
     super(app);
@@ -37,24 +38,21 @@ export class RedisIoAdapter extends IoAdapter {
     }
 
     try {
-      const pubClient = new Redis(url);
+      const pubClient = new Redis(url, { lazyConnect: true, connectTimeout: 5000 });
       const subClient = pubClient.duplicate();
+      this.clients = [pubClient, subClient];
+      this.clients.forEach((client) => client.on('error', () => this.logger.warn('Socket.IO Redis connection error')));
 
       await Promise.all([
-        new Promise<void>((res, rej) => {
-          pubClient.once('ready', res);
-          pubClient.once('error', rej);
-        }),
-        new Promise<void>((res, rej) => {
-          subClient.once('ready', res);
-          subClient.once('error', rej);
-        }),
+        pubClient.connect(),
+        subClient.connect(),
       ]);
 
       this.adapterConstructor = createAdapter(pubClient, subClient);
-      this.logger.log(`Socket.IO conectado a Redis (${url}) → escala horizontal activa`);
+      this.logger.log('Socket.IO conectado a Redis');
     } catch (err) {
-      this.logger.warn(`No se pudo conectar a Redis (${url}): ${(err as Error).message}. Socket.IO usará modo local.`);
+      this.clients.forEach((client) => client.disconnect());
+      throw new Error('No se puede iniciar Socket.IO sin el Redis configurado');
     }
   }
 
@@ -64,5 +62,10 @@ export class RedisIoAdapter extends IoAdapter {
       server.adapter(this.adapterConstructor);
     }
     return server;
+  }
+
+  async dispose() {
+    await super.dispose();
+    this.clients.forEach((client) => client.disconnect());
   }
 }

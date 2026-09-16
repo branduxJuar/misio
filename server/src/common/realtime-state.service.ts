@@ -1,11 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, ServiceUnavailableException } from '@nestjs/common';
 import { Redis } from 'ioredis';
 import { DistributedLockService } from './distributed-lock.service';
 
 const HOLD_MS = 3 * 60 * 1000;
 
 @Injectable()
-export class RealtimeStateService {
+export class RealtimeStateService implements OnModuleDestroy {
   private redis?: Redis;
   private ready?: Promise<void>;
 
@@ -15,7 +15,8 @@ export class RealtimeStateService {
     if (!process.env.REDIS_URL) return undefined;
     if (!this.redis) {
       this.redis = new Redis(process.env.REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: 1 });
-      this.ready = this.redis.connect().then(() => undefined);
+      this.redis.on('error', () => undefined);
+      this.ready = this.redis.connect().then(() => undefined).catch(() => undefined);
     }
     return this.redis;
   }
@@ -25,10 +26,10 @@ export class RealtimeStateService {
     if (!redis) return undefined;
     try {
       await this.ready;
-      if (redis.status !== 'ready') return undefined;
+      if (redis.status !== 'ready') throw new Error('Redis not ready');
       return redis;
     } catch {
-      return undefined;
+      throw new ServiceUnavailableException('El estado compartido no esta disponible');
     }
   }
 
@@ -203,15 +204,27 @@ export class RealtimeStateService {
   async getPresence(minutes = 5) {
     const redis = await this.getRedis();
     if (!redis) return undefined;
-    const keys = await redis.keys('misio:presence:*');
     const cutoff = Date.now() - minutes * 60 * 1000;
     const result: { id: string; start: number; last: number }[] = [];
-    for (const key of keys) {
-      const value = await redis.hgetall(key);
-      const last = Number(value.last);
-      if (last > cutoff) result.push({ id: key.replace('misio:presence:', ''), start: Number(value.start), last });
-      else await redis.del(key);
-    }
+    let cursor = '0';
+    const seen = new Set<string>();
+    do {
+      const page = await redis.scan(cursor, 'MATCH', 'misio:presence:*', 'COUNT', 200);
+      cursor = page[0];
+      const keys = page[1].filter((key) => !seen.has(key));
+      if (!keys.length) continue;
+      const pipeline = redis.pipeline();
+      keys.forEach((key) => { seen.add(key); pipeline.hgetall(key); });
+      const values = await pipeline.exec();
+      values?.forEach(([error, raw], index) => {
+        if (error) throw error;
+        const value = raw as Record<string, string>;
+        const last = Number(value.last);
+        if (last > cutoff) result.push({ id: keys[index].slice('misio:presence:'.length), start: Number(value.start), last });
+      });
+    } while (cursor !== '0');
     return result;
   }
+
+  onModuleDestroy() { this.redis?.disconnect(); }
 }

@@ -1,8 +1,9 @@
 import {
   BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import { ClientSession, Connection, Model } from 'mongoose';
+import { DistributedLockService } from '../common/distributed-lock.service';
 import {
   BingoCard, BingoCardDocument, BingoRoom, BingoRoomDocument, BingoRoomStatus,
   BingoWinMode, generateCard, hasWon,
@@ -17,6 +18,8 @@ const randomCode = () =>
 @Injectable()
 export class BingoService {
   constructor(
+    @InjectConnection() private readonly connection: Connection,
+    private readonly locks: DistributedLockService,
     @InjectModel(BingoRoom.name) private roomModel: Model<BingoRoomDocument>,
     @InjectModel(BingoCard.name) private cardModel: Model<BingoCardDocument>,
   ) {}
@@ -145,47 +148,51 @@ export class BingoService {
    * juegan varias rondas seguidas sin volver a repartir el código.
    */
   async restartRoom(roomId: string, hostId: string) {
-    const room = await this.roomModel.findById(roomId);
+    const release = await this.locks.acquire(`bingo-round:${roomId}`);
+    try {
+      const session = await this.connection.startSession();
+      try { return await session.withTransaction(() => this.restartRoomOnce(roomId, hostId, session)); }
+      finally { await session.endSession(); }
+    }
+    finally { await release(); }
+  }
+
+  private async restartRoomOnce(roomId: string, hostId: string, session: ClientSession) {
+    const room = await this.roomModel.findById(roomId).session(session);
     if (!room) throw new NotFoundException('Sala no existe');
     if (room.hostId.toString() !== hostId) {
       throw new ForbiddenException('Solo el anfitrión inicia una nueva ronda');
     }
 
-    const cards = await this.cardModel.find({ roomId }).lean();
+    const cards = await this.cardModel.find({ roomId }).session(session).lean();
     await this.cardModel.bulkWrite(
       cards.map((c) => ({
         updateOne: { filter: { _id: c._id }, update: { $set: { numbers: generateCard() } } },
       })),
+      { session },
     );
 
     room.calledNumbers = [];
     room.winner = null;
     room.status = BingoRoomStatus.OPEN;
-    await room.save();
+    await room.save({ session });
     return { ok: true, round: true };
   }
 
-  /**
-   * ABANDONAR la sala (borra tu cartón). Si se va el ANFITRIÓN, el rol
-   * pasa a quien lleva más tiempo en la sala; si no queda nadie, la sala
-   * se elimina. Nunca queda una partida huérfana sin quien cante.
-   */
+  /** Abandonar: el anfitrión cierra la sala para todos; un jugador solo sale. */
   async leaveRoom(roomId: string, userId: string) {
     const room = await this.roomModel.findById(roomId);
     if (!room) throw new NotFoundException('Sala no existe');
 
-    await this.cardModel.deleteOne({ roomId, userId });
-    const rest = await this.cardModel.find({ roomId }).sort({ createdAt: 1 }).lean();
-
-    if (rest.length === 0) {
-      await this.roomModel.deleteOne({ _id: roomId });
+    const mine = await this.cardModel.findOne({ roomId, userId });
+    if (!mine) throw new ForbiddenException('No estás en esta sala');
+    if (room.hostId.toString() === userId) {
+      await this.roomModel.deleteOne({ _id: roomId, hostId: userId });
+      await this.cardModel.deleteMany({ roomId });
       return { ok: true, roomClosed: true };
     }
-    if (room.hostId.toString() === userId) {
-      room.hostId = rest[0].userId as any;
-      await room.save();
-      return { ok: true, hostTransferred: true };
-    }
+
+    await this.cardModel.deleteOne({ roomId, userId });
     return { ok: true };
   }
 
@@ -210,11 +217,11 @@ export class BingoService {
     return { room, alreadyHost: false };
   }
 
-  /** Mis salas recientes (anfitrión o jugador). */
+  /** Solo salas vigentes en las que aún participa el usuario. */
   async myRooms(userId: string) {
     const myCards = await this.cardModel.find({ userId }).select('roomId').lean();
     return this.roomModel
-      .find({ _id: { $in: myCards.map((c) => c.roomId) } })
+      .find({ _id: { $in: myCards.map((c) => c.roomId) }, status: { $ne: BingoRoomStatus.FINISHED } })
       .populate('hostId', 'name')
       .sort({ updatedAt: -1 })
       .limit(10)
@@ -228,6 +235,12 @@ export class BingoService {
    * ganador. Empates en el mismo número: gana quien se unió primero.
    */
   async callNumber(roomId: string, callerId: string) {
+    const release = await this.locks.acquire(`bingo-round:${roomId}`);
+    try { return await this.callNumberOnce(roomId, callerId); }
+    finally { await release(); }
+  }
+
+  private async callNumberOnce(roomId: string, callerId: string) {
     const room = await this.roomModel.findById(roomId);
     if (!room) throw new NotFoundException('Sala no existe');
     if (room.hostId.toString() !== callerId) {

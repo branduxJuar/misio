@@ -13,60 +13,60 @@ import { maskName } from '../src/common/mask-name.util';
 import { WsRateLimiter } from '../src/common/ws-rate-limiter';
 
 describe('maskName — formato acordado con el negocio', () => {
-  it('"Brandux Juarez" → "Brand.... Juare...."', () => {
-    expect(maskName('Brandux Juarez')).toBe('Brand.... Juare....');
+  it('oculta el apellido y conserva solo parte del primer nombre', () => {
+    expect(maskName('Brandux Juarez')).toBe('Bran.......');
   });
 
   it('nombre simple de una palabra', () => {
-    expect(maskName('Ana')).toBe('Ana....');
+    expect(maskName('Ana')).toBe('An.....');
   });
 
-  it('tres palabras → solo las 2 primeras', () => {
+  it('tres palabras: no revela nombres adicionales ni apellidos', () => {
     const r = maskName('Carlos Eduardo Pérez');
-    expect(r).toBe('Carlo.... Eduar....');
+    expect(r).toBe('Carl.......');
   });
 
   it('entrada vacía no revienta', () => {
-    expect(maskName('')).toBe('');
-    expect(maskName(null as any)).toBe('');
+    expect(maskName('')).toBe('—');
+    expect(maskName(null as any)).toBe('—');
   });
 });
 
 describe('WsRateLimiter — protección de los sockets', () => {
   const fakeSocket = (id: string) => ({ id, once: () => {} }) as any;
 
-  it('acepta hasta el límite y bloquea el resto', () => {
+  it('acepta hasta el límite y bloquea el resto', async () => {
     const limiter = new WsRateLimiter();
     const s = fakeSocket('bot-1');
     let accepted = 0;
     for (let i = 0; i < 50; i++) {
-      if (!limiter.check(s, 'place_bid')) accepted++;
+      if (!await limiter.check(s, 'place_bid')) accepted++;
     }
     // place_bid: 12 por ventana de 10s
     expect(accepted).toBe(12);
   });
 
-  it('otro socket no se ve afectado', () => {
+  it('otro socket no se ve afectado', async () => {
     const limiter = new WsRateLimiter();
     const bot = fakeSocket('bot');
     const human = fakeSocket('human');
-    for (let i = 0; i < 50; i++) limiter.check(bot, 'place_bid');
-    expect(limiter.check(human, 'place_bid')).toBeNull(); // null = puede pasar
+    for (let i = 0; i < 50; i++) await limiter.check(bot, 'place_bid');
+    expect(await limiter.check(human, 'place_bid')).toBeNull(); // null = puede pasar
   });
 
-  it('eventos distintos tienen cubetas distintas', () => {
+  it('eventos distintos tienen cubetas distintas', async () => {
     const limiter = new WsRateLimiter();
     const s = fakeSocket('s1');
-    for (let i = 0; i < 50; i++) limiter.check(s, 'place_bid');
+    for (let i = 0; i < 50; i++) await limiter.check(s, 'place_bid');
     // Agoté place_bid, pero react es otra cubeta
-    expect(limiter.check(s, 'react')).toBeNull();
+    expect(await limiter.check(s, 'react')).toBeNull();
   });
 
-  it('devuelve mensaje de espera al bloquear', () => {
+  it('devuelve mensaje de espera al bloquear', async () => {
     const limiter = new WsRateLimiter();
     const s = fakeSocket('s2');
-    for (let i = 0; i < 15; i++) limiter.check(s, 'buy_now');
-    const msg = limiter.check(s, 'buy_now');
+    for (let i = 0; i < 15; i++) await limiter.check(s, 'buy_now');
+    const msg = await limiter.check(s, 'buy_now');
     expect(msg).toBeTruthy();
     expect(msg).toContain('espera');
   });

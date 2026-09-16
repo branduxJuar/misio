@@ -7,6 +7,11 @@ import { TransactionType } from '../transaction.schema';
 
 /** Intención de compra: números del carrito que se comprarán al confirmar. */
 class PurchaseIntentDto {
+  @IsOptional()
+  @IsString()
+  @Length(1, 80)
+  ticketPromoCode?: string;
+
   @IsMongoId()
   raffleId: string;
 

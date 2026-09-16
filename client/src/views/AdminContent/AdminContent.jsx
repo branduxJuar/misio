@@ -37,17 +37,21 @@ export default function AdminContent() {
   const [isAnnModalOpen, setIsAnnModalOpen] = useState(false);
   const [refundPct, setRefundPct] = useState(50);
   const [legal, setLegal] = useState({ terms: '', privacy: '', howItWorks: '', autocontrol: '', raffleRules: '' });
+  const [legalLoaded, setLegalLoaded] = useState(false);
   useEffect(() => {
-    api('/settings/legal').then((l) => setLegal({
-      terms: l?.terms ?? '', privacy: l?.privacy ?? '', howItWorks: l?.howItWorks ?? '', autocontrol: l?.autocontrol ?? '', raffleRules: l?.raffleRules ?? '',
-    })).catch(() => {});
+    api('/settings/legal').then((l) => {
+      setLegal({ terms: l?.terms ?? '', privacy: l?.privacy ?? '', howItWorks: l?.howItWorks ?? '', autocontrol: l?.autocontrol ?? '', raffleRules: l?.raffleRules ?? '' });
+      setLegalLoaded(true);
+    }).catch(() => msgApi.error('No se pudieron cargar los textos legales. Recarga antes de editarlos.'));
   }, []);
   useEffect(() => {
     api('/settings/refund-percentage').then(res => setRefundPct(res?.percentage ?? 50)).catch(() => {});
   }, []);
   const saveLegal = async () => {
+    if (!legalLoaded) return;
     try {
       await api('/settings/legal', { method: 'PUT', body: legal });
+      window.dispatchEvent(new Event('misio-content-updated'));
       msgApi.success('Páginas legales guardadas ✓');
     } catch (err) { msgApi.error(err.message); }
   };
@@ -225,6 +229,11 @@ export default function AdminContent() {
           },
         },
       });
+      // Guardar también los textos legales al dar clic en el botón principal
+      if (legalLoaded) {
+        await api('/settings/legal', { method: 'PUT', body: legal });
+        window.dispatchEvent(new Event('misio-content-updated'));
+      }
       msgApi.success('Guardado ✓ — los cambios ya están en vivo para todos.');
       refresh();
       site.refresh();
@@ -402,14 +411,6 @@ export default function AdminContent() {
                 </Col>
               </Row>
 
-              <Divider>Sección de transparencia</Divider>
-              <Form.Item name="landing_businessTitle" label="Título">
-                <Input placeholder="¿Y ustedes de qué viven?" />
-              </Form.Item>
-              <Form.Item name="landing_businessText"
-                label="Explicación del negocio (aquí se gana o se pierde la confianza)">
-                <Input.TextArea rows={4} showCount maxLength={1200} />
-              </Form.Item>
               <Form.Item name="landing_closingTitle" label="Título del cierre">
                 <Input placeholder="Lo peor que te puede pasar es quedarte con tu plata" />
               </Form.Item>
@@ -475,7 +476,7 @@ export default function AdminContent() {
           title="📄 Páginas legales y de contenido"
           size="small"
           style={{ marginTop: 20 }}
-          extra={<Button size="small" type="primary" onClick={saveLegal}>Guardar</Button>}
+          extra={<Button size="small" type="primary" disabled={!legalLoaded} onClick={saveLegal}>Guardar</Button>}
         >
           <Alert type="warning" showIcon style={{ marginBottom: 14 }}
             message="Revisa estos textos con un abogado antes de operar con dinero real."

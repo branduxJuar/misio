@@ -96,8 +96,8 @@ export class PaymentsController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePerm('pagos')
   @Patch(':id/confirm')
-  confirm(@Param('id') id: string, @Request() req: any, @Headers('idempotency-key') idempotencyKey: string | undefined) {
-    return this.paymentsService.confirmDeposit(id, req.user.id, idempotencyKey);
+  confirm(@Param('id') id: string, @CurrentUser() user: AuthUser, @Headers('idempotency-key') idempotencyKey: string | undefined) {
+    return this.paymentsService.confirmDeposit(id, user.userId, idempotencyKey);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)

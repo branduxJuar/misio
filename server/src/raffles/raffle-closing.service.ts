@@ -68,8 +68,23 @@ export class RaffleClosingService {
     amountFor: (count: number) => number,
     wallet: 'canje' | 'contable',
     source: string,
+    raffleId: string,
+    cancel = false,
   ) {
     const write = async (session?: any) => {
+      const claimed = await this.raffleModel.updateOne({
+        _id: raffleId, refundsProcessed: { $ne: true },
+        status: cancel ? { $in: [RaffleStatus.ACTIVE, RaffleStatus.LIVE] } : RaffleStatus.COMPLETED,
+      }, { $set: { refundsProcessed: true, ...(cancel ? { status: RaffleStatus.CANCELLED } : {}) } }, { session });
+      if (claimed.modifiedCount !== 1) throw new BadRequestException('El reembolso ya fue procesado o la rifa cambio de estado');
+      if (cancel) {
+        // Read after claiming the raffle in the same snapshot as its state change.
+        groups = await this.ticketModel.aggregate([
+          { $match: { raffleId: new Types.ObjectId(raffleId), userId: { $ne: null } } },
+          { $group: { _id: '$userId', count: { $sum: 1 } } },
+        ]).session(session);
+      }
+      if (!groups.length) return groups;
       await this.txModel.insertMany(
         groups.map((g) => ({ userId: g._id, amount: amountFor(g.count), type: wallet === 'canje' ? TransactionType.CERO_PERDIDA_REFUND : TransactionType.RAFFLE_CANCELLED_REFUND, status: TransactionStatus.COMPLETED, wallet })),
         { session },
@@ -84,17 +99,17 @@ export class RaffleClosingService {
         }
         return { updateOne: { filter: { _id: g._id }, update } };
       });
-      await this.userModel.bulkWrite(operations, { session });
+      const credited = await this.userModel.bulkWrite(operations, { session });
+      if (credited.matchedCount !== groups.length) throw new BadRequestException('Falta un usuario para completar los reembolsos');
+      return groups;
     };
-    const hello = await this.connection.db?.admin().command({ hello: 1 });
-    if (!hello?.setName && hello?.msg !== 'isdbgrid') return write();
     const session = await this.connection.startSession();
-    try { await session.withTransaction(() => write(session)); }
+    try { return await session.withTransaction(() => write(session)); }
     finally { await session.endSession(); }
   }
 
   async closeRaffle(raffleId: string): Promise<ClosingSummary> {
-    const release = await this.lockService.acquire(`raffle-close:${raffleId}`, 5 * 60_000);
+    const release = await this.lockService.acquire(`raffle-settlement:${raffleId}`, 5 * 60_000);
     try {
       return await this.closeRaffleOnce(raffleId);
     } finally {
@@ -104,10 +119,8 @@ export class RaffleClosingService {
 
   private async closeRaffleOnce(raffleId: string): Promise<ClosingSummary> {
     // 1. Reclamar el candado: solo UN proceso puede cerrar esta rifa
-    const raffle = await this.raffleModel.findOneAndUpdate(
+    const raffle = await this.raffleModel.findOne(
       { _id: raffleId, status: RaffleStatus.COMPLETED, refundsProcessed: { $ne: true } },
-      { refundsProcessed: true },
-      { new: true },
     );
     if (!raffle) {
       const exists = await this.raffleModel.findById(raffleId).lean();
@@ -202,11 +215,14 @@ export class RaffleClosingService {
         const refundPct = await this.settingsService.getRefundPercentage();
         const refundMultiplier = refundPct / 100;
 
-        await this.persistGroupedRefunds(groups, (count) => raffle.ticketPrice * count * refundMultiplier, 'canje', raffle.title);
+        await this.persistGroupedRefunds(groups, (count) => raffle.ticketPrice * count * refundMultiplier, 'canje', raffle.title, raffleId);
         refundsApplied = true;
 
         refundedTickets = groups.reduce((sum, g) => sum + g.count, 0);
         refundedTotal = groups.reduce((sum, g) => sum + ((raffle.ticketPrice * g.count) * refundMultiplier), 0);
+      } else {
+        await this.persistGroupedRefunds([], () => 0, 'canje', raffle.title, raffleId);
+        refundsApplied = true;
       }
 
       // 3. El ERP recibe al ganador → arranca el flujo logístico.
@@ -301,7 +317,7 @@ export class RaffleClosingService {
           name: firstWinner.name,
           ticketNumber: firstWinner.ticketNumber,
         },
-        refundedUsers: groups.length,
+        refundedUsers: refundedTickets > 0 ? groups.length : 0,
         refundedTickets,
         refundedTotal,
       };
@@ -313,7 +329,6 @@ export class RaffleClosingService {
     } catch (err) {
       // Liberar el candado para permitir reintento manual (POST /raffles/:id/close)
       if (!refundsApplied) {
-        await this.raffleModel.updateOne({ _id: raffleId }, { refundsProcessed: false });
         this.logger.error(`Cierre de rifa ${raffleId} falló, candado liberado`, err);
       } else {
         this.logger.error(`Cierre de rifa ${raffleId} completó el reembolso, pero falló una tarea posterior`, err);
@@ -329,8 +344,7 @@ export class RaffleClosingService {
    * el motivo. Usa el mismo candado refundsProcessed: imposible duplicar.
    */
   async cancelRaffle(raffleId: string, reason: string) {
-    const release = await this.lockService.acquire(`raffle-cancel:${raffleId}`, 5 * 60_000);
-    let refundsApplied = false;
+    const release = await this.lockService.acquire(`raffle-settlement:${raffleId}`, 5 * 60_000);
     try {
       return await this.cancelRaffleOnce(raffleId, reason);
     } finally {
@@ -339,14 +353,12 @@ export class RaffleClosingService {
   }
 
   private async cancelRaffleOnce(raffleId: string, reason: string) {
-    const raffle = await this.raffleModel.findOneAndUpdate(
+    const raffle = await this.raffleModel.findOne(
       {
         _id: raffleId,
         status: { $in: [RaffleStatus.ACTIVE, RaffleStatus.LIVE] },
         refundsProcessed: false,
       },
-      { refundsProcessed: true, status: RaffleStatus.CANCELLED },
-      { new: true },
     );
     if (!raffle) {
       throw new BadRequestException('La rifa no existe, ya terminó o ya fue cancelada');
@@ -354,21 +366,10 @@ export class RaffleClosingService {
 
     let refundsApplied = false;
     try {
-      const raffleOid = new Types.ObjectId(raffleId);
-
-      // TODOS los boletos, agrupados por usuario
-      const groups: { _id: Types.ObjectId; count: number }[] =
-        await this.ticketModel.aggregate([
-          { $match: { raffleId: raffleOid } },
-          { $group: { _id: '$userId', count: { $sum: 1 } } },
-        ]);
-
-      let refundedTotal = 0;
-      if (groups.length > 0) {
-        await this.persistGroupedRefunds(groups, (count) => raffle.ticketPrice * count, 'contable', `Cancelación: ${raffle.title}`);
-        refundsApplied = true;
-        refundedTotal = groups.reduce((s, g) => s + g.count, 0) * raffle.ticketPrice;
-      }
+      const groups = await this.persistGroupedRefunds([], (count) => raffle.ticketPrice * count,
+        'contable', `Cancelación: ${raffle.title}`, raffleId, true);
+      refundsApplied = true;
+      const refundedTotal = groups.reduce((s, g) => s + g.count, 0) * raffle.ticketPrice;
 
       const { notified } = await this.notifService.notifyRaffleBuyers(
         raffleId,
@@ -381,13 +382,7 @@ export class RaffleClosingService {
       );
       return { refundedUsers: groups.length, refundedTotal, notified, reason };
     } catch (err) {
-      // Liberar candado y restaurar estado para reintento
-      if (!refundsApplied) {
-        await this.raffleModel.updateOne(
-          { _id: raffleId },
-          { refundsProcessed: false, status: RaffleStatus.ACTIVE },
-        );
-      }
+      // MongoDB rolls back both the state change and the refund on failure.
       throw err;
     }
   }

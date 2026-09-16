@@ -25,6 +25,7 @@ export const WS_LIMITS: Record<string, { limit: number; windowMs: number }> = {
   buy_now: { limit: 3, windowMs: 10_000 },
   // Escriben estado de juego
   host_call: { limit: 30, windowMs: 10_000 },
+  host_restart: { limit: 3, windowMs: 30_000 },
   claim_host: { limit: 5, windowMs: 30_000 },
   presenter_draw: { limit: 20, windowMs: 10_000 },
   presenter_draw_manual: { limit: 20, windowMs: 10_000 },

@@ -71,6 +71,9 @@ export class TransactionsController {
     if (!dto.operationNumber || !dto.operationNumber.trim()) {
       throw new BadRequestException('El número de operación es obligatorio para validar tu pago con Yape o Plin');
     }
+    if (/^9\d{8}$/.test(dto.operationNumber.replace(/[\s-]/g, ''))) {
+      throw new BadRequestException('Ingresa el código de operación del comprobante, no tu número celular');
+    }
 
     let promoData: any = null;
     if (dto.promoCode) {

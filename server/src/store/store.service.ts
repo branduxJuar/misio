@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import { ClientSession, Connection, Model } from 'mongoose';
 import {
   Redemption, RedemptionDocument, RedemptionStatus, StoreItem, StoreItemDocument,
 } from './store.schema';
@@ -16,7 +16,9 @@ import { IdempotencyService } from '../common/idempotency.service';
 
 @Injectable()
 export class StoreService {
+  private readonly logger = new Logger(StoreService.name);
   constructor(
+    @InjectConnection() private readonly connection: Connection,
     @InjectModel(StoreItem.name) private itemModel: Model<StoreItemDocument>,
     @InjectModel(Redemption.name) private redemptionModel: Model<RedemptionDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
@@ -73,22 +75,35 @@ export class StoreService {
   // ── Canje ───────────────────────────────────────────────────────
   /**
    * CHECKOUT DEL CARRITO (multi-producto):
-   * (1) reclama stock línea por línea de forma atómica — si una falla,
-   *     devuelve el stock ya reclamado; (2) cobra el TOTAL vía ledger
-   *     (guard de saldo); si falla, restaura todo; (3) crea UNA orden
-   *     con sus líneas + notificación.
+   * Stock, ledger, billetera y orden se confirman en una transaccion.
+   * La notificacion se envia solo despues del commit.
    */
   async checkout(
     userId: string,
     cart: { itemId: string; qty: number }[],
     delivery?: { address?: string; reference?: string; phone?: string; email?: string; note?: string },
     idempotencyKey?: string,
+    depositId?: string,
   ) {
     const claim = await this.idempotencyService.claim('store.checkout', idempotencyKey, userId);
     if (claim?.kind === 'replay') return claim.response;
     try {
-      const result = await this.checkoutOnce(userId, cart, delivery);
-      if (claim?.kind === 'new') await this.idempotencyService.complete(claim.id, result as any);
+      const session = await this.connection.startSession();
+      let result!: RedemptionDocument;
+      try {
+        await session.withTransaction(async () => {
+          result = await this.checkoutOnce(userId, cart, delivery, session);
+          if (depositId) await this.txService.finishDepositPurchase(depositId, userId, result.itemName, session);
+          if (claim?.kind === 'new') await this.idempotencyService.complete(claim.id, result.toObject(), session);
+        });
+      } finally {
+        await session.endSession();
+      }
+      // A notification failure must not turn a committed purchase into an error.
+      await this.notifService.notifyUser(userId,
+        `Orden registrada: ${result.itemName}. Total S/ ${result.price.toFixed(2)}.`,
+        NotificationType.GENERAL,
+      ).catch(() => this.logger.warn(`Notification failed for order ${result._id}`));
       return result;
     } catch (error) {
       if (claim?.kind === 'new') await this.idempotencyService.fail(claim.id);
@@ -100,36 +115,30 @@ export class StoreService {
     userId: string,
     cart: { itemId: string; qty: number }[],
     delivery?: { address?: string; reference?: string; phone?: string; email?: string; note?: string },
+    session?: ClientSession,
   ) {
     if (!cart?.length) throw new BadRequestException('El carrito está vacío');
+    if (cart.length > 100) throw new BadRequestException('El carrito excede el limite de productos');
 
     const lines: { itemId: any; name: string; price: number; qty: number; limited: boolean; saleType: 'canje' | 'venta' }[] = [];
-    const claimed: { itemId: string; qty: number }[] = []; // Para rollback
-
-    const rollback = async () => {
-      for (const c of claimed) {
-        await this.itemModel.updateOne({ _id: c.itemId }, { $inc: { stock: c.qty } });
-      }
-    };
 
     // (1) Validar y reclamar stock
     for (const entry of cart) {
-      const qty = Math.max(1, Math.min(20, Math.floor(entry.qty ?? 1)));
-      const item = await this.itemModel.findOne({ _id: entry.itemId, active: true });
+      const qty = entry.qty ?? 1;
+      if (!Number.isInteger(qty) || qty < 1 || qty > 20) throw new BadRequestException('Cantidad invalida');
+      const item = await this.itemModel.findOne({ _id: entry.itemId, active: true }).session(session ?? null);
       if (!item) {
-        await rollback();
         throw new NotFoundException('Un producto del carrito ya no está disponible');
       }
       if (item.stock !== -1) {
         const ok = await this.itemModel.findOneAndUpdate(
           { _id: item._id, stock: { $gte: qty } },
           { $inc: { stock: -qty } },
+          { session },
         );
         if (!ok) {
-          await rollback();
           throw new BadRequestException(`Stock insuficiente de "${item.name}"`);
         }
-        claimed.push({ itemId: item._id.toString(), qty });
       }
       lines.push({ itemId: item._id, name: item.name, price: item.priceMisio, qty, limited: item.stock !== -1, saleType: (item as any).saleType ?? 'canje' });
     }
@@ -144,9 +153,8 @@ export class StoreService {
     const totalVenta = lines.filter((l) => l.saleType === 'venta')
       .reduce((s, l) => s + l.price * l.qty, 0);
 
-    const user = await this.userModel.findById(userId).lean();
+    const user = await this.userModel.findById(userId).session(session ?? null).lean();
     if (!user) {
-      await rollback();
       throw new NotFoundException('Usuario no encontrado');
     }
 
@@ -165,11 +173,9 @@ export class StoreService {
     const faltanteCanje = Math.max(0, chargeCanjeDesdeContable - contableSobrante);
 
     if (faltanteVenta > 0) {
-      await rollback();
       throw new BadRequestException('Saldo Contable insuficiente para productos de Venta');
     }
     if (faltanteCanje > 0) {
-      await rollback();
       throw new BadRequestException('Saldo insuficiente para completar la compra de Canje');
     }
 
@@ -181,63 +187,31 @@ export class StoreService {
         status: TransactionStatus.COMPLETED,
         wallet,
         meta: { itemName: label },
-      });
+      }, session);
 
     const canjeLabel = lines.filter((l) => l.saleType === 'canje').map((l) => `${l.qty}× ${l.name}`).join(', ');
     const ventaLabel = lines.filter((l) => l.saleType === 'venta').map((l) => `${l.qty}× ${l.name}`).join(', ');
 
-    let revertedCanje = 0;
-    let revertedContable = 0;
-
-    try {
       if (chargeCanjeDesdeCanje > 0) {
         await charge(chargeCanjeDesdeCanje, 'canje', canjeLabel);
-        revertedCanje += chargeCanjeDesdeCanje;
       }
       if (chargeCanjeDesdeContable > 0) {
         await charge(chargeCanjeDesdeContable, 'contable', `Fallback canje: ${canjeLabel}`);
-        revertedContable += chargeCanjeDesdeContable;
       }
       if (chargeVentaContable > 0) {
         await charge(chargeVentaContable, 'contable', ventaLabel);
-        revertedContable += chargeVentaContable;
       }
-    } catch (err) {
-      // Compensación: devolver lo ya cobrado al canje/contable + stock
-      if (revertedCanje > 0) {
-        await this.txService.create({
-          userId,
-          amount: revertedCanje,
-          type: TransactionType.MARKETPLACE_PURCHASE,
-          status: TransactionStatus.COMPLETED,
-          wallet: 'canje',
-          meta: { itemName: `Reverso por fallo de cobro: ${canjeLabel}` },
-        });
-      }
-      if (revertedContable > 0) {
-        await this.txService.create({
-          userId,
-          amount: revertedContable,
-          type: TransactionType.MARKETPLACE_PURCHASE,
-          status: TransactionStatus.COMPLETED,
-          wallet: 'contable',
-          meta: { itemName: `Reverso por fallo de cobro` },
-        });
-      }
-      await rollback();
-      throw err;
-    }
 
     // (3) Orden única con líneas
     const summary = lines.map((l) => `${l.qty}× ${l.name}`).join(', ');
     // El tipo de entrega lo define el primer producto (una orden mixta es
     // rara; si la hay, gana el físico porque necesita envío).
-    const firstItem = await this.itemModel.findById(lines[0].itemId).lean();
+    const firstItem = await this.itemModel.findById(lines[0].itemId).session(session ?? null).lean();
     const fulfillment = (lines.length === 1)
       ? ((firstItem as any)?.fulfillment ?? 'fisico')
       : 'fisico';
 
-    const order = await this.redemptionModel.create({
+    const [order] = await this.redemptionModel.create([{
       userId,
       itemId: lines[0].itemId,
       itemName: summary,
@@ -245,13 +219,7 @@ export class StoreService {
       items: lines.map(({ itemId, name, price, qty }) => ({ itemId, name, price, qty })),
       fulfillment,
       delivery: delivery ?? {},
-    });
-
-    await this.notifService.notifyUser(
-      userId,
-      `🛍️ ¡Orden registrada! ${summary} — total S/ ${total.toFixed(2)}. Te contactaremos para la entrega.`,
-      NotificationType.GENERAL,
-    );
+    }], { session });
     return order;
   }
 

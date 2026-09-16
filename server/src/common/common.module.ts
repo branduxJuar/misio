@@ -7,6 +7,7 @@ import { IdempotencyRecord, IdempotencySchema } from './idempotency.schema';
 import { IdempotencyService } from './idempotency.service';
 import { DistributedLockService } from './distributed-lock.service';
 import { RealtimeStateService } from './realtime-state.service';
+import { TicketEmailOutboxService } from './ticket-email-outbox.service';
 
 /**
  * Piezas transversales: sondas de salud y utilidades compartidas.
@@ -17,7 +18,7 @@ import { RealtimeStateService } from './realtime-state.service';
 @Module({
   imports: [MongooseModule.forFeature([{ name: IdempotencyRecord.name, schema: IdempotencySchema }])],
   controllers: [HealthController, PrivateFilesController],
-  providers: [WsRateLimiter, IdempotencyService, DistributedLockService, RealtimeStateService],
-  exports: [WsRateLimiter, IdempotencyService, DistributedLockService, RealtimeStateService],
+  providers: [WsRateLimiter, IdempotencyService, DistributedLockService, RealtimeStateService, TicketEmailOutboxService],
+  exports: [WsRateLimiter, IdempotencyService, DistributedLockService, RealtimeStateService, TicketEmailOutboxService],
 })
 export class CommonModule {}

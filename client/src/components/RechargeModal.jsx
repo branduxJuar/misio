@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import {
   Modal, Typography, InputNumber, Input, Button, Space, Radio, Image, Alert,
-  Steps, message, Divider, Tag,
+  message, Divider, Tag,
 } from 'antd';
-import { QrcodeOutlined, WalletFilled } from '@ant-design/icons';
+import { CheckCircleFilled, CheckOutlined, QrcodeOutlined, RightOutlined, WalletFilled } from '@ant-design/icons';
 import { MISIO_COLORS } from '../theme/misioTheme';
 import { api, SERVER_URL } from '../auth/api';
 import { useAuth } from '../auth/AuthContext';
 
 const { Text, Title } = Typography;
+
+const looksLikePeruvianMobile = (value) => /^9\d{8}$/.test(value.replace(/[\s-]/g, ''));
 
 /**
  * SPRINT 3 — Modal de recarga/pago con QR.
@@ -34,6 +36,8 @@ export default function RechargeModal({
   const [methodId, setMethodId] = useState(null);
   const [amount, setAmount] = useState(fixedAmount ?? 20);
   const [operationNumber, setOperationNumber] = useState('');
+  const [operationTouched, setOperationTouched] = useState(false);
+  const [qrLoadFailed, setQrLoadFailed] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [promoValid, setPromoValid] = useState(null); // null, 'loading', 'valid', 'invalid'
   const [promoMessage, setPromoMessage] = useState('');
@@ -45,6 +49,8 @@ export default function RechargeModal({
     if (!open) return;
     setStep(0);
     setOperationNumber('');
+    setOperationTouched(false);
+    setQrLoadFailed(false);
     setPromoCode('');
     setPromoValid(null);
     setPromoMessage('');
@@ -55,6 +61,11 @@ export default function RechargeModal({
         setMethodId(m[0]?._id ?? null);
       })
       .catch(() => setMethods([]));
+
+    if (purchaseIntent) {
+      setAvailablePromos([]);
+      return;
+    }
 
     api('/inbox')
       .then((messages) => {
@@ -67,14 +78,22 @@ export default function RechargeModal({
   }, [open, fixedAmount]);
 
   const method = methods.find((m) => m._id === methodId);
+  const operationValue = operationNumber.trim();
+  const operationIsPhone = looksLikePeruvianMobile(operationValue);
+  const operationInvalid = operationValue.length < 4 || operationIsPhone;
 
   const register = async () => {
+    setOperationTouched(true);
     if (!operationNumber || !operationNumber.trim()) {
       msgApi.error(`El número de operación es obligatorio para validar tu pago de ${method?.name ?? 'Yape / Plin'}.`);
       return;
     }
     if (operationNumber.trim().length < 4) {
       msgApi.error('El número de operación ingresado es demasiado corto. Verifícalo en tu app.');
+      return;
+    }
+    if (looksLikePeruvianMobile(operationNumber.trim())) {
+      msgApi.error('No ingreses tu celular. Coloca el código de operación de tu comprobante.');
       return;
     }
     setBusy(true);
@@ -88,7 +107,9 @@ export default function RechargeModal({
           methodName: method?.name,
           operationNumber: operationNumber.trim(),
           purchaseIntent: purchaseIntent ?? undefined,
-          promoCode: promoValid === 'valid' ? promoCode : undefined,
+          // El cupón de boletos se aplica una sola vez en el carrito.
+          // Este modal conserva cupones únicamente para recargas de saldo.
+          promoCode: !purchaseIntent && promoValid === 'valid' ? promoCode : undefined,
         },
       });
       msgApi.success(
@@ -124,6 +145,7 @@ export default function RechargeModal({
 
   return (
     <Modal
+      className="misio-payment-modal"
       open={open}
       onCancel={() => { refreshUser?.(); onClose(); }}
       footer={null}
@@ -136,12 +158,35 @@ export default function RechargeModal({
       destroyOnHidden
     >
       {contextHolder}
-      <Steps
-        size="small"
-        current={step}
-        items={[{ title: 'Monto y método' }, { title: 'Paga y registra' }]}
-        style={{ marginBottom: 20 }}
-      />
+      <nav className="payment-progress" aria-label="Progreso del pago">
+        <button
+          type="button"
+          className={`payment-progress-step ${step === 0 ? 'is-current' : 'is-complete'}`}
+          onClick={() => step === 1 && setStep(0)}
+          aria-current={step === 0 ? 'step' : undefined}
+        >
+          <span className="payment-progress-marker">
+            {step === 1 ? <CheckOutlined /> : '1'}
+          </span>
+          <span className="payment-progress-copy">
+            <strong>Monto y método</strong>
+            <small>{step === 1 ? 'Completado' : 'Elige cómo pagar'}</small>
+          </span>
+        </button>
+
+        <span className={`payment-progress-line ${step === 1 ? 'is-complete' : ''}`} />
+
+        <div
+          className={`payment-progress-step ${step === 1 ? 'is-current' : 'is-pending'}`}
+          aria-current={step === 1 ? 'step' : undefined}
+        >
+          <span className="payment-progress-marker">2</span>
+          <span className="payment-progress-copy">
+            <strong>Comprobante</strong>
+            <small>Confirma tu pago</small>
+          </span>
+        </div>
+      </nav>
 
       {methods.length === 0 && (
         <Alert
@@ -152,151 +197,182 @@ export default function RechargeModal({
 
       {step === 0 && (
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          <div>
-            <Text style={{ color: MISIO_COLORS.textMuted }}>Monto a {purchaseIntent ? 'pagar' : 'recargar'} (S/)</Text>
-            <InputNumber
-              min={1}
-              value={amount}
-              onChange={(v) => setAmount(v ?? 1)}
-              disabled={!!fixedAmount}
-              size="large"
-              style={{ width: '100%', marginTop: 6 }}
-            />
-            {fixedAmount && (
-              <Text style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>
-                Monto exacto de tu carrito — yapea esta cantidad EXACTA.
-              </Text>
-            )}
-          </div>
+          {fixedAmount ? (
+            <div className="payment-amount-summary">
+              <Text className="payment-amount-label">Total exacto a pagar</Text>
+              <div className="payment-amount-value">S/ {Number(amount).toFixed(2)}</div>
+              <Text className="payment-amount-note">Envía exactamente este monto</Text>
+            </div>
+          ) : (
+            <div>
+              <Text strong>Monto a recargar</Text>
+              <InputNumber
+                min={1}
+                prefix="S/"
+                value={amount}
+                onChange={(v) => setAmount(v ?? 1)}
+                size="large"
+                style={{ width: '100%', marginTop: 6 }}
+              />
+            </div>
+          )}
 
           <div>
-            <Text style={{ color: MISIO_COLORS.textMuted }}>Método de pago</Text>
+            <Text strong>Elige el método de pago</Text>
             <Radio.Group
               value={methodId}
               onChange={(e) => setMethodId(e.target.value)}
-              style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}
+              className="payment-method-list"
             >
               {methods.map((m) => (
-                <Radio.Button key={m._id} value={m._id}
-                  style={{ height: 'auto', padding: '10px 14px', borderRadius: 10 }}>
-                  <strong>{m.name}</strong>
-                  <div style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>
-                    {m.holderName} · {m.accountNumber}
+                <Radio.Button
+                  key={m._id}
+                  value={m._id}
+                  className="payment-method-option"
+                >
+                  <div className="payment-method-copy">
+                    <strong>{m.name}</strong>
+                    <span>{m.holderName} · {m.accountNumber}</span>
                   </div>
+                  <CheckCircleFilled className="payment-method-check" />
                 </Radio.Button>
               ))}
             </Radio.Group>
           </div>
 
-          <Divider style={{ margin: '8px 0' }} />
+          {!purchaseIntent && (
+            <>
+              <Divider style={{ margin: '8px 0' }} />
 
-          <div>
-            <Text style={{ color: MISIO_COLORS.textMuted }}>¿Tienes un código promocional?</Text>
-            <Space.Compact style={{ width: '100%', marginTop: 6 }}>
-              <Input
-                placeholder="Ej. NUEVO2026"
-                value={promoCode}
-                onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                style={{ textTransform: 'uppercase' }}
-                disabled={promoValid === 'loading' || promoValid === 'valid'}
-              />
-              <Button 
-                type="primary" 
-                onClick={validatePromo}
-                loading={promoValid === 'loading'}
-                disabled={!promoCode || promoValid === 'valid'}
-              >
-                {promoValid === 'valid' ? 'Aplicado' : 'Validar'}
-              </Button>
-            </Space.Compact>
-            {promoValid === 'valid' && <Text type="success" style={{ display: 'block', fontSize: 12, marginTop: 4 }}>{promoMessage}</Text>}
-            {promoValid === 'invalid' && <Text type="danger" style={{ display: 'block', fontSize: 12, marginTop: 4 }}>{promoMessage}</Text>}
-            
-            {availablePromos.length > 0 && promoValid !== 'valid' && (
-              <div style={{ marginTop: 8 }}>
-                <Text style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>Cupones disponibles:</Text>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
-                  {availablePromos.map(code => (
-                    <Button 
-                      key={code} 
-                      size="small" 
-                      type="dashed"
-                      onClick={() => setPromoCode(code)}
-                      style={{ color: MISIO_COLORS.primary, borderColor: MISIO_COLORS.primary }}
-                    >
-                      {code}
-                    </Button>
-                  ))}
-                </div>
+              <div>
+                <Text style={{ color: MISIO_COLORS.textMuted }}>¿Tienes un código promocional?</Text>
+                <Space.Compact style={{ width: '100%', marginTop: 6 }}>
+                  <Input
+                    placeholder="Ej. NUEVO2026"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                    style={{ textTransform: 'uppercase' }}
+                    disabled={promoValid === 'loading' || promoValid === 'valid'}
+                  />
+                  <Button
+                    type="primary"
+                    onClick={validatePromo}
+                    loading={promoValid === 'loading'}
+                    disabled={!promoCode || promoValid === 'valid'}
+                  >
+                    {promoValid === 'valid' ? 'Aplicado' : 'Validar'}
+                  </Button>
+                </Space.Compact>
+                {promoValid === 'valid' && <Text type="success" style={{ display: 'block', fontSize: 12, marginTop: 4 }}>{promoMessage}</Text>}
+                {promoValid === 'invalid' && <Text type="danger" style={{ display: 'block', fontSize: 12, marginTop: 4 }}>{promoMessage}</Text>}
+
+                {availablePromos.length > 0 && promoValid !== 'valid' && (
+                  <div style={{ marginTop: 8 }}>
+                    <Text style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>Cupones disponibles:</Text>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                      {availablePromos.map(code => (
+                        <Button
+                          key={code}
+                          size="small"
+                          type="dashed"
+                          onClick={() => setPromoCode(code)}
+                          style={{ color: MISIO_COLORS.primary, borderColor: MISIO_COLORS.primary }}
+                        >
+                          {code}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
 
-          <Button type="primary" size="large" block disabled={!method} onClick={() => setStep(1)} style={{ marginTop: 8 }}>
-            Ver QR de pago
+          <Button
+            type="primary"
+            size="large"
+            block
+            disabled={!method}
+            onClick={() => setStep(1)}
+            icon={<RightOutlined />}
+            iconPosition="end"
+            className="payment-continue-button"
+          >
+            Continuar para pagar
           </Button>
         </Space>
       )}
 
       {step === 1 && method && (
-        <Space direction="vertical" size="middle" style={{ width: '100%', textAlign: 'center' }}>
+        <Space direction="vertical" size="middle" className="payment-proof-step">
           {/* EL QR DE PAGO configurado por el admin */}
-          {method.qrImageUrl ? (
-            <Image
-              src={`${SERVER_URL}${method.qrImageUrl}`}
-              width={220}
-              style={{ borderRadius: 14, border: `2px solid ${MISIO_COLORS.primary}` }}
-            />
-          ) : (
-            <div style={{ width: 220, height: 220, margin: '0 auto', borderRadius: 14,
-              background: MISIO_COLORS.bgElevated, display: 'grid', placeItems: 'center' }}>
-              <QrcodeOutlined style={{ fontSize: 64, color: MISIO_COLORS.textMuted }} />
-            </div>
-          )}
-
-          <div>
-            <Title level={4} style={{ margin: 0 }}>
-              {method.name} · <span className="saldo-glow">S/ {Number(amount).toFixed(2)}</span>
-            </Title>
-            <Text style={{ color: MISIO_COLORS.textMuted }}>
-              {method.holderName} — <Text code copyable>{method.accountNumber}</Text>
-            </Text>
-            {method.instructions && (
-              <>
-                <br />
-                <Text style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>{method.instructions}</Text>
-              </>
+          <div className="payment-destination">
+            {method.qrImageUrl && !qrLoadFailed ? (
+              <Image
+                src={`${SERVER_URL}${method.qrImageUrl}`}
+                width={128}
+                preview={false}
+                onError={() => setQrLoadFailed(true)}
+                className="payment-qr-image"
+              />
+            ) : (
+              <div className="payment-qr-fallback">
+                <QrcodeOutlined />
+                <span>QR no disponible</span>
+              </div>
             )}
+
+            <div className="payment-destination-copy">
+              <Text className="payment-step-kicker">PAGA AHORA</Text>
+              <Title level={3} style={{ margin: '2px 0' }}>
+                {method.name} · <span className="saldo-glow">S/ {Number(amount).toFixed(2)}</span>
+              </Title>
+              <Text style={{ color: MISIO_COLORS.textMuted }}>{method.holderName}</Text>
+              <Text code copyable className="payment-account-number">{method.accountNumber}</Text>
+              {method.instructions && (
+                <Text className="payment-method-instructions">{method.instructions}</Text>
+              )}
+            </div>
           </div>
 
           <Divider style={{ margin: '4px 0' }} />
 
-          <div style={{ textAlign: 'left', background: MISIO_COLORS.bgElevated, padding: '12px 14px', borderRadius: 12, border: '1px solid #333', width: '100%' }}>
+          <div className="payment-operation-form">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
               <Text strong style={{ color: MISIO_COLORS.textMain, fontSize: 13 }}>
-                N° de Operación o Código <span style={{ color: '#ff4d4f' }}>*</span>
+                Código de operación <span style={{ color: '#ff4d4f' }}>*</span>
               </Text>
               <Tag color="error" style={{ margin: 0, fontSize: 10, fontWeight: 700 }}>OBLIGATORIO</Tag>
             </div>
             <Text style={{ fontSize: 11, color: MISIO_COLORS.textMuted, display: 'block', marginBottom: 8, lineHeight: 1.4 }}>
               {purchaseIntent
-                ? `Para verificar y procesar la compra de tus tickets, debes escribir el número o código de operación que emitió ${method?.name ?? 'Yape / Plin'} al transferir.`
-                : `Para comprobar y acreditar tu saldo en Misio, es indispensable ingresar el número de operación que emitió ${method?.name ?? 'tu app de pago'}.`}
+                ? `Para verificar tu compra, ingresa el código de operación que aparece en el comprobante de ${method?.name ?? 'Yape / Plin'}.`
+                : `Para acreditar tu saldo, ingresa el código de operación que aparece en el comprobante de ${method?.name ?? 'tu app de pago'}.`}
             </Text>
             <Input
-              placeholder={`Ej: 03482715 (N° de ${method?.name ?? 'Yape/Plin'})`}
+              placeholder="Ejemplo: 03482715"
               value={operationNumber}
-              onChange={(e) => setOperationNumber(e.target.value)}
-              status={!operationNumber.trim() ? 'error' : ''}
+              onChange={(e) => setOperationNumber(e.target.value.replace(/^\s+/, ''))}
+              onBlur={() => setOperationTouched(true)}
+              status={operationTouched && operationInvalid ? 'error' : ''}
               size="large"
               maxLength={30}
+              autoComplete="off"
               style={{ fontWeight: 600, fontSize: 15 }}
             />
-            {!operationNumber.trim() && (
+            {operationTouched && !operationValue ? (
               <Text style={{ fontSize: 11, color: '#ff4d4f', marginTop: 6, display: 'block' }}>
-                ⚠️ Ingresa el número de operación de tu comprobante para poder continuar.
+                Ingresa el código de operación del comprobante. No coloques tu número celular.
               </Text>
-            )}
+            ) : operationTouched && operationIsPhone ? (
+              <Text style={{ fontSize: 11, color: '#ff4d4f', marginTop: 6, display: 'block' }}>
+                Este valor parece un celular. Ingresa el código de operación del comprobante.
+              </Text>
+            ) : operationTouched && operationValue.length < 4 ? (
+              <Text style={{ fontSize: 11, color: '#ff4d4f', marginTop: 6, display: 'block' }}>
+                Revisa el comprobante: el código ingresado es demasiado corto.
+              </Text>
+            ) : null}
           </div>
 
           <Button
@@ -304,13 +380,13 @@ export default function RechargeModal({
             size="large"
             block
             loading={busy}
-            disabled={!operationNumber.trim() || operationNumber.trim().length < 4}
+            disabled={operationInvalid}
             onClick={register}
             style={{ marginTop: 4, height: 46, fontWeight: 600 }}
           >
-            Ya pagué — registrar mi {purchaseIntent ? 'compra de tickets' : 'recarga'}
+            Completar pago
           </Button>
-          <Button type="text" block onClick={() => setStep(0)}>← Cambiar método o monto</Button>
+          <Button type="text" block onClick={() => setStep(0)}>Cambiar método o monto</Button>
         </Space>
       )}
     </Modal>

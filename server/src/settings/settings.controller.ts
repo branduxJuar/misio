@@ -164,8 +164,8 @@ export class SettingsController {
   /** POST /api/v1/settings/announcements/:id/read */
   @Post('announcements/:id/read')
   @UseGuards(JwtAuthGuard)
-  markAnnouncementAsRead(@Req() req: any, @Param('id') id: string) {
-    return this.settingsService.markAnnouncementAsRead(req.user.id, id);
+  markAnnouncementAsRead(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.settingsService.markAnnouncementAsRead(user.userId, id);
   }
 
   /** PUT /api/v1/settings/maintenance */

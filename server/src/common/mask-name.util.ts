@@ -1,7 +1,7 @@
 /**
  * ENMASCARADO DE NOMBRES (privacidad).
  *
- * "Carla Mendoza Ríos" → "CARL… MEND…". La usan los ganadores, las pujas,
+ * "Carla Mendoza Ríos" → "Carl.......". La usan los ganadores, las pujas,
  * la lista pública de boletos y el bingo: cualquier sitio donde se muestre
  * a un tercero. Vivía dentro del módulo `live`, lo que obligaba a media
  * aplicación a importar código de streaming para poder ocultar un

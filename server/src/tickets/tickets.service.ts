@@ -1,4 +1,4 @@
-import { Logger, BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Logger, BadRequestException, ConflictException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
 import { Ticket, TicketDocument, TicketStatus } from './ticket.schema';
@@ -15,6 +15,7 @@ import { CashMovementType } from '../cash/cash.schema';
 import { MailService } from '../auth/mail.service';
 import { PartnersService } from '../partners/partners.service';
 import { IdempotencyService } from '../common/idempotency.service';
+import { TicketEmailOutboxService } from '../common/ticket-email-outbox.service';
 
 
 /** Reintentos ante colisión de números (dos compras simultáneas). */
@@ -43,6 +44,7 @@ export class TicketsService {
     private readonly mailService: MailService,
     private readonly partnersService: PartnersService,
     private readonly idempotencyService: IdempotencyService,
+    private readonly jobsService: TicketEmailOutboxService,
   ) {}
 
   /**
@@ -137,7 +139,7 @@ export class TicketsService {
   async purchase(
     userId: string,
     raffleId: string,
-    opts: { quantity?: number; ticketNumbers?: number[]; fromPendingConfirmation?: boolean; promoCode?: string; idempotencyKey?: string },
+    opts: { quantity?: number; ticketNumbers?: number[]; fromPendingConfirmation?: boolean; promoCode?: string; idempotencyKey?: string; depositId?: string },
   ) {
     const explicit = opts.ticketNumbers?.length ? [...new Set(opts.ticketNumbers)] : null;
     const quantity = explicit ? explicit.length : (opts.quantity ?? 0);
@@ -162,6 +164,9 @@ export class TicketsService {
     }
 
     const useTx = await this.supportsTransactions();
+    if (!useTx && (process.env.NODE_ENV === 'production' || opts.depositId)) {
+      throw new ServiceUnavailableException('Las compras requieren MongoDB con replica set');
+    }
     const claim = await this.idempotencyService.claim('tickets.purchase', opts.idempotencyKey, userId);
     if (claim?.kind === 'replay') return claim.response;
 
@@ -272,6 +277,8 @@ export class TicketsService {
                   ticketNumbers: numbers,
                   itemName: `${numbers.length}× boleto — ${raffle.title}`,
                   promoCode: promoData?.code,
+                  paymentMethod: opts.depositId ? 'yape_plin' : 'wallet',
+                  sourceDepositId: opts.depositId,
                 },
               },
               session ?? undefined,
@@ -346,25 +353,17 @@ export class TicketsService {
           );
 
           result = { tickets, totalPaid };
+          if (userProfile.email) await this.jobsService.recordTicketEmail(tickets[0]._id.toString(), {
+            email: userProfile.email, name: userProfile.name, raffleId, title: raffle.title,
+            drawDate: raffle.drawDate, tickets: tickets.map((ticket) => ticket.code), offline: false,
+          }, session ?? undefined);
+          if (opts.depositId) await this.txService.finishDepositPurchase(opts.depositId, userId,
+            tickets.map((ticket) => ticket.code).join(', '), session!);
+          if (claim?.kind === 'new') await this.idempotencyService.complete(claim.id, result as any, session ?? undefined);
         };
         if (session) await session.withTransaction(body);
         else await body();
 
-        if (result && purchaseInfo && userProfile.email) {
-          const info = purchaseInfo;
-          const ticketCodes = result.tickets.map((ticket) => ticket.code || formatTicketCode(
-            info.ticketPrefix, ticket.ticketNumber, info.totalTickets,
-          ));
-          this.mailService.sendTicketPurchaseConfirmation(
-            userProfile.email,
-            userProfile.name,
-            raffleId,
-            info.title,
-            info.drawDate,
-            ticketCodes,
-          ).catch((error) => this.logger.warn(`No se pudo enviar confirmación de compra: ${error?.message ?? error}`));
-        }
-        if (claim?.kind === 'new' && result) await this.idempotencyService.complete(claim.id, result as any);
         return result;
       } catch (err: any) {
         // 11000 = duplicate key: otro usuario tomó el número en paralelo
@@ -410,6 +409,7 @@ export class TicketsService {
     const useTx = await this.supportsTransactions();
 
     for (let attempt = 1; attempt <= PURCHASE_RETRIES; attempt++) {
+      if (!useTx && process.env.NODE_ENV === 'production') throw new ServiceUnavailableException('La venta POS requiere replica set');
       const session = useTx ? await this.connection.startSession() : null;
       try {
         let result: { tickets: TicketDocument[] } | undefined;
@@ -524,24 +524,14 @@ export class TicketsService {
           }
 
           result = { tickets };
+          if (opts.buyerEmail) await this.jobsService.recordTicketEmail(tickets[0]._id.toString(), {
+            email: opts.buyerEmail, name: opts.buyerName || 'Participante', raffleId, title: raffle.title,
+            drawDate: raffle.drawDate, tickets: tickets.map((ticket) => ticket.code), offline: true,
+          }, session ?? undefined);
         };
         if (session) await session.withTransaction(body);
         else await body();
 
-        if (result?.tickets && opts.buyerEmail) {
-          const ticketCodes = result.tickets.map(t => t.code);
-          const raffle = await this.raffleModel.findById(raffleId); // Re-fetch to get title/date
-          if (raffle) {
-            this.mailService.sendOfflineSaleTickets(
-              opts.buyerEmail,
-              opts.buyerName || 'Participante',
-              raffleId,
-              raffle.title,
-              raffle.drawDate,
-              ticketCodes
-            ).catch(e => this.logger.error(`Error sending offline tickets email to ${opts.buyerEmail}: ${e.message}`));
-          }
-        }
 
         return result;
       } catch (err: any) {
@@ -827,6 +817,8 @@ export class TicketsService {
 
     const useTx = await this.supportsTransactions();
     const session = useTx ? await this.connection.startSession() : null;
+
+    if (!useTx && process.env.NODE_ENV === 'production') throw new ServiceUnavailableException('La anulacion POS requiere replica set');
 
     let ticketsToCancel: any[] = [];
     try {

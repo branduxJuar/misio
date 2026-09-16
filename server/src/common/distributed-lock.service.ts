@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, OnModuleDestroy, ServiceUnavailableException } from '@nestjs/common';
 import { Redis } from 'ioredis';
 import { randomUUID } from 'node:crypto';
 
@@ -7,7 +7,7 @@ type Release = () => Promise<void>;
 
 /** Lock compartido entre réplicas. Sin REDIS_URL conserva un lock local para desarrollo. */
 @Injectable()
-export class DistributedLockService {
+export class DistributedLockService implements OnModuleDestroy {
   private readonly logger = new Logger(DistributedLockService.name);
   private readonly local = new Map<string, LocalLock>();
   private redis?: Redis;
@@ -17,7 +17,8 @@ export class DistributedLockService {
     if (!process.env.REDIS_URL) return undefined;
     if (!this.redis) {
       this.redis = new Redis(process.env.REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: 1 });
-      this.redisReady = this.redis.connect().then(() => undefined);
+      this.redis.on('error', () => undefined);
+      this.redisReady = this.redis.connect().then(() => undefined).catch(() => undefined);
     }
     return this.redis;
   }
@@ -29,13 +30,16 @@ export class DistributedLockService {
     if (redis) {
       try {
         await this.redisReady;
+        if (redis.status !== 'ready') throw new Error('Redis not ready');
         const acquired = await redis.set(`misio:lock:${key}`, token, 'PX', ttlMs, 'NX');
         if (acquired !== 'OK') throw new ConflictException('Esta operación ya está siendo procesada');
         const timer = setInterval(() => {
           redis.eval(
             "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pexpire', KEYS[1], ARGV[2]) else return 0 end",
             1, `misio:lock:${key}`, token, String(ttlMs),
-          ).catch(() => undefined);
+          ).then((renewed) => {
+            if (renewed !== 1) this.logger.error(`Lock lost: ${key}`);
+          }).catch(() => this.logger.error(`Lock renewal failed: ${key}`));
         }, Math.max(1000, Math.floor(ttlMs / 3)));
         timer.unref?.();
         return async () => {
@@ -45,7 +49,7 @@ export class DistributedLockService {
             1,
             `misio:lock:${key}`,
             token,
-          );
+          ).catch(() => this.logger.warn(`Lock release deferred to TTL: ${key}`));
         };
       } catch (error: any) {
         if (error instanceof ConflictException) throw error;
@@ -64,4 +68,6 @@ export class DistributedLockService {
       if (current?.token === token) this.local.delete(key);
     };
   }
+
+  onModuleDestroy() { this.redis?.disconnect(); }
 }

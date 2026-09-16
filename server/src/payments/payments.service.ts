@@ -1,5 +1,6 @@
 import { User, UserDocument } from '../users/user.schema';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { HttpException, Injectable, Logger, NotFoundException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { DistributedLockService } from '../common/distributed-lock.service';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { PaymentMethod, PaymentMethodDocument } from './payment-method.schema';
@@ -23,8 +24,32 @@ import { JobsService } from '../jobs/jobs.service';
  * verificación de depósitos y AUTO-COMPRA de la intención del carrito.
  */
 @Injectable()
-export class PaymentsService {
+export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PaymentsService.name);
+  private recoveryTimer?: ReturnType<typeof setInterval>;
+  private recovering = false;
+
+  onModuleInit() {
+    this.recoveryTimer = setInterval(() => { void this.recoverPurchases(); }, 30_000);
+    this.recoveryTimer.unref();
+  }
+
+  onModuleDestroy() { clearInterval(this.recoveryTimer); }
+
+  private async recoverPurchases() {
+    if (this.recovering) return;
+    this.recovering = true;
+    try {
+      for (const tx of await this.txService.findUnfulfilledDeposits()) {
+        try { await this.processDeposit(tx._id.toString()); }
+        catch {
+          await this.txService.deferDepositPurchase(tx._id.toString());
+          this.logger.warn(`Purchase recovery pending for deposit ${tx._id}`);
+        }
+      }
+    } catch { this.logger.warn('Purchase recovery temporarily unavailable'); }
+    finally { this.recovering = false; }
+  }
 
   /** Historial de depósitos resueltos (delegado en el módulo contable). */
   async depositHistory(opts: {
@@ -62,6 +87,7 @@ export class PaymentsService {
   }
 
   constructor(
+    private readonly locks: DistributedLockService,
     @InjectModel(PaymentMethod.name) private methodModel: Model<PaymentMethodDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Raffle.name) private raffleModel: Model<RaffleDocument>,
@@ -122,6 +148,17 @@ export class PaymentsService {
 
     const raffleMap = new Map<string, any>();
     const soldTicketsInfoMap = new Map<string, any>(); // key: raffleId_number => info
+    const pendingByNumber = new Map<string, any[]>();
+    const wantedNumbers = new Set<number>();
+    for (const tx of pending) {
+      for (const n of tx.meta?.ticketNumbers ?? []) {
+        const key = `${tx.meta.raffleId}_${n}`;
+        const entries = pendingByNumber.get(key) ?? [];
+        entries.push(tx);
+        pendingByNumber.set(key, entries);
+        wantedNumbers.add(n);
+      }
+    }
 
     if (raffleIds.size > 0) {
       const idArray = Array.from(raffleIds);
@@ -135,7 +172,7 @@ export class PaymentsService {
 
       // Buscar boletos YA VENDIDOS en estas rifas
       const soldTickets = await this.ticketModel
-        .find({ raffleId: { $in: matchArray } })
+        .find({ raffleId: { $in: matchArray }, ticketNumber: { $in: [...wantedNumbers] } })
         .populate('userId', 'name dni')
         .lean();
 
@@ -179,23 +216,16 @@ export class PaymentsService {
 
         // 2. Verificar conflicto con OTROS usuarios en la cola de pendientes (simultáneo)
         const conflictsWithPending: any[] = [];
-        for (let j = 0; j < pending.length; j++) {
-          if (i === j) continue;
-          const otherTx = pending[j];
-          const otherMeta = otherTx.meta || {};
-          const otherRaffleId = otherMeta.raffleId ? String(otherMeta.raffleId) : null;
-          if (otherRaffleId === raffleId && Array.isArray(otherMeta.ticketNumbers)) {
+        for (const n of numbers) {
+          for (const otherTx of pendingByNumber.get(`${raffleId}_${n}`) ?? []) {
+            if (otherTx === tx) continue;
             const otherUser = otherTx.userId || {};
-            for (const n of numbers) {
-              if (otherMeta.ticketNumbers.includes(n)) {
-                conflictsWithPending.push({
-                  ticketNumber: n,
-                  formatted: raffle ? formatTicketCode(prefix, n, totalTickets) : `#${n}`,
-                  userName: otherUser.name || 'Otro usuario',
-                  userDni: otherUser.dni || '—',
-                });
-              }
-            }
+            conflictsWithPending.push({
+              ticketNumber: n,
+              formatted: raffle ? formatTicketCode(prefix, n, totalTickets) : `#${n}`,
+              userName: otherUser.name || 'Otro usuario',
+              userDni: otherUser.dni || '—',
+            });
           }
         }
 
@@ -238,7 +268,7 @@ export class PaymentsService {
     const claim = await this.idempotencyService.claim('payments.confirm', idempotencyKey, adminId);
     if (claim?.kind === 'replay') return claim.response;
     try {
-      const result = await this.confirmDepositOnce(txId, adminId);
+      const result = await this.processDeposit(txId, adminId);
       if (claim?.kind === 'new') await this.idempotencyService.complete(claim.id, result as any);
       return result;
     } catch (error) {
@@ -247,14 +277,25 @@ export class PaymentsService {
     }
   }
 
-  private async confirmDepositOnce(txId: string, adminId: string) {
+  private async processDeposit(txId: string, adminId?: string) {
+    const release = await this.locks.acquire(`deposit-fulfillment:${txId}`, 60_000);
+    try { return await this.confirmDepositOnce(txId, adminId); }
+    finally { await release(); }
+  }
+
+  private async confirmDepositOnce(txId: string, adminId?: string) {
     // REQUISITO RELAJADO: Se intenta vincular a un turno de caja si existe, pero no bloquea si no lo hay.
-    const shift = await this.cashService.getActiveShift(adminId);
+    const shift = adminId ? await this.cashService.getActiveShift(adminId) : null;
     // if (!shift) {
     //   throw new Error('NO_ACTIVE_SHIFT'); // El frontend lo capturará
     // }
 
-    const tx = await this.txService.confirmDeposit(txId, shift?.id);
+    const existing = await this.txService.findConfirmedDeposit(txId);
+    if (existing && existing.fulfillment?.status !== 'pending') {
+      return { tx: existing, autoPurchase: existing.fulfillment?.status ?? null, detail: existing.fulfillment?.detail ?? '' };
+    }
+    if (!existing && !adminId) throw new NotFoundException('Deposito confirmado no encontrado');
+    const tx = existing ?? await this.txService.confirmDeposit(txId, shift?.id);
     if (!tx) throw new Error('La transacción confirmada no fue encontrada');
     const userId = tx.userId.toString();
 
@@ -268,7 +309,7 @@ export class PaymentsService {
     const hasTicketIntent = Boolean(tx.meta?.raffleId && tx.meta?.ticketNumbers?.length);
     // Una compra iniciada desde el carrito no es una recarga: esperamos a
     // completar la compra para enviar el comprobante correcto.
-    if (!hasTicketIntent) {
+    if (!hasTicketIntent && !tx.meta?.storeItems?.length) {
       const notificationQueued = await this.jobsService.enqueuePaymentNotification(paymentJob);
       const emailQueued = user?.email
         ? await this.jobsService.enqueuePaymentEmail({ email: user.email, name: user.name ?? 'Usuario', amount: paymentJob.amount })
@@ -295,17 +336,19 @@ export class PaymentsService {
     const storeItems = tx.meta?.storeItems as { itemId: string; qty: number }[] | undefined;
     if (storeItems?.length) {
       try {
-        const order = await this.storeService.checkout(userId, storeItems);
+        const order = await this.storeService.checkout(userId, storeItems, undefined, undefined, txId);
         autoPurchase = 'ok';
         detail = order.itemName;
       } catch (err: any) {
+        if (!(err instanceof HttpException) || err.getStatus() >= 500) throw err;
         autoPurchase = 'failed';
         detail = err.message ?? 'Checkout falló';
+        await this.txService.failDepositPurchase(txId, detail);
         await this.notifService.notifyUser(
           userId,
           `⚠️ Tu pago se confirmó y el saldo está en tu billetera, pero la compra de la tienda falló: ${detail}. Vuelve a intentar desde la tienda — tu saldo te espera.`,
           NotificationType.GENERAL,
-        );
+        ).catch(() => this.logger.warn('Purchase failure notification pending'));
       }
       return { tx, autoPurchase, detail };
     }
@@ -317,6 +360,8 @@ export class PaymentsService {
         const result = await this.ticketsService.purchase(userId, intentRaffle, {
           ticketNumbers: intentNumbers,
           fromPendingConfirmation: true, // Su propio pago pendiente ERA la reserva
+          promoCode: tx.meta?.ticketPromoCode,
+          depositId: txId,
         });
         autoPurchase = 'ok';
         detail = result!.tickets.map((t: any) => t.code || `#${t.ticketNumber}`).join(', ');
@@ -324,16 +369,18 @@ export class PaymentsService {
           userId,
           `🎟️ ¡Compra automática exitosa! Tus números: ${detail}. Suerte en el sorteo.`,
           NotificationType.GENERAL,
-        );
+        ).catch(() => this.logger.warn('Purchase notification failed'));
         try { this.liveGateway.notifySold(String(intentRaffle), intentNumbers); } catch { /* ignore ws err */ }
       } catch (err: any) {
+        if (!(err instanceof HttpException) || err.getStatus() >= 500) throw err;
         autoPurchase = 'failed';
         detail = err.message ?? 'Números no disponibles';
+        await this.txService.failDepositPurchase(txId, detail);
         await this.notifService.notifyUser(
           userId,
           `⚠️ Tu pago se confirmó y el saldo está en tu billetera, pero la compra automática falló: ${detail}. Entra a la rifa y elige tus números — tu saldo te espera.`,
           NotificationType.GENERAL,
-        );
+        ).catch(() => this.logger.warn('Purchase failure notification failed'));
         // El saldo sí fue confirmado, pero la compra no pudo completarse:
         // en este caso sí corresponde informar la recarga acreditada.
         if (user?.email) {

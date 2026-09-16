@@ -1,6 +1,6 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { ClientSession, Model, Types } from 'mongoose';
 import { IdempotencyRecord, IdempotencyDocument } from './idempotency.schema';
 
 type ClaimResult =
@@ -38,8 +38,8 @@ export class IdempotencyService {
     }
   }
 
-  async complete(id: Types.ObjectId, response: Record<string, any>) {
-    await this.model.updateOne({ _id: id, status: 'processing' }, { $set: { status: 'completed', response } });
+  async complete(id: Types.ObjectId, response: Record<string, any>, session?: ClientSession) {
+    await this.model.updateOne({ _id: id, status: 'processing' }, { $set: { status: 'completed', response } }, { session });
   }
 
   async fail(id: Types.ObjectId) {

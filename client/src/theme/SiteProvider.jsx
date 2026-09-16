@@ -34,7 +34,11 @@ export default function SiteProvider({ children }) {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    window.addEventListener('focus', load);
+    return () => window.removeEventListener('focus', load);
+  }, []);
 
   useEffect(() => {
     let pColor = site.primaryColor;

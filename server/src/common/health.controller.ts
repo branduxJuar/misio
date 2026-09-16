@@ -1,11 +1,15 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, OnModuleDestroy, ServiceUnavailableException } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import { Redis } from 'ioredis';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 // La versión sale del package.json: una sola fuente de verdad.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { version: API_VERSION } = require('../../../package.json');
+const packagePath = [resolve(__dirname, '../../package.json'), resolve(__dirname, '../../../package.json')]
+  .find((path) => existsSync(path));
+const { version: API_VERSION } = require(packagePath!);
 
 /**
  * SONDAS DE SALUD (para el balanceador / Docker / Railway / PM2).
@@ -22,19 +26,21 @@ const { version: API_VERSION } = require('../../../package.json');
  * ocurrir, pero que ya se llevaron.
  */
 @Controller('health')
-export class HealthController {
+export class HealthController implements OnModuleDestroy {
+  private redis?: Redis;
   constructor(@InjectConnection() private readonly connection: Connection) {}
 
   private async redisCheck() {
     if (!process.env.REDIS_URL) return { status: 'info', detail: 'REDIS_URL no definido' };
-    const redis = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: 1, connectTimeout: 2000 });
+    if (!this.redis) {
+      this.redis = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: 1, connectTimeout: 2000, commandTimeout: 2000 });
+      this.redis.on('error', () => undefined);
+    }
     try {
-      await redis.ping();
+      await this.redis.ping();
       return { status: 'ok', detail: 'Redis responde correctamente' };
     } catch (error: any) {
-      return { status: 'error', detail: `Redis no responde: ${error?.message ?? error}` };
-    } finally {
-      await redis.quit().catch(() => redis.disconnect());
+      return { status: 'error', detail: 'Redis no responde' };
     }
   }
 
@@ -53,17 +59,24 @@ export class HealthController {
   }
 
   @Get('ready')
-  ready() {
+  async ready() {
     // 1 = conectado (readyState de Mongoose)
     const db = this.connection.readyState === 1;
     const mem = process.memoryUsage();
-    return {
-      status: db ? 'ready' : 'degraded',
+    const redis = await this.redisCheck();
+    const available = db && redis.status !== 'error';
+    const health = {
+      status: available ? 'ready' : 'degraded',
       database: db ? 'up' : 'down',
+      redis: redis.status,
       memoryMb: Math.round(mem.heapUsed / 1024 / 1024),
       uptimeSeconds: Math.round(process.uptime()),
     };
+    if (!available) throw new ServiceUnavailableException(health);
+    return health;
   }
+
+  onModuleDestroy() { this.redis?.disconnect(); }
 
   /**
    * GET /api/v1/health/system — DIAGNÓSTICO COMPLETO para el panel admin.
@@ -114,7 +127,7 @@ export class HealthController {
         transacciones: {
           status: transactions === 'ok' ? 'ok' : transactions === 'unavailable' ? 'warning' : 'unknown',
           detail: transactions === 'ok'
-            ? 'Soportadas (replica set) — compras 100% atómicas'
+            ? 'Replica set disponible para operaciones transaccionales'
             : transactions === 'unavailable'
               ? 'Mongo standalone: las compras corren SIN transacción (funciona en dev; en producción usa replica set)'
               : 'No se pudo determinar',

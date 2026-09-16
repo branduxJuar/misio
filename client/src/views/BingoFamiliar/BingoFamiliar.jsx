@@ -12,10 +12,12 @@ import {
 import { io } from 'socket.io-client';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useAuth } from '../../auth/AuthContext';
-import { api, tokenStore, SERVER_URL } from '../../auth/api';
+import { api, tokenStore } from '../../auth/api';
+import { socketBaseUrl } from '../../realtime/socketUrl';
 
 const { Title, Text } = Typography;
-const WS_URL = (import.meta.env.VITE_WS_URL || SERVER_URL).replace(/\/api\/v1\/?$/, '');
+
+const WS_URL = socketBaseUrl();
 const BINGO_LETTERS = ['B', 'I', 'N', 'G', 'O'];
 /** Un color por columna, como las cartillas de toda la vida. */
 const COL_COLORS = ['#0d9488', '#38bdf8', '#34d399', '#e8b84a', '#f0526b'];
@@ -122,13 +124,31 @@ export default function BingoFamiliar() {
       socketRef.current?.disconnect();
       setSocketReady(false);
       const socket = io(`${WS_URL}/bingo`, {
-        auth: { token: tokenStore.get() },
-        transports: ['websocket'],
+        auth: (callback) => callback({ token: tokenStore.get() }),
+        transports: ['websocket', 'polling'],
+        tryAllTransports: true,
+        upgrade: true,
+        reconnection: true,
+        reconnectionAttempts: 8,
+        reconnectionDelay: 700,
+        reconnectionDelayMax: 5000,
+        timeout: 10000,
       });
       socketRef.current = socket;
 
+      let connectionWarningShown = false;
+
       socket.on('connect', () => {
-        socket.emit('join_room', { roomId }, (ack) => {
+        connectionWarningShown = false;
+        socket.timeout(8000).emit('join_room', { roomId }, (timeoutError, ack) => {
+          if (timeoutError) {
+            setSocketReady(false);
+            if (!connectionWarningShown) {
+              connectionWarningShown = true;
+              msgApi.error('El bingo conectó, pero la sala no respondió. Reintentando…');
+            }
+            return;
+          }
           if (ack?.ok) {
             setSocketReady(true);
             return;
@@ -136,9 +156,13 @@ export default function BingoFamiliar() {
           msgApi.error(ack?.error ?? 'No se pudo entrar al bingo en tiempo real');
         });
       });
-      socket.on('connect_error', () => {
+      socket.on('connect_error', (error) => {
         setSocketReady(false);
-        msgApi.error('No se pudo conectar al bingo en tiempo real. Intenta recargar la página.');
+        console.warn('[Bingo realtime]', { endpoint: `${WS_URL}/bingo`, message: error.message });
+        if (!connectionWarningShown) {
+          connectionWarningShown = true;
+          msgApi.warning('Reconectando el bingo en tiempo real…', 4);
+        }
       });
       socket.on('disconnect', () => setSocketReady(false));
 
@@ -163,6 +187,15 @@ export default function BingoFamiliar() {
         stopAuto();
         playWinFanfare();
         setGame((g) => g && { ...g, room: { ...g.room, status: 'finished' } });
+        setMyRooms((rooms) => rooms.filter((r) => r._id !== roomId));
+      });
+      socket.on('room_closed', () => {
+        stopAuto();
+        socket.disconnect();
+        setGame(null);
+        setWinner(null);
+        setMyRooms((rooms) => rooms.filter((r) => r._id !== roomId));
+        msgApi.info('El anfitrión abandonó la sala y la partida se cerró.');
       });
       // RESCATE: el anfitrión se fue → cualquiera puede tomar el control
       socket.on('host_left', () => {
@@ -288,16 +321,15 @@ export default function BingoFamiliar() {
     });
   };
 
-  /** ABANDONAR: borra tu cartón. Si eres anfitrión, el rol se traspasa. */
+  /** ABANDONAR: el anfitrión cierra la sala; los demás salen individualmente. */
   const leaveRoom = async () => {
     try {
       const res = await api(`/bingo/rooms/${game.room._id}/leave`, { method: 'POST' });
       msgApi.info(res.roomClosed
-        ? 'Saliste y la sala se cerró (eras el último).'
-        : res.hostTransferred
-          ? 'Saliste — otro jugador quedó como anfitrión.'
+        ? 'Saliste y la sala se cerró para todos.'
           : 'Saliste de la sala.');
-    } catch (err) { msgApi.error(err.message); }
+      setMyRooms((rooms) => rooms.filter((r) => r._id !== game.room._id));
+    } catch (err) { msgApi.error(err.message); return; }
     stopAuto();
     socketRef.current?.disconnect();
     setGame(null);
@@ -332,7 +364,7 @@ export default function BingoFamiliar() {
   const called = new Set(game?.room?.calledNumbers ?? []);
 
   return (
-    <div>
+    <div className="bingo-page">
       {contextHolder}
 
       {/* ── Lobby ─────────────────────────────────────────────────── */}
@@ -388,9 +420,8 @@ export default function BingoFamiliar() {
                   <List.Item
                     actions={[
                       <Button key="go" size="small" type="primary"
-                        disabled={r.status === 'finished'}
                         onClick={() => enterRoom(r._id)}>
-                        {r.status === 'finished' ? 'Terminada' : 'Entrar'}
+                        Entrar
                       </Button>,
                     ]}
                   >
@@ -398,8 +429,7 @@ export default function BingoFamiliar() {
                       title={<Text style={{ fontSize: 13 }}>{r.title} <Text code>{r.code}</Text></Text>}
                       description={
                         <Text style={{ fontSize: 11, color: MISIO_COLORS.textMuted }}>
-                          Anfitrión: {r.hostId?.name} · {r.status === 'finished'
-                            ? `🏆 Ganó ${r.winner?.name ?? '—'}` : r.status === 'live' ? '🔴 En juego' : 'Esperando jugadores'}
+                          Anfitrión: {r.hostId?.name} · {r.status === 'live' ? '🔴 En juego' : 'Esperando jugadores'}
                         </Text>
                       }
                     />
@@ -415,15 +445,16 @@ export default function BingoFamiliar() {
       {game && (
         <>
           {/* Cabecera de la sala */}
-          <Card style={{ marginBottom: 16 }} styles={{ body: { padding: 14 } }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-              <Title level={5} style={{ margin: 0, flex: '1 1 auto' }}>🎱 {game.room.title}</Title>
+          <Card className="bingo-room-card" style={{ marginBottom: 16 }} styles={{ body: { padding: 14 } }}>
+            <div className="bingo-room-header">
+              <Title level={5} className="bingo-room-title" style={{ margin: 0 }}>🎱 {game.room.title}</Title>
               <Tag color={MISIO_COLORS.electricBlue} style={{ fontSize: 14, padding: '3px 10px' }}>
                 {game.room.code}
               </Tag>
               <Tooltip title="Copiar invitación">
                 <Button size="small" icon={<CopyOutlined />} onClick={shareRoom} />
               </Tooltip>
+              <div className="bingo-room-actions">
               <Button size="small" icon={<WhatsAppOutlined />}
                 href={`https://wa.me/?text=${encodeURIComponent(`🎉 ¡Únete a mi bingo en Misio! Código: ${game.room.code}`)}`}
                 target="_blank" style={{ color: '#25D366', borderColor: '#25D366' }}>
@@ -437,15 +468,16 @@ export default function BingoFamiliar() {
               <Popconfirm
                 title="¿Abandonar la sala?"
                 description={isHost
-                  ? 'Perderás tu cartón y otro jugador quedará como anfitrión.'
+                  ? 'La sala se cerrará para todos los jugadores.'
                   : 'Perderás tu cartón de esta partida.'}
                 okText="Sí, abandonar" cancelText="No"
                 onConfirm={leaveRoom}
               >
                 <Button size="small" danger>Abandonar</Button>
               </Popconfirm>
+              </div>
             </div>
-            <Text style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>
+            <Text className="bingo-room-meta" style={{ fontSize: 12, color: MISIO_COLORS.textMuted }}>
               {game.players.length}/{game.room.maxPlayers} jugadores · Gana con:{' '}
               {game.room.winMode === 'full' ? 'cartón lleno' : 'línea (fila, columna o diagonal)'}
             </Text>
@@ -483,6 +515,7 @@ export default function BingoFamiliar() {
             {/* Mi cartón */}
             <Col xs={24} lg={14}>
               <Card
+                className="bingo-play-card"
                 title="🎫 Tu cartilla"
                 extra={lastNumber && (
                   <div className="z-ball" key={lastNumber} title="Última bola cantada">
@@ -620,7 +653,7 @@ export default function BingoFamiliar() {
                 />
               </Card>
 
-              <Card title="🔢 Tablero de bolas" size="small" style={{ marginTop: 16 }}>
+              <Card className="bingo-board-card" title="🔢 Tablero de bolas" size="small" style={{ marginTop: 16 }}>
                 {game.room.calledNumbers.length === 0 ? (
                   <Text style={{ color: MISIO_COLORS.textMuted }}>Aún no empieza — ¡suerte!</Text>
                 ) : (
