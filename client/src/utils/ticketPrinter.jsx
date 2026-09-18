@@ -223,14 +223,25 @@ export async function shareWhatsAppImage(raffle, tickets, buyerName, buyerPhone,
       a.download = 'tickets-misio.png';
       a.click();
       
-      const url = `https://wa.me/${buyerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(txt + '\n\n(Tu imagen de boletos ha sido descargada)')}`;
+      let phone = (buyerPhone || '').replace(/\D/g, '');
+      if (phone.length === 9) phone = `51${phone}`;
+      
+      const url = phone 
+        ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(txt + '\n\n(Tu imagen de boletos ha sido descargada)')}`
+        : `https://api.whatsapp.com/send?text=${encodeURIComponent(txt + '\n\n(Tu imagen de boletos ha sido descargada)')}`;
       window.open(url, '_blank');
     }
   } catch (err) {
     console.error('Error al compartir', err);
     // fallback a texto
     const txt = `¡Hola ${buyerName}! 👋\n\nConfirmamos tu compra para el sorteo *${raffle.title}*.\n\n🎟️ *Boletos:* ${tickets.map(n => fmtCode(raffle.ticketPrefix, n, raffle.totalTickets)).join(', ')}\n\n¡Mucha suerte! 🍀`;
-    const url = `https://wa.me/${buyerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(txt)}`;
+    
+    let phone = (buyerPhone || '').replace(/\D/g, '');
+    if (phone.length === 9) phone = `51${phone}`;
+    
+    const url = phone 
+      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(txt)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(txt)}`;
     window.open(url, '_blank');
   }
 }

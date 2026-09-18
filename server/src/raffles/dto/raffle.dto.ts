@@ -3,7 +3,7 @@ import {
   Length, Matches, Min, ValidateNested, ArrayMinSize
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { DrawMode, RaffleStatus, RaffleType } from '../raffle.schema';
+import { DrawMode, DrawProtocol, RaffleStatus, RaffleType } from '../raffle.schema';
 
 export class PrizeDto {
   @IsString()
@@ -20,6 +20,9 @@ export class PrizeDto {
 }
 
 export class CreateRaffleDto {
+  @IsOptional()
+  @IsEnum(DrawProtocol)
+  drawProtocol?: DrawProtocol;
   @IsString()
   @Length(5, 120)
   title: string;
@@ -85,6 +88,7 @@ export class CreateRaffleDto {
 
 /** Edición: todos los campos opcionales (solo con la rifa en venta). */
 export class UpdateRaffleDto {
+  @IsOptional() @IsEnum(DrawProtocol) drawProtocol?: DrawProtocol;
   @IsOptional() @IsString() @Length(5, 120) title?: string;
   @IsOptional() @IsString() description?: string;
   @IsOptional() @Matches(/^[A-Za-z0-9]{2,6}$/) ticketPrefix?: string;

@@ -17,7 +17,7 @@ const { Text } = Typography;
  * `variant='winner'` cambia a un diseño premium dorado para los boletos
  * ganadores, pensado para presumir en redes.
  */
-export default function TicketCard({ ticket, raffle, variant = 'normal', showDownload = true }) {
+export default function TicketCard({ ticket, raffle, variant = 'normal', showDownload = true, statusLabelOverride }) {
   const ref = useRef(null);
   const site = useSite();
   const isWinner = variant === 'winner' || ticket.status === 'winner';
@@ -63,11 +63,11 @@ export default function TicketCard({ ticket, raffle, variant = 'normal', showDow
 
   const rStatus = ticket.raffleStatus || raffle?.status || 'active';
 
-  const statusLabel = ticket.status === 'winner' ? '🏆 GANADOR'
+  const statusLabel = statusLabelOverride ?? (ticket.status === 'winner' ? '🏆 GANADOR'
     : ticket.status === 'active' && rStatus === 'completed' ? 'Finalizado'
     : ticket.status === 'active' ? '✅ Participando'
     : ticket.status === 'live' ? '🔴 En vivo'
-    : '💧 Al agua';
+    : '💧 Al agua');
 
   return (
     <Space direction="vertical" size={8} style={{ width: '100%' }}>

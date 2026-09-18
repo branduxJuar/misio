@@ -8,6 +8,7 @@ import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useApiOrMock } from '../../hooks/useApiOrMock';
 import { SERVER_URL } from '../../auth/api';
 import { maskName } from '../../utils/mask';
+import DrawVerification from '../../components/DrawVerification';
 
 const { Title, Text } = Typography;
 
@@ -95,17 +96,19 @@ export default function Winners() {
                         </div>
 
                         <div className="z-card-body">
-                          <Title level={4} style={{ margin: 0, fontWeight: 900, fontSize: 20, letterSpacing: -0.5, lineHeight: 1.2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                            {w.title}
-                          </Title>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, color: MISIO_COLORS.textMuted }}>
-                            <TrophyFilled style={{ color: MISIO_COLORS.prizeGold }} />
-                            <Text style={{ fontSize: 13, fontWeight: 500 }}>
-                              {dayjs(w.updatedAt).format('DD de MMMM')}
-                            </Text>
+                          <div>
+                            <Title level={4} style={{ margin: 0, fontWeight: 900, fontSize: 20, letterSpacing: -0.5, lineHeight: 1.2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                              {w.title}
+                            </Title>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, color: MISIO_COLORS.textMuted }}>
+                              <TrophyFilled style={{ color: MISIO_COLORS.prizeGold }} />
+                              <Text style={{ fontSize: 13, fontWeight: 500 }}>
+                                {dayjs(w.updatedAt).format('DD de MMMM')}
+                              </Text>
+                            </div>
                           </div>
 
-                          <div style={{ marginTop: 'auto', paddingTop: 20 }}>
+                          <div style={{ marginTop: 'auto', paddingTop: 8 }}>
                             <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: 12, border: '1px dashed #cbd5e1' }}>
                               <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 4 }}>Boleto Ganador</Text>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -117,6 +120,16 @@ export default function Winners() {
                                 </Text>
                               </div>
                             </div>
+                            {w.drawProtocol === 'verifiable_v1' && !demo && (
+                              <div style={{ marginTop: 12 }}>
+                                <DrawVerification raffleId={w.raffleId} block />
+                              </div>
+                            )}
+                            {w.drawProtocol === 'legacy' && !demo && (
+                              <div style={{ marginTop: 12, textAlign: 'center', padding: '8px 0', background: '#f8fafc', borderRadius: 24, border: '1px solid #e2e8f0' }}>
+                                <Text style={{ fontSize: 13, fontWeight: 700, color: '#64748b' }}>Sorteo Histórico</Text>
+                              </div>
+                            )}
                           </div>
                         </div>
 

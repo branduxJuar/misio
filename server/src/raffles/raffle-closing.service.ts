@@ -171,7 +171,9 @@ export class RaffleClosingService {
         throw new BadRequestException('No hay ganadores registrados para procesar');
       }
 
-      const winnerUserIds = winnersToProcess.map(w => w.userId ? new Types.ObjectId(w.userId) : null).filter(Boolean);
+      const winnerUserIds = winnersToProcess
+        .filter(w => w.userId && Types.ObjectId.isValid(w.userId))
+        .map(w => new Types.ObjectId(w.userId));
 
       // 2. Agrupar boletos perdedores POR USUARIO
       // Mantenemos el $nin por optimización, pero reforzamos con un filter posterior
@@ -215,12 +217,14 @@ export class RaffleClosingService {
         const erpFilter: any = { raffleId: raffleOid };
         if (w.prizeIndex !== undefined) erpFilter.prizeIndex = w.prizeIndex;
 
+        const isValidUser = w.userId && Types.ObjectId.isValid(w.userId);
+
         await this.erpModel.findOneAndUpdate(
           erpFilter,
           {
-            winnerId: w.userId ? new Types.ObjectId(w.userId.toString()) : null,
-            offlineWinnerName: !w.userId ? w.name : undefined,
-            offlineWinnerPhone: !w.userId ? w.phone : undefined,
+            winnerId: isValidUser ? new Types.ObjectId(w.userId.toString()) : null,
+            offlineWinnerName: !isValidUser ? w.name : undefined,
+            offlineWinnerPhone: !isValidUser ? w.phone : undefined,
             $setOnInsert: {
               productName: w.title,
               purchaseCost: 0,
@@ -228,7 +232,7 @@ export class RaffleClosingService {
             },
             $push: {
               history: {
-                label: w.userId
+                label: isValidUser
                   ? `🏆 Sorteo finalizado. El ganador oficial es ${w.name} con el boleto #${w.ticketNumber}. El premio pasa a estado En Almacén, listo para ser despachado a su cuenta.`
                   : `🏆 Sorteo finalizado. El boleto ganador (#${w.ticketNumber}) pertenece a una Venta Externa a nombre de ${w.name}. Al no tener cuenta registrada, debes contactarlo(a) por teléfono para coordinar la entrega.`,
                 at: new Date(),

@@ -151,6 +151,27 @@ export async function api(path, { method = 'GET', body, idempotencyKey } = {}) {
   return data;
 }
 
+api.postFormData = async function (path, fileOrForm) {
+  const token = tokenStore.get();
+  const form = fileOrForm instanceof FormData ? fileOrForm : new FormData();
+  if (!(fileOrForm instanceof FormData)) {
+    form.append('file', fileOrForm);
+  }
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = Array.isArray(data.message) ? data.message[0] : data.message;
+    throw new Error(msg ?? `Error ${res.status}`);
+  }
+  return data;
+};
+
 /**
  * Subida de archivos (multipart/form-data) con el campo "file" que
  * esperan los endpoints /logistics/:id/receipt y /logistics/:id/evidence.

@@ -8,8 +8,9 @@ import {
 import {
   PlusOutlined, EditOutlined, PictureOutlined, CalendarOutlined,
   StopOutlined, UploadOutlined, DeleteOutlined, ClockCircleOutlined,
-  TeamOutlined, FileExcelOutlined, EyeOutlined, IdcardOutlined, 
-  PhoneOutlined, MailOutlined, UserOutlined, EyeFilled, PlayCircleFilled
+  TeamOutlined, FileExcelOutlined, FilePdfOutlined, EyeOutlined, IdcardOutlined,
+  PhoneOutlined, MailOutlined, UserOutlined, EyeFilled, PlayCircleFilled,
+  FileImageOutlined, CopyOutlined, InfoCircleOutlined, LinkOutlined, SafetyCertificateOutlined
 } from '@ant-design/icons';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { useNavigate } from 'react-router-dom';
@@ -17,7 +18,9 @@ import { useAuth } from '../../auth/AuthContext';
 import { useApiOrMock } from '../../hooks/useApiOrMock';
 import { api, apiUpload, SERVER_URL } from '../../auth/api';
 import { generateTicketsImage } from '../../utils/ticketPrinter';
+import { createTombolaPdf, getPrintableTombolaTickets } from '../../utils/tombolaPdf';
 import TicketCard from '../../components/TicketCard';
+import DossierModal from './DossierModal';
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -96,22 +99,28 @@ export default function AdminRaffles() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState(null); // null = creando
-  const [photosOf, setPhotosOf] = useState(null);
   const [postponing, setPostponing] = useState(null);
   const [cancelling, setCancelling] = useState(null);
+  const [rejecting, setRejecting] = useState(null);
+  const [photosOf, setPhotosOf] = useState(null);
+  const [dossierRaffle, setDossierRaffle] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
   const [postponeForm] = Form.useForm();
   const [cancelForm] = Form.useForm();
   const [rejectForm] = Form.useForm();
-  const [rejecting, setRejecting] = useState(null);
 
   // ── Participantes ───────────────────────────────────────────────
   const [participantsDrawer, setParticipantsDrawer] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
+  const [downloadingTombola, setDownloadingTombola] = useState(false);
   const [searchPart, setSearchPart] = useState('');
   const [viewingParticipant, setViewingParticipant] = useState(null);
+  const printableTombolaTickets = useMemo(
+    () => getPrintableTombolaTickets(participants, participantsDrawer?.status),
+    [participants, participantsDrawer?.status],
+  );
 
   // Preview reactiva de numerología en el formulario
   const watchPrefix = Form.useWatch('ticketPrefix', form);
@@ -130,7 +139,7 @@ export default function AdminRaffles() {
     setEditing(null);
     form.resetFields();
     form.setFieldsValue({
-      type: 'normal', drawMode: 'al_agua', winningAttempt: 3, maxTicketsPerUser: 10,
+      type: 'normal', drawMode: 'al_agua', drawProtocol: 'legacy', winningAttempt: 3, maxTicketsPerUser: 10,
       notifyDayBefore: true, ticketPrice: 5, totalTickets: 100, isZeroLoss: true,
       prizes: [{ title: '', drawMode: 'al_agua', winningAttempt: 3 }],
     });
@@ -139,7 +148,7 @@ export default function AdminRaffles() {
 
   const openEdit = (r) => {
     setEditing(r);
-    form.setFieldsValue({ ...r, drawDate: dayjs(r.drawDate) });
+    form.setFieldsValue({ ...r, drawProtocol: r.drawProtocol || 'legacy', drawDate: dayjs(r.drawDate) });
     setDrawerOpen(true);
   };
 
@@ -304,6 +313,7 @@ export default function AdminRaffles() {
   const openParticipants = async (r) => {
     if (guardDemo()) return;
     setParticipantsDrawer(r);
+    setParticipants([]);
     setLoadingParticipants(true);
     try {
       const res = await api(`/tickets?raffleId=${r._id}`);
@@ -348,6 +358,26 @@ export default function AdminRaffles() {
 
     const fileName = `Tickets_${participantsDrawer.title.replace(/[^a-z0-9]/gi, '_')}.xlsx`;
     XLSX.writeFile(workbook, fileName);
+  };
+
+  const downloadTombola = async () => {
+    const raffleId = participantsDrawer?._id;
+    if (!printableTombolaTickets.length) {
+      msgApi.warning('No hay boletos para la tómbola');
+      return;
+    }
+    setDownloadingTombola(true);
+    try {
+      const pdf = await createTombolaPdf(printableTombolaTickets.map(({ ticketNumber, code }) => ({ ticketNumber, code })), {
+        accountId: user?._id,
+        downloadedAt: new Date(),
+      });
+      pdf.save(`tombola-${raffleId}.pdf`);
+    } catch (error) {
+      msgApi.error(error.message || 'No se pudo generar el PDF');
+    } finally {
+      setDownloadingTombola(false);
+    }
   };
 
   // ── Tabla ───────────────────────────────────────────────────────
@@ -399,12 +429,17 @@ export default function AdminRaffles() {
       key: 'mode',
       responsive: ['lg'],
       render: (_, r) => {
-        if (r.type === 'paquete') {
-          return <Tag color="purple">📦 Paquete ({r.prizes?.length || 0} premios)</Tag>;
-        }
-        return r.drawMode === 'direct'
-          ? <Tag color="processing">🎯 Directo</Tag>
-          : <Tag color="warning">💧 Al agua ×{r.winningAttempt - 1}</Tag>;
+        const rule = r.type === 'paquete'
+          ? <Tag color="purple">📦 Paquete ({r.prizes?.length || 0} premios)</Tag>
+          : r.drawMode === 'direct'
+            ? <Tag color="processing">🎯 Directo</Tag>
+            : <Tag color="warning">💧 Al agua ×{r.winningAttempt - 1}</Tag>;
+        return <Space direction="vertical" size={2}>
+          <Tag color={r.drawProtocol === 'verifiable_v1' ? 'cyan' : 'green'}>
+            {r.drawProtocol === 'verifiable_v1' ? 'Sorteo virtual verificable' : 'Sorteo físico'}
+          </Tag>
+          {rule}
+        </Space>;
       },
     },
     {
@@ -453,6 +488,14 @@ export default function AdminRaffles() {
               </Tooltip>
             </>
           )}
+          <Tooltip title={r.hasDossier ? 'Ver Expediente Notarial' : 'Agregar Expediente Notarial'}>
+            <Button size="small" 
+              icon={<SafetyCertificateOutlined />} 
+              type={r.hasDossier ? 'primary' : 'default'}
+              style={r.hasDossier ? { background: '#52c41a', borderColor: '#52c41a' } : {}}
+              disabled={!['live', 'completed'].includes(r.status)}
+              onClick={() => setDossierRaffle(r)} />
+          </Tooltip>
           <Tooltip title="Ver participantes">
             <Button size="small" icon={<TeamOutlined />} 
               onClick={() => openParticipants(r)} disabled={r.status === 'draft' || r.status === 'pending_approval'} />
@@ -482,6 +525,7 @@ export default function AdminRaffles() {
   return (
     <div>
       {contextHolder}
+      <DossierModal open={!!dossierRaffle} raffle={dossierRaffle} onClose={() => setDossierRaffle(null)} />
       {demo && (
         <Alert type="info" showIcon style={{ marginBottom: 16 }}
           message="Modo demo: viendo datos ficticios (backend no conectado)." />
@@ -541,6 +585,13 @@ export default function AdminRaffles() {
                   >
                     Panel
                   </Button>
+                  <Button 
+                    icon={<SafetyCertificateOutlined />} 
+                    type={r.hasDossier ? 'primary' : 'default'}
+                    style={r.hasDossier ? { background: '#52c41a', borderColor: '#52c41a' } : {}}
+                    disabled={!['live', 'completed'].includes(r.status)}
+                    onClick={() => setDossierRaffle(r)} 
+                  />
                   <Button icon={<TeamOutlined />} onClick={() => openParticipants(r)} />
                   <Button icon={<EditOutlined />} disabled={r.status !== 'active'} onClick={() => openEdit(r)}>Editar</Button>
                   <Button icon={<PictureOutlined />} onClick={() => setPhotosOf(r)} />
@@ -638,6 +689,13 @@ export default function AdminRaffles() {
             <Radio.Group buttonStyle="solid" style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
               <Radio.Button value="normal" style={{ flex: '1 1 auto', textAlign: 'center', borderRadius: 6 }}>Normal (1 premio)</Radio.Button>
               <Radio.Button value="paquete" style={{ flex: '1 1 auto', textAlign: 'center', borderRadius: 6 }}>Paquete (Múltiples premios)</Radio.Button>
+            </Radio.Group>
+          </Form.Item>
+
+          <Form.Item name="drawProtocol" label="Modalidad del sorteo" rules={[{ required: true }]}>
+            <Radio.Group>
+              <Radio value="legacy">Sorteo físico (tómbola presencial)</Radio>
+              <Radio value="verifiable_v1">Sorteo virtual (secuencia pública verificable)</Radio>
             </Radio.Group>
           </Form.Item>
 
@@ -824,17 +882,19 @@ export default function AdminRaffles() {
       {/* ── Drawer Participantes ─────────────────────────────────── */}
       <Drawer
         title={
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             <span>Lista de Participantes — {participantsDrawer?.title}</span>
-            <Button 
-              type="primary" 
-              icon={<FileExcelOutlined />} 
-              onClick={exportToExcel}
-              disabled={!participants || participants.length === 0}
-              style={{ background: '#107c41' }} // Color Excel
-            >
-              Descargar Excel
-            </Button>
+            <Space size={8} wrap>
+              <Button icon={<FilePdfOutlined />} onClick={downloadTombola}
+                loading={downloadingTombola} disabled={loadingParticipants || !printableTombolaTickets.length}
+                title="Boletos para recortar, con marca de descarga de Misio">
+                PDF para tómbola
+              </Button>
+              <Button type="primary" icon={<FileExcelOutlined />} onClick={exportToExcel}
+                disabled={!participants || participants.length === 0} style={{ background: '#107c41' }}>
+                Descargar Excel
+              </Button>
+            </Space>
           </div>
         }
         width={Math.min(900, window.innerWidth)}

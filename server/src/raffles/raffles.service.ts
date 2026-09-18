@@ -9,6 +9,8 @@ export type RaffleListItem = Raffle & {
   /** Alias de soldCount (compatibilidad con el cliente). */
   soldTickets: number;
 };
+import { Connection } from 'mongoose';
+import { InjectConnection } from '@nestjs/mongoose';
 import { CreateRaffleDto, UpdateRaffleDto } from './dto/raffle.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/notification.schema';
@@ -24,6 +26,7 @@ export class RafflesService {
   constructor(
     @InjectModel(Raffle.name) private raffleModel: Model<RaffleDocument>,
     @InjectModel(Ticket.name) private ticketModel: Model<TicketDocument>,
+    @InjectConnection() private readonly connection: Connection,
     private readonly notifService: NotificationsService,
     private readonly closingService: RaffleClosingService,
     private readonly jobsService: JobsService,
@@ -97,7 +100,20 @@ export class RafflesService {
       .populate('partnerId', 'name')
       .limit(200)
       .lean();
-    return raffles.map((r) => ({ ...r, soldTickets: r.soldCount ?? 0 })) as RaffleListItem[];
+
+    const raffleIds = raffles.map(r => r._id);
+    const dossiers = await this.connection.model('RaffleDossier').find({ 
+      raffleId: { $in: raffleIds }, 
+      status: 'validated' 
+    }).select('raffleId status').lean();
+    
+    const dossierMap = new Set(dossiers.map(d => d.raffleId.toString()));
+
+    return raffles.map((r) => ({ 
+      ...r, 
+      soldTickets: r.soldCount ?? 0,
+      hasDossier: dossierMap.has(r._id.toString())
+    })) as RaffleListItem[];
   }
 
   /**
@@ -112,6 +128,9 @@ export class RafflesService {
   async resetDraws(id: string, prizeIndex?: number) {
     const raffle = await this.raffleModel.findById(id);
     if (!raffle) throw new NotFoundException('Rifa no existe');
+    if (raffle.drawProtocol === 'verifiable_v1') {
+      throw new BadRequestException('Un sorteo verificable no puede reiniciarse ni cambiar sus tiradas');
+    }
     
     if (raffle.refundsProcessed) {
       throw new BadRequestException(
@@ -361,6 +380,18 @@ export class RafflesService {
 
   /** Transición de estado: active → live → completed (Modo Presentador). */
   async setStatus(id: string, status: RaffleStatus) {
+    const current = await this.raffleModel.findById(id);
+    if (!current) throw new NotFoundException(`Rifa ${id} no existe`);
+    if (current.drawProtocol === 'verifiable_v1') {
+      if ([RaffleStatus.LIVE, RaffleStatus.COMPLETED].includes(current.status) &&
+          [RaffleStatus.ACTIVE, RaffleStatus.DRAFT, RaffleStatus.PENDING_APPROVAL].includes(status)) {
+        throw new BadRequestException('No se puede reabrir la venta ni editar un sorteo verificable iniciado');
+      }
+      if (status === RaffleStatus.COMPLETED &&
+          (current.type === 'paquete' ? !current.prizes?.every((p) => p.winner) : !current.winner)) {
+        throw new BadRequestException('Falta sortear al menos un premio');
+      }
+    }
     const raffle = await this.raffleModel.findByIdAndUpdate(id, { status }, { new: true });
     if (!raffle) throw new NotFoundException(`Rifa ${id} no existe`);
     

@@ -3,6 +3,7 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
 import { Ticket, TicketDocument, TicketStatus } from './ticket.schema';
 import { formatTicketCode, Raffle, RaffleDocument, RaffleStatus } from '../raffles/raffle.schema';
+import { VerifiableDraw, VerifiableDrawDocument } from '../live/verifiable-draw.schema';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '../users/user.schema';
 import * as bcrypt from 'bcrypt';
@@ -35,6 +36,7 @@ export class TicketsService {
   constructor(
     @InjectModel(Ticket.name) private ticketModel: Model<TicketDocument>,
     @InjectModel(Raffle.name) private raffleModel: Model<RaffleDocument>,
+    @InjectModel(VerifiableDraw.name) private verifiableDrawModel: Model<VerifiableDrawDocument>,
     @InjectConnection() private readonly connection: Connection,
     private readonly usersService: UsersService,
     private readonly txService: TransactionsService,
@@ -44,6 +46,16 @@ export class TicketsService {
     private readonly partnersService: PartnersService,
     private readonly idempotencyService: IdempotencyService,
   ) {}
+
+  /**
+   * Valida que el padrón no esté congelado (sorteo preparándose o cerrado).
+   */
+  private async checkPadronLocked(raffleId: string): Promise<void> {
+    const isLocked = await this.verifiableDrawModel.exists({ raffleId });
+    if (isLocked) {
+      throw new ConflictException('El padrón del sorteo ha sido congelado y cerrado. Ya no se pueden modificar los boletos participantes.');
+    }
+  }
 
   /**
    * Detecta UNA vez si el MongoDB soporta transacciones (replica set).
@@ -142,6 +154,8 @@ export class TicketsService {
     const explicit = opts.ticketNumbers?.length ? [...new Set(opts.ticketNumbers)] : null;
     const quantity = explicit ? explicit.length : (opts.quantity ?? 0);
     if (quantity < 1) throw new BadRequestException('Indica cantidad o números de boleto');
+
+    await this.checkPadronLocked(raffleId);
 
     // Validación de Autocontrol y Juego Responsable
     const userProfile = await this.usersService.findOne(userId);
@@ -407,6 +421,8 @@ export class TicketsService {
     const quantity = explicit ? explicit.length : (opts.quantity ?? 0);
     if (quantity < 1) throw new BadRequestException('Indica cantidad o números de boleto');
 
+    await this.checkPadronLocked(raffleId);
+
     const useTx = await this.supportsTransactions();
 
     for (let attempt = 1; attempt <= PURCHASE_RETRIES; attempt++) {
@@ -563,6 +579,7 @@ export class TicketsService {
    * de la rifa SIN cobrar la billetera. Reintenta ante colisiones.
    */
   async grantFreeTicket(userId: string, raffleId: string) {
+    await this.checkPadronLocked(raffleId);
     const raffle = await this.raffleModel.findById(raffleId);
     if (!raffle || raffle.status !== RaffleStatus.ACTIVE) {
       throw new BadRequestException('La rifa del bono no está en venta');
@@ -611,6 +628,7 @@ export class TicketsService {
    * números a mano. Devuelve los boletos creados.
    */
   async adminAddTickets(raffleId: string, userId: string, ticketNumbers: number[]) {
+    await this.checkPadronLocked(raffleId);
     const raffle = await this.raffleModel.findById(raffleId);
     if (!raffle) throw new NotFoundException('Rifa no existe');
 
@@ -749,7 +767,7 @@ export class TicketsService {
     
     const ticket = await this.ticketModel.findOne({ code })
       .populate('raffleId', 'title status ticketPrice drawDate')
-      .populate('userId', 'name phone');
+      .populate('userId', 'name');
       
     if (!ticket) {
       return { valid: false, message: 'Boleto no encontrado' };
@@ -758,12 +776,6 @@ export class TicketsService {
     const raffle = ticket.raffleId as any;
     
     let buyerName = ticket.isOffline ? ticket.buyerName : (ticket.userId as any)?.name || 'Anónimo';
-    let buyerPhone = ticket.isOffline ? ticket.buyerPhone : (ticket.userId as any)?.phone || '';
-    
-    // Enmascarar teléfono por privacidad (999 *** 777)
-    if (buyerPhone && buyerPhone.length >= 6) {
-      buyerPhone = buyerPhone.substring(0, 3) + ' *** ' + buyerPhone.substring(buyerPhone.length - 3);
-    }
 
     // Enmascarar nombre (Primera letra y asteriscos para cada palabra)
     if (buyerName && buyerName !== 'Anónimo') {
@@ -784,31 +796,38 @@ export class TicketsService {
         status: ticket.status,
         date: ticket.createdAt,
         buyerName,
-        buyerPhone,
         channel: ticket.isOffline ? 'Venta Externa' : 'Web',
-        raffleTitle: raffle.title,
-        raffleStatus: raffle.status,
-        raffleDate: raffle.drawDate
+        raffle: {
+          title: raffle.title,
+          status: raffle.status,
+          ticketPrice: raffle.ticketPrice,
+          drawDate: raffle.drawDate,
+        }
       }
     };
   }
 
   /**
-   * ANULAR VENTA POS (100% ONLINE)
-   * Restricciones: < 24h, solo offline_sale, pin de admin.
+   * Anulación de venta de POS por un Operador, autorizado por Admin
+   * 1. Verifica PIN de Admin
+   * 2. Busca la transacción
+   * 3. Libera los boletos
+   * 4. Registra anulación
    */
   async cancelPosSale(transactionId: string, adminPin: string, sellerId: string) {
     // 1. Validar transacción
-    const tx = await this.txService.findById(transactionId);
+    const tx = await (this.txService as any).txModel.findById(transactionId).lean();
     if (!tx || tx.type !== TransactionType.OFFLINE_SALE || tx.status !== TransactionStatus.COMPLETED) {
-      throw new BadRequestException('Transacción no válida para anulación o ya está anulada.');
+      throw new BadRequestException('Transacción inválida o ya anulada.');
     }
 
-    // 2. Validar regla de 24 horas
-    const HOURS_24_IN_MS = 24 * 60 * 60 * 1000;
-    if (Date.now() - new Date((tx as any).createdAt).getTime() > HOURS_24_IN_MS) {
-      throw new BadRequestException('Solo se pueden anular ventas realizadas en las últimas 24 horas.');
+    // 2. Verificar que no se haya cancelado ya
+    if (tx.meta?.cancelledAt) {
+      throw new BadRequestException('Esta venta ya fue anulada anteriormente.');
     }
+
+    const { checkPadronLocked } = require('../live/verifiable-draw.util');
+    await checkPadronLocked(this.connection, tx.meta?.raffleId);
 
     // 3. Validar PIN buscando al admin
     // Como UsersService no expone userModel, accederemos vía txService o userModel si lo inyectamos.

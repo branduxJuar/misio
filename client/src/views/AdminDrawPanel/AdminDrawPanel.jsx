@@ -2,19 +2,24 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import {
-  Card, Col, Row, Typography, Tag, Button, Input, InputNumber, Radio, Modal,
+  Card, Col, Row, Typography, Tag, Button, Input, InputNumber, Modal,
   message, Alert, Space, Steps, Statistic, Divider, Popconfirm, Select, ConfigProvider, theme, Segmented, List, Avatar
 } from 'antd';
 import {
   PlayCircleFilled, TrophyFilled, ThunderboltFilled, SaveOutlined,
   CheckCircleFilled, ReloadOutlined, DownloadOutlined, InfoCircleOutlined,
-  UserOutlined, FireOutlined, UpOutlined, DownOutlined,
+  UserOutlined, FireOutlined, UpOutlined, DownOutlined, FilePdfOutlined, VideoCameraOutlined, SafetyCertificateOutlined
 } from '@ant-design/icons';
 import { io } from 'socket.io-client';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { toEmbedSrc } from '../../utils/stream';
+import { asDrawProof } from '../../utils/drawProof';
+import { createTombolaPdf, getPrintableTombolaTickets } from '../../utils/tombolaPdf';
 import { api, tokenStore, SERVER_URL } from '../../auth/api';
+import { useAuth } from '../../auth/AuthContext';
 import Roulette from '../../components/Roulette';
+import DrawVerification from '../../components/DrawVerification';
+import DossierModal from '../AdminRaffles/DossierModal';
 
 const { Title, Text } = Typography;
 const WS_URL = (import.meta.env.VITE_WS_URL || SERVER_URL).replace(/\/api\/v1\/?$/, '').replace(/\/+$/, '');
@@ -23,22 +28,23 @@ const WS_URL = (import.meta.env.VITE_WS_URL || SERVER_URL).replace(/\/api\/v1\/?
  * SPRINT 2 — PANEL ESPECIALIZADO DEL SORTEO (/admin/sorteo/:id).
  *
  * - Link de transmisión multi-plataforma, embebido aquí mismo.
- * - DOS MODOS de sorteo:
- *   🎪 PRESENCIAL: el admin gira la tómbola física, saca el boleto e
- *      ingresa su número; el sistema valida y sugiere aceptar el
- *      resultado (al agua o ganador) según la secuencia.
- *   💻 TÓMBOLA VIRTUAL: animación con todos los boletos y nombres
- *      parciales (BRAN… JUA… #1234); el sistema elige al azar.
+ * La modalidad guardada en el sorteo determina si se registra una extracción
+ * física o se revela la siguiente tirada de la secuencia pública verificable.
  * - Al salir el ganador: resumen del cierre + "Finalizar sorteo".
  */
 export default function AdminDrawPanel() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [msgApi, contextHolder] = message.useMessage();
 
   const [raffle, setRaffle] = useState(null);
+  const [proof, setProof] = useState(null);
   const [draws, setDraws] = useState([]);
+  const [savingDraw, setSavingDraw] = useState(false);
   const [participants, setParticipants] = useState([]);
+  const [downloadingTombola, setDownloadingTombola] = useState(false);
+  const [dossierModalVisible, setDossierModalVisible] = useState(false);
   const [activeCount, setActiveCount] = useState(0);
   const [diag, setDiag] = useState(null);
   const [fixOpen, setFixOpen] = useState(false);
@@ -46,7 +52,6 @@ export default function AdminDrawPanel() {
   const [fixForm, setFixForm] = useState({ userId: undefined, numbers: '' });
   const [fixing, setFixing] = useState(false);
   const [closing, setClosing] = useState(null);
-  const [mode, setMode] = useState('virtual'); // 'virtual' | 'presencial'
   const [streamInput, setStreamInput] = useState('');
   const [formulaModal, setFormulaModal] = useState(false);
   const [manualNumber, setManualNumber] = useState(null);
@@ -63,7 +68,8 @@ export default function AdminDrawPanel() {
   const [retryingClose, setRetryingClose] = useState(false);
   const [activePrizeIndex, setActivePrizeIndex] = useState(0);
   const [viewers, setViewers] = useState(0);
-  const [streamCollapsed, setStreamCollapsed] = useState(false);
+  const [streamModalVisible, setStreamModalVisible] = useState(false);
+  const [proofExpanded, setProofExpanded] = useState(false);
   const socketRef = useRef(null);
   const spinTimer = useRef(null);
 
@@ -120,6 +126,27 @@ export default function AdminDrawPanel() {
     XLSX.writeFile(workbook, `boletos_rifa_${id}.xlsx`);
   };
 
+  const downloadTombola = async () => {
+    setDownloadingTombola(true);
+    try {
+      const tickets = await api(`/tickets?raffleId=${id}`);
+      const printable = getPrintableTombolaTickets(tickets, raffle.status);
+      if (!printable.length) {
+        msgApi.warning('No hay boletos para la tómbola');
+        return;
+      }
+      const pdf = await createTombolaPdf(printable.map(({ ticketNumber, code }) => ({ ticketNumber, code })), {
+        accountId: user?._id,
+        downloadedAt: new Date(),
+      });
+      pdf.save(`tombola-${id}.pdf`);
+    } catch (error) {
+      msgApi.error(error.message || 'No se pudo generar el PDF');
+    } finally {
+      setDownloadingTombola(false);
+    }
+  };
+
   const recount = async () => {
     try {
       const res = await api('/tickets/admin-recount', { method: 'POST', body: { raffleId: id } });
@@ -143,6 +170,8 @@ export default function AdminDrawPanel() {
   const loadState = async () => {
     const state = await api(`/live/${id}`);
     setRaffle(state.raffle);
+    setProof(state.raffle.drawProtocol === 'verifiable_v1'
+      ? asDrawProof(await api(`/live/${id}/proof/status`)) : null);
     setDraws(state.draws);
     setParticipants(state.participants);
     // Conteo real (sin el tope de 200 de la lista de participantes): de
@@ -156,6 +185,18 @@ export default function AdminDrawPanel() {
       setDiag(null);
     }
     setStreamInput(state.raffle.streamUrl ?? '');
+  };
+
+  const prepareDraw = async () => {
+    setBusy(true);
+    try {
+      const prepared = await api(`/live/${id}/prepare`, { method: 'POST' });
+      const validProof = asDrawProof(prepared);
+      if (!validProof) throw new Error('El servidor no devolvió el compromiso del sorteo');
+      setProof(validProof);
+      msgApi.success('Lista de boletos y reglas cerradas. Compromiso publicado.');
+    } catch (err) { msgApi.error(err.message); }
+    finally { setBusy(false); }
   };
 
   useEffect(() => {
@@ -173,6 +214,9 @@ export default function AdminDrawPanel() {
     socketRef.current = socket;
     socket.emit('join_raffle', { raffleId: id });
     socket.on('draw_result', (r) => {
+      if (r) {
+        api(`/live/${id}/proof/status`).then(asDrawProof).then(setProof).catch(() => {});
+      }
       if (r.isManual) {
         setDraws((prev) => [...prev, r]);
       } else {
@@ -185,6 +229,14 @@ export default function AdminDrawPanel() {
       }
     });
     socket.on('raffle_completed', (summary) => setClosing(summary));
+    socket.on('prize_completed', ({ prizeIndex, winner }) => {
+      setRaffle((current) => {
+        if (!current?.prizes?.[prizeIndex]) return current;
+        const prizes = [...current.prizes];
+        prizes[prizeIndex] = { ...prizes[prizeIndex], winner };
+        return { ...current, prizes };
+      });
+    });
     socket.on('stats', (s) => setViewers(s.viewers));
     socket.on('connect_error', (err) =>
       msgApi.error(`Conexión del sorteo: ${err.message}. Recarga la página si persiste.`));
@@ -254,6 +306,7 @@ export default function AdminDrawPanel() {
    * apuntando al boleto sorteado. Luego se muestra el modal de resultado.
    */
   const spinVirtual = () => {
+    if (raffle?.drawProtocol === 'verifiable_v1' && !proof) return msgApi.warning('Primero prepara el sorteo verificable');
     if (activeCount === 0) return msgApi.warning('No hay boletos activos');
     if (finishedPrize) return msgApi.warning('El sorteo de este premio ya terminó');
     setLastResult(null);
@@ -331,16 +384,31 @@ export default function AdminDrawPanel() {
             onClick={() => setFormulaModal(true)}
             style={{ color: MISIO_COLORS.electricBlue, marginLeft: 8 }}
           >
-            Fórmula de Azar
+            {raffle.drawProtocol === 'verifiable_v1' ? 'Fórmula de azar' : 'Mecánica presencial'}
           </Button>
         </Space>
 
         <Space wrap>
+          {['active', 'live', 'completed'].includes(raffle.status) && (
+            <Button icon={<SafetyCertificateOutlined />} onClick={() => setDossierModalVisible(true)} type={raffle.hasDossier ? 'primary' : 'default'} style={raffle.hasDossier ? { background: '#52c41a', borderColor: '#52c41a' } : {}}>
+              {raffle.hasDossier ? 'Ver Expediente' : 'Expediente Notarial'}
+            </Button>
+          )}
+          <Button icon={<VideoCameraOutlined />} onClick={() => setStreamModalVisible(true)}>
+            Configurar Transmisión
+          </Button>
+          <Button icon={<FilePdfOutlined />} onClick={downloadTombola} loading={downloadingTombola}
+            title="Boletos para recortar, con marca de descarga de Misio">
+            PDF para tómbola
+          </Button>
           <Button icon={<DownloadOutlined />} onClick={downloadTickets}>
             Descargar Lista
           </Button>
+          {raffle.drawProtocol === 'verifiable_v1' && proof && (
+            <DrawVerification raffleId={id} />
+          )}
 
-          {(!raffle.refundsProcessed) && (
+          {(!raffle.refundsProcessed && raffle.drawProtocol !== 'verifiable_v1') && (
             <Popconfirm
               title="¿Devolver al juego los boletos jugados?"
               description={isPaquete
@@ -358,9 +426,9 @@ export default function AdminDrawPanel() {
 
           {raffle.status === 'live' && !finishedRaffle && (
             <>
-              <Button onClick={cancelLive} loading={busy}>
+              {raffle.drawProtocol !== 'verifiable_v1' && <Button onClick={cancelLive} loading={busy}>
                 Cancelar En Vivo
-              </Button>
+              </Button>}
               <Button 
                 type="primary" 
                 icon={<CheckCircleFilled />} 
@@ -374,6 +442,43 @@ export default function AdminDrawPanel() {
           )}
         </Space>
       </div>
+
+      {raffle.drawProtocol === 'verifiable_v1' && (
+        <Alert
+          style={{ marginBottom: 16 }} showIcon type={proof ? 'success' : 'warning'}
+          message={
+            proof ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: 16 }}>
+                <span>Sorteo verificable preparado</span>
+                <Button type="link" size="small" onClick={() => setProofExpanded(!proofExpanded)} style={{ padding: 0 }}>
+                  {proofExpanded ? 'Ocultar' : 'Ver detalles'}
+                </Button>
+              </div>
+            ) : 'Aún no hay hash publicado para este sorteo'
+          }
+          description={proof
+            ? (proofExpanded ? (
+                <Space direction="vertical" size={2} style={{ maxWidth: '100%', marginTop: 8 }}>
+                  <Text>Boletos: {proof.ticketCount} · Ronda pública: {proof.beaconRound} · Tiradas: {proof.cursor}</Text>
+                  <Text code copyable style={{ overflowWrap: 'anywhere' }}>{proof.commitment}</Text>
+                  {proof.preparedAt && Date.now() < new Date(proof.preparedAt).getTime() + 120000 && (
+                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, background: '#fffbe6', padding: '4px 12px', border: '1px solid #ffe58f', borderRadius: 6 }}>
+                       <span style={{ fontSize: 13, color: '#faad14', fontWeight: 600 }}>⏳ Esperando semilla de azar:</span>
+                       <Statistic.Countdown 
+                         value={new Date(proof.preparedAt).getTime() + 120000} 
+                         format="mm:ss" 
+                         valueStyle={{ fontSize: 14, color: '#faad14', fontWeight: 800 }} 
+                       />
+                     </div>
+                  )}
+                </Space>
+              ) : null)
+            : 'Al pasar el sorteo a En vivo, pulsa Preparar sorteo. Entonces se cerrará la lista de boletos y aparecerá el hash para copiar.'}
+          action={!proof && raffle.status === 'live'
+            ? <Button type="primary" loading={busy} onClick={prepareDraw}>Preparar sorteo</Button>
+            : null}
+        />
+      )}
 
       {/* ⚠️ El ganador salió pero el cierre falló: reembolsos y Logística
           quedaron pendientes. Nunca pasa desapercibido — con botón para
@@ -640,13 +745,10 @@ export default function AdminDrawPanel() {
 
       <Row gutter={[20, 20]} style={{ display: 'flex', alignItems: 'stretch' }}>
 
-        {/* ── Panel de tirada ──────────────────────────────────────── */}
-        <Col xs={24} lg={16} style={{ display: 'flex', flexDirection: 'column' }}>
-          <Row gutter={[20, 20]} style={{ display: 'flex', alignItems: 'stretch', flex: 1 }}>
-            {/* ── Lado Izquierdo: Estadísticas y Participantes ── */}
-            <Col xs={24} md={13} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <Segmented
-                options={[
+        {/* ── Lado Izquierdo: Estadísticas y Participantes ── */}
+        <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Segmented
+            options={[
                   { label: <span style={{ fontSize: 12, fontWeight: 500 }}>Estadísticas</span>, value: 'resumen' },
                   { label: <span style={{ fontSize: 12, fontWeight: 500 }}>En Juego</span>, value: 'en_juego' },
                   { label: <span style={{ fontSize: 12, fontWeight: 500 }}>Al Agua</span>, value: 'al_agua' },
@@ -790,20 +892,17 @@ export default function AdminDrawPanel() {
               </Card>
             </Col>
 
-            {/* ── Lado Derecho: Controles de la Tómbola ── */}
-            <Col xs={24} md={11} style={{ display: 'flex', flexDirection: 'column' }}>
-              <Card
-                title="Tómbola de Sorteo"
-                extra={
-                  <Radio.Group value={mode} onChange={(e) => setMode(e.target.value)} size="small">
-                    <Radio.Button value="virtual">💻 Tómbola virtual</Radio.Button>
-                    <Radio.Button value="presencial">🎪 Presencial</Radio.Button>
-                  </Radio.Group>
-                }
+        {/* ── Lado Derecho: Controles de la Tómbola ── */}
+        <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
+          <Card
+            title={raffle.drawProtocol === 'verifiable_v1' ? 'Sorteo virtual' : 'Tómbola física'}
+                extra={<Tag color={raffle.drawProtocol === 'verifiable_v1' ? 'cyan' : 'green'}>
+                  {raffle.drawProtocol === 'verifiable_v1' ? 'Secuencia pública verificable' : 'Sorteo físico'}
+                </Tag>}
                 style={{ flex: 1, borderColor: MISIO_COLORS.primary, display: 'flex', flexDirection: 'column' }}
                 styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' } }}
               >
-                {mode === 'presencial' ? (
+                {raffle.drawProtocol !== 'verifiable_v1' ? (
                   <div style={{ width: '100%', maxWidth: 340 }}>
                     <Text style={{ color: MISIO_COLORS.textMuted, display: 'block', marginBottom: 8 }}>
                       Gira tu tómbola física, saca el boleto e ingresa su número:
@@ -834,13 +933,13 @@ export default function AdminDrawPanel() {
                     />
                     <Button
                       type="primary" block loading={spinning}
-                      disabled={raffle.status !== 'live' || finishedPrize}
+                      disabled={raffle.status !== 'live' || finishedPrize || (raffle.drawProtocol === 'verifiable_v1' && !proof)}
                       onClick={spinVirtual}
                       style={{ marginTop: 24, height: 48, fontSize: 16, fontWeight: 'bold' }}
                     >
                       {finishedPrize 
                         ? '🏆 Sorteo finalizado' 
-                        : `🎲 Girar tómbola — tirada ${Math.min(currentAttempt, total)}${isWinnerTurn ? ' ¡GANADORA!' : ' (al agua)'}`}
+                        : `Revelar tirada ${Math.min(currentAttempt, total)}${isWinnerTurn ? ' ganadora' : ' (al agua)'}`}
                     </Button>
                   </div>
                 )}
@@ -850,11 +949,49 @@ export default function AdminDrawPanel() {
                   </Text>
                 )}
               </Card>
-            </Col>
-          </Row>
+        </Col>
+      </Row>
 
-          {/* Modal de corrección manual */}
-          <Modal
+      {/* ── Transmisión Modal ── */}
+      <Modal
+        title={<span><VideoCameraOutlined /> Transmisión en vivo</span>}
+        open={streamModalVisible}
+        onCancel={() => setStreamModalVisible(false)}
+        footer={null}
+        width={700}
+      >
+        <Space.Compact block style={{ marginBottom: 16 }}>
+          <Input
+            placeholder="Pega el link normal: youtube.com/watch?v=… · twitch.tv/canal"
+            value={streamInput}
+            onChange={(e) => setStreamInput(e.target.value)}
+          />
+          <Button type="primary" icon={<SaveOutlined />} loading={busy} onClick={saveStream}>
+            Guardar
+          </Button>
+        </Space.Compact>
+        <div style={{ height: 350, width: '100%', borderRadius: 12,
+          overflow: 'hidden', background: MISIO_COLORS.bgBase }}>
+          {raffle.streamUrl ? (
+            <iframe
+              src={toEmbedSrc(raffle.streamUrl)}
+              title="Transmisión del sorteo"
+              style={{ width: '100%', height: '100%', border: 0 }}
+              allow="autoplay; encrypted-media; picture-in-picture"
+              allowFullScreen
+            />
+          ) : (
+            <div style={{ height: '100%', display: 'grid', placeItems: 'center' }}>
+              <Text style={{ color: MISIO_COLORS.textMuted }}>
+                Pega el link de embed y guárdalo para verlo aquí.
+              </Text>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Modal de corrección manual */}
+      <Modal
             open={fixOpen}
             onCancel={() => setFixOpen(false)}
             onOk={submitFix}
@@ -889,49 +1026,6 @@ export default function AdminDrawPanel() {
               </Text>
             </div>
           </Modal>
-        </Col>
-
-        <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
-          {/* ── Transmisión (compacta: la protagonista es la ruleta) ── */}
-          <Card 
-            title="📡 Transmisión en vivo"
-            extra={
-              <Button type="text" shape="circle" icon={streamCollapsed ? <DownOutlined /> : <UpOutlined />} onClick={() => setStreamCollapsed(!streamCollapsed)} />
-            }
-            style={{ flex: streamCollapsed ? 0 : 1, display: 'flex', flexDirection: 'column' }}
-            styles={{ body: { flex: 1, display: streamCollapsed ? 'none' : 'flex', flexDirection: 'column' } }}
-          >
-            <Space.Compact block>
-              <Input
-                placeholder="Pega el link normal: youtube.com/watch?v=… · twitch.tv/canal · kick.com/canal"
-                value={streamInput}
-                onChange={(e) => setStreamInput(e.target.value)}
-              />
-              <Button type="primary" icon={<SaveOutlined />} loading={busy} onClick={saveStream}>
-                Guardar
-              </Button>
-            </Space.Compact>
-            <div style={{ marginTop: 12, flex: 1, minHeight: 250, width: '100%', borderRadius: 12,
-              overflow: 'hidden', background: MISIO_COLORS.bgBase }}>
-              {raffle.streamUrl ? (
-                <iframe
-                  src={toEmbedSrc(raffle.streamUrl)}
-                  title="Transmisión del sorteo"
-                  style={{ width: '100%', height: '100%', border: 0 }}
-                  allow="autoplay; encrypted-media; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : (
-                <div style={{ height: '100%', display: 'grid', placeItems: 'center' }}>
-                  <Text style={{ color: MISIO_COLORS.textMuted }}>
-                    Pega el link de embed y guárdalo para verlo aquí.
-                  </Text>
-                </div>
-              )}
-            </div>
-          </Card>
-        </Col>
-      </Row>
 
       {/* ── Confirmación PRESENCIAL: "sugerir aceptar" ────────────── */}
       <Modal
@@ -960,8 +1054,8 @@ export default function AdminDrawPanel() {
         onCancel={() => setResultModal(null)}
         footer={
           resultModal?.result === 'winner'
-            ? <Button type="primary" onClick={() => { setResultModal(null); loadState(); }}>Ver resumen</Button>
-            : <Button type="primary" onClick={() => { setResultModal(null); loadState(); }}>
+            ? <Button type="primary" onClick={() => { setResultModal(null); setLastResult(null); loadState(); }}>Ver resumen</Button>
+            : <Button type="primary" onClick={() => { setResultModal(null); setLastResult(null); loadState(); }}>
                 🎱 Preparar siguiente tirada
               </Button>
         }
@@ -983,7 +1077,7 @@ export default function AdminDrawPanel() {
         )}
       </Modal>
 
-      {/* ── Explicación de la Fórmula de Azar ────────────── */}
+      {/* Explicación de la modalidad configurada */}
       <Modal
         open={formulaModal}
         onCancel={() => setFormulaModal(false)}
@@ -992,42 +1086,33 @@ export default function AdminDrawPanel() {
             Entendido
           </Button>
         ]}
-        title={<><InfoCircleOutlined style={{ color: MISIO_COLORS.primary }} /> ¿Cómo garantiza el sistema la transparencia?</>}
+        title={<><InfoCircleOutlined style={{ color: MISIO_COLORS.primary }} /> ¿Cómo se realiza este sorteo?</>}
       >
         <div style={{ marginTop: 16 }}>
-          <Text style={{ display: 'block', marginBottom: 12, fontSize: 15 }}>
-            Queremos que estés 100% seguro de que nuestro sorteo es justo. Por eso, combinamos el sistema clásico de lotería con la máxima seguridad tecnológica.
-          </Text>
-          
-          <Title level={5} style={{ color: MISIO_COLORS.electricBlue, margin: '16px 0 8px' }}>1. Como un ánfora gigante 🔮</Title>
-          <Text style={{ display: 'block', marginBottom: 16 }}>
-            Imagina una piscina de pelotas gigante. Al darle a "Girar tómbola", el sistema mete en esta piscina <b>única y exclusivamente los boletos comprados válidos</b>. Si ya sacamos boletos "al agua", esos se tiran a la basura y ya no entran a la piscina.
-          </Text>
-
-          <Title level={5} style={{ color: MISIO_COLORS.electricBlue, margin: '16px 0 8px' }}>2. La mano con los ojos vendados 🙈</Title>
-          <Text style={{ display: 'block', marginBottom: 16 }}>
-            El sistema revuelve la piscina a la velocidad de la luz y saca <b>1 sola pelota al azar</b>. Esto lo hace el "cerebro" de nuestro servidor, por lo que es imposible que un administrador o programador decida qué pelota sale. Es azar puro y matemático.
-          </Text>
-
-          <Title level={5} style={{ color: MISIO_COLORS.electricBlue, margin: '16px 0 8px' }}>3. La garantía técnica (Para los expertos) 💻</Title>
-          <Text style={{ display: 'block', marginBottom: 12 }}>
-            Para quienes saben de tecnología, aquí está la prueba. Utilizamos un algoritmo interno inalterable de la base de datos (MongoDB) llamado <code>$sample</code> que garantiza la aleatoriedad criptográfica de la elección:
-          </Text>
-          <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 8, marginBottom: 16, border: '1px solid #e0e0e0' }}>
-            <code style={{ fontSize: 13, color: '#d63384' }}>
-              db.tickets.aggregate([<br/>
-              &nbsp;&nbsp;{'{'} $match: {'{'} raffleId: "...", status: "active" {'}'} {'}'},<br/>
-              &nbsp;&nbsp;{'{'} <b>$sample: {'{'} size: 1 {'}'}</b> {'}'}<br/>
-              ])
-            </code>
-          </div>
-
-          <Title level={5} style={{ color: MISIO_COLORS.electricBlue, margin: '16px 0 8px' }}>¡Todo sucede en un parpadeo!</Title>
-          <Text style={{ display: 'block' }}>
-            Esta selección matemática inalterable ocurre en milésimas de segundo. Para cuando ves las pelotitas saltando en la pantalla, el sistema ya sabe quién ganó de forma totalmente justa, y solo te está revelando el resultado.
-          </Text>
+          {raffle.drawProtocol === 'verifiable_v1' ? (
+            <Space direction="vertical" size={12}>
+              <Text>Al preparar, se cierran la lista de boletos, el orden de premios y las tiradas de cada uno. Su huella queda publicada antes de una ronda futura de azar público.</Text>
+              <Text>La firma verificada de esa ronda determina una secuencia única sin repetir boletos. Cada giro revela el siguiente: las primeras tiradas de cada premio van al agua y la última es ganadora.</Text>
+              <Text>El acta pública permite reconstruir y comprobar los resultados. No se puede cambiar la ronda, reiniciar tiradas ni introducir un número manual.</Text>
+            </Space>
+          ) : (
+            <Space direction="vertical" size={12}>
+              <Text>Este sorteo se realiza con una tómbola física. Prepara únicamente los boletos participantes y extrae uno ante los presentes.</Text>
+              <Text>Ingresa el número extraído en el panel. El sistema comprueba que el boleto exista y siga activo; después registra si corresponde al agua o al ganador según la regla del premio.</Text>
+              <Text>El sistema no elige el boleto ni puede demostrar criptográficamente el azar de la extracción física. Conserva el acta o la grabación del sorteo como evidencia presencial.</Text>
+            </Space>
+          )}
         </div>
       </Modal>
+
+      <DossierModal 
+        open={dossierModalVisible} 
+        raffle={raffle} 
+        onClose={() => {
+          setDossierModalVisible(false);
+          loadState();
+        }} 
+      />
 
     </div>
   );

@@ -125,17 +125,23 @@ export class LiveGateway implements OnGatewayConnection {
 
       // Tirada ganadora → anuncio de cierre: ganador + reembolsos Cero Pérdida
       if (result.result === 'winner') {
-        this.server.to(room(body.raffleId)).emit('raffle_completed', result.closing ?? {
-          winner: { name: result.holderName, ticketNumber: result.ticketNumber, userId: result.winnerUserId },
-          refundedTotal: 0,
-          refundedUsers: 0,
-          closingError: result.closingError,
-        });
+        if (result.prizeIndex !== undefined) {
+          this.server.to(room(body.raffleId)).emit('prize_completed', {
+            prizeIndex: result.prizeIndex,
+            title: result.prizeTitle,
+            winner: { name: result.holderName, ticketNumber: result.ticketNumber, userId: result.winnerUserId },
+          });
+        } else {
+          this.server.to(room(body.raffleId)).emit('raffle_completed', result.closing ?? {
+            winner: { name: result.holderName, ticketNumber: result.ticketNumber, userId: result.winnerUserId },
+            refundedTotal: 0, refundedUsers: 0, closingError: result.closingError,
+          });
+        }
       }
 
       // Notificar cambio de estado a todos (para redirigir cuando sale live/completed)
       this.server.to(room(body.raffleId)).emit('raffle_status', {
-        status: result.result === 'winner' ? 'completed' : 'live',
+        status: result.result === 'winner' && result.prizeIndex === undefined ? 'completed' : 'live',
       });
       this.logger.log(
         `Tirada ${result.attempt}/${result.totalAttempts} → ${result.result} (#${result.ticketNumber})`,
@@ -291,11 +297,19 @@ export class LiveGateway implements OnGatewayConnection {
       const result = await this.liveService.drawSpecific(body.raffleId, body.ticketNumber, body.prizeIndex);
       this.server.to(room(body.raffleId)).emit('draw_result', result);
       if (result.result === 'winner') {
-        this.server.to(room(body.raffleId)).emit('raffle_completed', result.closing ?? {
-          winner: { name: result.holderName, ticketNumber: result.ticketNumber, userId: result.winnerUserId },
-          refundedTotal: 0, refundedUsers: 0, closingError: result.closingError,
-        });
-        this.server.to(room(body.raffleId)).emit('raffle_status', { status: 'completed' });
+        if (result.prizeIndex !== undefined) {
+          this.server.to(room(body.raffleId)).emit('prize_completed', {
+            prizeIndex: result.prizeIndex,
+            title: result.prizeTitle,
+            winner: { name: result.holderName, ticketNumber: result.ticketNumber, userId: result.winnerUserId },
+          });
+        } else {
+          this.server.to(room(body.raffleId)).emit('raffle_completed', result.closing ?? {
+            winner: { name: result.holderName, ticketNumber: result.ticketNumber, userId: result.winnerUserId },
+            refundedTotal: 0, refundedUsers: 0, closingError: result.closingError,
+          });
+          this.server.to(room(body.raffleId)).emit('raffle_status', { status: 'completed' });
+        }
       }
       return { ok: true, result };
     } catch (err: any) {

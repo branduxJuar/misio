@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useState } from 'react';
-import { BrowserRouter, Routes, Route, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, NavLink, Outlet, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import {
   Layout, Menu, Typography, Tag, Dropdown, Avatar, Button, Space, Skeleton, Drawer, Grid, Alert, FloatButton,
 } from 'antd';
@@ -41,6 +41,12 @@ const AdminStore = lazy(() => import('./views/AdminStore/AdminStore'));
 const AdminCashRegister = lazy(() => import('./views/AdminCashRegister/AdminCashRegister'));
 const StoreFront = lazy(() => import('./views/StoreFront/StoreFront'));
 const Winners = lazy(() => import('./views/Winners/Winners'));
+const DrawVerificationPage = lazy(() => import('./views/DrawVerification/DrawVerificationPage'));
+
+function LegacyVerificationRedirect() {
+  const { raffleId } = useParams();
+  return <Navigate to={`/cotejar-resultado/${raffleId}`} replace />;
+}
 const LegalPage = lazy(() => import('./views/LegalPage/LegalPage'));
 const Landing = lazy(() => import('./views/Landing/Landing'));
 const MiPerfil = lazy(() => import('./views/MiPerfil/MiPerfil'));
@@ -671,6 +677,8 @@ export default function App() {
               <Route path="/bienvenido" element={<Landing />} />
               <Route path="/tienda" element={<StoreFront />} />
               <Route path="/ganadores" element={<Winners />} />
+              <Route path="/cotejar-resultado/:raffleId" element={<ProtectedRoute><DrawVerificationPage /></ProtectedRoute>} />
+              <Route path="/verificar/:raffleId" element={<LegacyVerificationRedirect />} />
               <Route path="/como-funciona" element={<LegalPage which="howItWorks" />} />
               <Route path="/terminos" element={<LegalPage which="terms" />} />
               <Route path="/privacidad" element={<LegalPage which="privacy" />} />

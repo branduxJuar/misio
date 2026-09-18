@@ -16,6 +16,11 @@ export enum DrawMode {
   AL_AGUA = 'al_agua', // N-1 tiradas "al agua" antes de la ganadora
 }
 
+export enum DrawProtocol {
+  LEGACY = 'legacy',
+  VERIFIABLE_V1 = 'verifiable_v1',
+}
+
 export enum RaffleType {
   NORMAL = 'normal',
   PAQUETE = 'paquete', // Múltiples premios independientes
@@ -62,6 +67,8 @@ const PostponementSchema = SchemaFactory.createForClass(Postponement);
 
 @Schema({ timestamps: true, collection: 'raffles' })
 export class Raffle {
+  @Prop({ type: String, enum: DrawProtocol, default: DrawProtocol.LEGACY })
+  drawProtocol: DrawProtocol;
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Partner', index: true })
   partnerId?: mongoose.Types.ObjectId; // Si está presente, es un sorteo B2B
 

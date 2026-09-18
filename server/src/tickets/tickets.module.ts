@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Ticket, TicketSchema } from './ticket.schema';
 import { Raffle, RaffleSchema } from '../raffles/raffle.schema';
+import { VerifiableDraw, VerifiableDrawSchema } from '../live/verifiable-draw.schema';
 import { TicketsController } from './tickets.controller';
 import { TicketsService } from './tickets.service';
 import { UsersModule } from '../users/users.module';
@@ -18,6 +19,7 @@ import { CommonModule } from '../common/common.module';
     MongooseModule.forFeature([
       { name: Ticket.name, schema: TicketSchema },
       { name: Raffle.name, schema: RaffleSchema }, // Para validar la rifa en la compra
+      { name: VerifiableDraw.name, schema: VerifiableDrawSchema }, // Para bloquear padrón
     ]),
     UsersModule, // Descuento de saldo
     TransactionsModule, // Registro en el ledger

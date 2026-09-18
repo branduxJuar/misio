@@ -1,12 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, Input, Button, Typography, Space, Tag, Divider, Spin, message } from 'antd';
-import { SearchOutlined, CheckCircleOutlined, CloseCircleOutlined, UserOutlined, ClockCircleOutlined, ShopOutlined, TrophyOutlined, PhoneOutlined } from '@ant-design/icons';
+import { SearchOutlined, CheckCircleOutlined, CloseCircleOutlined, UserOutlined, ClockCircleOutlined, ShopOutlined, TrophyOutlined } from '@ant-design/icons';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { api } from '../../auth/api';
 import dayjs from 'dayjs';
 
 const { Title, Text, Paragraph } = Typography;
+
+function displayTicketStatus(ticket) {
+  if (ticket.raffleStatus === 'cancelled') return { label: 'SORTEO CANCELADO', color: 'default' };
+  if (ticket.status === 'winner') return { label: 'GANADOR', color: 'gold' };
+  if (ticket.status === 'burned_al_agua') return { label: 'AL AGUA', color: 'cyan' };
+  if (ticket.status === 'active' && ticket.raffleStatus === 'completed') {
+    return { label: 'PARTICIPÓ · NO SALIÓ', color: 'default' };
+  }
+  if (ticket.status === 'active' && ticket.raffleStatus === 'live') {
+    return { label: 'SORTEO EN VIVO', color: 'processing' };
+  }
+  if (ticket.status === 'active' && ticket.raffleStatus === 'active') {
+    return { label: 'EN PARTICIPACIÓN', color: 'success' };
+  }
+  return { label: 'REGISTRADO', color: 'default' };
+}
 
 export default function TicketValidation() {
   const [searchParams] = useSearchParams();
@@ -14,6 +30,7 @@ export default function TicketValidation() {
   const [code, setCode] = useState(searchParams.get('c') || '');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const ticketStatus = result?.valid ? displayTicketStatus(result.ticket) : null;
 
   useEffect(() => {
     if (code) {
@@ -110,20 +127,14 @@ export default function TicketValidation() {
                     <Text type="secondary" style={{ color: '#166534' }}><UserOutlined /> Registrado a nombre de</Text>
                     <Text strong style={{ color: '#14532d' }}>{result.ticket.buyerName}</Text>
                   </div>
-                  {result.ticket.buyerPhone && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text type="secondary" style={{ color: '#166534' }}><PhoneOutlined /> Contacto vinculado</Text>
-                      <Text strong style={{ color: '#14532d' }}>{result.ticket.buyerPhone}</Text>
-                    </div>
-                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Text type="secondary" style={{ color: '#166534' }}><ShopOutlined /> Vía de compra</Text>
                     <Tag color="green">{result.ticket.channel}</Tag>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Text type="secondary" style={{ color: '#166534' }}>Estado Actual</Text>
-                    <Tag color={result.ticket.status === 'active' ? 'success' : 'default'} style={{ margin: 0 }}>
-                      {result.ticket.status === 'active' ? 'EN PARTICIPACIÓN' : result.ticket.status.toUpperCase()}
+                    <Tag color={ticketStatus.color} style={{ margin: 0 }}>
+                      {ticketStatus.label}
                     </Tag>
                   </div>
                 </Space>

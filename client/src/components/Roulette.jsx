@@ -178,7 +178,10 @@ export default function Roulette({ participants = [], activeCount = null, spinni
                 opacity: result && !spinning ? 0.45 : 1,
                 filter: result && !spinning ? 'blur(1px)' : 'none',
                 ...b.styleVars,
-                animation: `${animName} ${animTime}s infinite ${animTiming}`,
+                animationName: animName,
+                animationDuration: `${animTime}s`,
+                animationIterationCount: 'infinite',
+                animationTimingFunction: animTiming,
                 animationDelay: `${b.delay}s`,
                 pointerEvents: 'none',
               }}
@@ -315,4 +318,3 @@ export default function Roulette({ participants = [], activeCount = null, spinni
     </div>
   );
 }
-

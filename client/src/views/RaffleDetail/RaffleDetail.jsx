@@ -538,11 +538,6 @@ export default function RaffleDetail() {
               </div>
               
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                {raffle.type === 'paquete' && (
-                  <span className="z-pill" style={{ padding: '4px 12px', fontSize: 11, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontWeight: 700, borderRadius: 20 }}>
-                    📦 {raffle.prizes?.length || 2} PREMIOS
-                  </span>
-                )}
               </div>
 
               <Paragraph style={{ color: '#475569', margin: 0, fontSize: 14, lineHeight: 1.5 }}>
@@ -551,7 +546,7 @@ export default function RaffleDetail() {
 
               {raffle.type === 'paquete' && raffle.prizes && (
                 <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0' }}>
-                  <Text strong style={{ color: '#0f172a', display: 'block', marginBottom: 8 }}>📦 Este paquete incluye {raffle.prizes.length} premios:</Text>
+                  <Text strong style={{ color: '#0f172a', display: 'block', marginBottom: 8 }}>{raffle.prizes.length} premios:</Text>
                   <ul style={{ margin: 0, paddingLeft: 20, color: '#475569' }}>
                     {raffle.prizes.map((p, i) => (
                       <li key={i}>{p.title}</li>

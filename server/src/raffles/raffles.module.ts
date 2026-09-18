@@ -2,6 +2,7 @@ import { AuthModule } from '../auth/auth.module';
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Raffle, RaffleSchema } from './raffle.schema';
+import { RaffleDossier, RaffleDossierSchema } from './raffle-dossier.schema';
 import { Ticket, TicketSchema } from '../tickets/ticket.schema';
 import { Transaction, TransactionSchema } from '../transactions/transaction.schema';
 import { User, UserSchema } from '../users/user.schema';
@@ -19,6 +20,8 @@ import { SettingsModule } from '../settings/settings.module';
 import { InboxModule } from '../inbox/inbox.module';
 import { CommonModule } from '../common/common.module';
 import { JobsModule } from '../jobs/jobs.module';
+import { RaffleDossierService } from './raffle-dossier.service';
+import { RaffleDossierController } from './raffle-dossier.controller';
 
 @Module({
   imports: [
@@ -27,6 +30,7 @@ import { JobsModule } from '../jobs/jobs.module';
     AuthModule,
     MongooseModule.forFeature([
       { name: Raffle.name, schema: RaffleSchema },
+      { name: RaffleDossier.name, schema: RaffleDossierSchema },
       // Modelos usados por el cierre orquestado (bulk refunds + ERP):
       { name: Ticket.name, schema: TicketSchema },
       { name: Transaction.name, schema: TransactionSchema },
@@ -46,8 +50,8 @@ import { JobsModule } from '../jobs/jobs.module';
       }),
     }),
   ],
-  controllers: [RafflesController],
-  providers: [RafflesService, RaffleClosingService, SelectionGateway],
-  exports: [RafflesService, RaffleClosingService], // LiveModule cierra rifas al salir el ganador
+  controllers: [RafflesController, RaffleDossierController],
+  providers: [RafflesService, RaffleClosingService, SelectionGateway, RaffleDossierService],
+  exports: [RafflesService, RaffleClosingService, RaffleDossierService], // LiveModule cierra rifas al salir el ganador
 })
 export class RafflesModule {}

@@ -88,6 +88,7 @@ export class RafflesController {
               const name = maskName(p.winner.name ?? '');
               return {
                 raffleId: r._id,
+                drawProtocol: r.drawProtocol ?? 'legacy',
                 title: p.title,
                 image: r.images?.[0] ?? '',
                 drawDate: r.drawDate,
@@ -129,6 +130,7 @@ export class RafflesController {
 
         return [{
           raffleId: r._id,
+          drawProtocol: r.drawProtocol ?? 'legacy',
           title: r.title,
           image: r.images?.[0] ?? '',
           drawDate: r.drawDate,

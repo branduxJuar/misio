@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Card, Col, Row, Typography, Tag, List, Avatar, Steps, Badge, Statistic,
-  Divider, Button, Alert, message, Collapse, Grid, Segmented, Checkbox, Input
+  Divider, Button, Alert, message, Collapse, Grid, Segmented, Checkbox, Input, Space
 } from 'antd';
 import {
   EyeFilled, PlayCircleFilled, UserOutlined, TrophyFilled, ThunderboltFilled,
@@ -11,6 +11,7 @@ import { io } from 'socket.io-client';
 import { MISIO_COLORS } from '../../theme/misioTheme';
 import { toEmbedSrc } from '../../utils/stream';
 import { maskName } from '../../utils/mask';
+import { asDrawProof } from '../../utils/drawProof';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, tokenStore, SERVER_URL } from '../../auth/api';
 import { useAuth } from '../../auth/AuthContext';
@@ -37,6 +38,7 @@ export default function LiveDrawRoom() {
   const { user } = useAuth();
 
   const [raffle, setRaffle] = useState(null); // Rifa en vivo real
+  const [proof, setProof] = useState(null);
   const [draws, setDraws] = useState([]); // [{attempt, result, ticketNumber, holderName}]
   const [participants, setParticipants] = useState([]);
   const [viewers, setViewers] = useState(0);
@@ -55,13 +57,22 @@ export default function LiveDrawRoom() {
   
   useEffect(() => {
     audioEnabledRef.current = audioEnabled;
+    if (!audioEnabled) {
+      [spinAudioRef, winnerAudioRef, loserAudioRef].forEach((ref) => {
+        ref.current?.pause();
+        if (ref.current) ref.current.currentTime = 0;
+      });
+    }
   }, [audioEnabled]);
 
   useEffect(() => {
-    spinAudioRef.current = new Audio('/sounds/spin.mp3');
+    spinAudioRef.current = new Audio('/sounds/spin.wav');
     spinAudioRef.current.loop = true;
-    winnerAudioRef.current = new Audio('/sounds/ganador.mp3');
-    loserAudioRef.current = new Audio('/sounds/al_agua.mp3');
+    winnerAudioRef.current = new Audio('/sounds/ganador.wav');
+    loserAudioRef.current = new Audio('/sounds/al_agua.wav');
+    return () => {
+      [spinAudioRef, winnerAudioRef, loserAudioRef].forEach((ref) => ref.current?.pause());
+    };
   }, []);
   const [activeTab, setActiveTab] = useState('sorteo');
   const [showMyTickets, setShowMyTickets] = useState(false);
@@ -75,12 +86,21 @@ export default function LiveDrawRoom() {
     try {
       const state = await api(`/live/${id}`);
       setRaffle(state.raffle);
+      if (state.raffle.drawProtocol === 'verifiable_v1') {
+        api(`/live/${id}/proof/status`).then(asDrawProof).then(setProof).catch(() => {});
+      }
       setDraws(state.draws);
       setParticipants(state.participants);
     } catch (err) {
       msgApi.error(err.message ?? 'Error al cargar la sala');
     }
   };
+
+  useEffect(() => {
+    if (raffle?.drawProtocol !== 'verifiable_v1' || proof) return undefined;
+    const timer = setInterval(() => api(`/live/${id}/proof/status`).then(asDrawProof).then(setProof).catch(() => {}), 15000);
+    return () => clearInterval(timer);
+  }, [raffle?.drawProtocol, proof, id]);
 
   const isAnimatingRef = useRef(false);
   const pendingEventsRef = useRef([]);
@@ -117,6 +137,7 @@ export default function LiveDrawRoom() {
         socket.on('draw_result', (result) => {
           const processResult = () => {
             setDraws((prev) => [...prev, result]);
+            api(`/live/${id}/proof/status`).then(asDrawProof).then(setProof).catch(() => {});
             
             // 🔥 Actualizar el estado del ticket en la lista "Participantes"
             setParticipants((prev) => 
@@ -152,6 +173,11 @@ export default function LiveDrawRoom() {
           };
 
           if (result.isManual) {
+            if (audioEnabledRef.current) {
+              const cue = result.result === 'winner' ? winnerAudioRef.current : loserAudioRef.current;
+              if (cue) cue.currentTime = 0;
+              cue?.play().catch(() => {});
+            }
             processResult();
           } else {
             isAnimatingRef.current = true;
@@ -211,7 +237,7 @@ export default function LiveDrawRoom() {
         socket.on('room_closed', () => {
           msgApi.info('Sorteo finalizado. Saldrás de la sala automáticamente en 10s...', 9);
           setTimeout(() => {
-            navigate(`/rifa/${id}`);
+            navigate('/');
             window.location.reload();
           }, 10000);
         });
@@ -351,6 +377,8 @@ export default function LiveDrawRoom() {
     <div>
       {contextHolder}
 
+
+
       {/* ── Anuncio de cierre para Sorteo de Premio Único ────── */}
       {closing && !view.isPaquete && user && closing.winner?.userId === user._id && (
         <Alert
@@ -390,7 +418,7 @@ export default function LiveDrawRoom() {
               <ul style={{ paddingLeft: 20, margin: 0 }}>
                 {completedPrizes.map((p, i) => (
                   <li key={i} style={{ marginBottom: 4 }}>
-                    <Text strong>{p.title}:</Text> {maskName(p.winner.name)} (Boleto #{String(p.winner.ticketNumber).padStart(4, '0')})
+                    <Text strong>{p.title}:</Text> {p.winner.name} (Boleto #{String(p.winner.ticketNumber).padStart(4, '0')})
                   </li>
                 ))}
               </ul>

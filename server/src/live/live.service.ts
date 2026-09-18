@@ -6,6 +6,7 @@ import { DrawMode, Raffle, RaffleDocument, RaffleStatus } from '../raffles/raffl
 import { Ticket, TicketDocument, TicketStatus } from '../tickets/ticket.schema';
 import { ClosingSummary, RaffleClosingService } from '../raffles/raffle-closing.service';
 import { DistributedLockService } from '../common/distributed-lock.service';
+import { VerifiableDrawService } from './verifiable-draw.service';
 
 /**
  * Máscara de privacidad: "Brandon Juarez Pérez" → "BRAN… JUA…".
@@ -22,6 +23,7 @@ export interface DrawResult {
   holderName: string;
   drawnAt: string;
   prizeIndex?: number;
+  prizeTitle?: string;
   isManual?: boolean;
   winnerUserId?: string;
   /** Solo en la tirada ganadora: resumen del cierre Cero Pérdida. */
@@ -45,6 +47,7 @@ export class LiveService {
     @InjectModel(Ticket.name) private ticketModel: Model<TicketDocument>,
     private readonly closingService: RaffleClosingService,
     private readonly lockService: DistributedLockService,
+    private readonly verifiableDraw: VerifiableDrawService,
   ) {}
 
   /**
@@ -127,12 +130,12 @@ export class LiveService {
    *   (Los reembolsos Cero Pérdida masivos se disparan en la Iteración 4.)
    */
   async drawNext(raffleId: string, prizeIndex: number = -1): Promise<DrawResult> {
-    const release = await this.lockService.acquire(`raffle-draw:${raffleId}:${prizeIndex}`);
-    try {
-      return await this.drawNextOnce(raffleId, prizeIndex);
-    } finally {
-      await release();
+    const protocol = await this.raffleModel.findById(raffleId).select('drawProtocol').lean();
+    if (!protocol) throw new NotFoundException('Rifa no existe');
+    if (protocol.drawProtocol === 'verifiable_v1') {
+      return this.verifiableDraw.drawNext(raffleId, prizeIndex);
     }
+    throw new BadRequestException('El sorteo físico requiere extraer un boleto de la tómbola y registrarlo manualmente');
   }
 
   private async drawNextOnce(raffleId: string, prizeIndex: number = -1): Promise<DrawResult> {
@@ -251,6 +254,7 @@ export class LiveService {
       holderName: maskName(holderName ?? 'Alguien'),
       drawnAt: new Date().toISOString(),
       prizeIndex: prizeIndex >= 0 ? prizeIndex : undefined,
+      prizeTitle: prizeIndex >= 0 ? targetObj.title : undefined,
       winnerUserId: isWinner && holderId !== 'offline' ? holderId : undefined,
       closing,
       closingError,
@@ -263,6 +267,11 @@ export class LiveService {
    * activo, y aplica la misma secuencia al agua/ganador que la virtual.
    */
   async drawSpecific(raffleId: string, ticketNumber: number, prizeIndex: number = -1): Promise<DrawResult> {
+    const protocol = await this.raffleModel.findById(raffleId).select('drawProtocol').lean();
+    if (!protocol) throw new NotFoundException('Rifa no existe');
+    if (protocol.drawProtocol === 'verifiable_v1') {
+      throw new BadRequestException('La modalidad verificable no permite elegir manualmente un boleto');
+    }
     const release = await this.lockService.acquire(`raffle-draw:${raffleId}:${prizeIndex}`);
     try {
       return await this.drawSpecificOnce(raffleId, ticketNumber, prizeIndex);
@@ -367,6 +376,7 @@ export class LiveService {
       holderName: maskName(holderName ?? 'Alguien'),
       drawnAt: new Date().toISOString(),
       prizeIndex: prizeIndex >= 0 ? prizeIndex : undefined,
+      prizeTitle: prizeIndex >= 0 ? targetObj.title : undefined,
       isManual: true,
       winnerUserId: isWinner && holderId !== 'offline' ? holderId : undefined,
       closing,
